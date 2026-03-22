@@ -22,9 +22,6 @@ export default function Navbar() {
             <Image src="/logo.png" alt="DevLens" fill className="shrink-0" />
           </div>
           <Link href={"/"} className="font-semibold text-primary text-lg tracking-tight">DevLens</Link>
-          <span className="text-dim text-xs font-mono bg-elevated px-2 py-0.5 rounded border border-border">
-            v0.1.0
-          </span>
         </div>
         <div className="flex items-center gap-3">
           <button
