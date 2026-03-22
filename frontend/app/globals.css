@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-base:        #0d1117;
+  --color-surface:     #161b22;
+  --color-elevated:    #21262d;
+  --color-border:      #30363d;
+  --color-border-subtle: #21262d;
+  --color-accent:      #2dd4bf;
+  --color-accent-dim:  #14b8a6;
+  --color-muted:       #8b949e;
+  --color-dim:         #484f58;
+  --color-primary:     #e6edf3;
+  --color-success:     #3fb950;
+  --color-warning:     #d29922;
+  --color-error:       #f85149;
+
+  --font-family-ui:    'Geist', sans-serif;
+  --font-family-mono:  'Fira Code', monospace;
+}
+
+html, body {
+  height: 100%;
+  background-color: var(--color-base);
+  color: var(--color-primary);
+  font-family: var(--font-family-ui);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-base); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+
+::selection { background: var(--color-accent); color: #0d1117; }
