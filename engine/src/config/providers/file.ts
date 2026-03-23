@@ -176,8 +176,13 @@ function validate(config: DevLensConfig): void {
     );
   }
 
-  // Embedding apiKey
+  // Embedding apiKey — only validate if the user explicitly configured embedding.
+  // If the user only set summarization, embedding may still be at default (openai
+  // with no key) which is fine — embedding is only needed for vector search (cloud).
+  const rawFile = readFileConfig();
+  const userSetEmbedding = !!rawFile.embedding?.provider;
   if (
+    userSetEmbedding &&
     PROVIDERS_NEEDING_KEY.has(embedding.provider) &&
     !embedding.apiKey
   ) {

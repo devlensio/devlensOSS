@@ -5,11 +5,16 @@ import { CodeNode } from "../../types";
 
 // Shared response builder — adds nodesById for O(1) frontend lookups.
 // Used by both handleGetGraph and handleFilter so the shape is always consistent.
+//
+// Deduplication: allNodes can contain duplicates when the parser and another
+// source (e.g. ghost node creation, route node injection) produce a node with
+// the same ID. We deduplicate by ID here — last write wins, which is fine
+// because duplicate nodes are always identical in content.
 export function buildGraphResponse(nodes: CodeNode[], rest: Record<string, unknown>) {
     const sanitized = nodes.map(({ rawCode, ...node }) => node as CodeNode);
 
-    // Deduplicate nodes by ID — O(n), preserves first occurrence
-    const seen = new Set<string>();
+    // Deduplicate by ID — O(n), preserves first occurrence
+    const seen  = new Set<string>();
     const deduped = sanitized.filter(n => {
         if (seen.has(n.id)) {
             console.warn(`[buildGraphResponse] Duplicate node ID detected and removed: ${n.id}`);

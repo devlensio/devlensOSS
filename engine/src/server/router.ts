@@ -58,7 +58,7 @@ const ROUTES: Route[] = [
         method: "GET",
         pattern: "/",
         handler: () => Response.json({
-            success: true, message: "Welcome to Codelens. Made by Shivang by the glory of God. Thanks for using this Project."
+            success: true, message: "Welcome to DevLens. Made by Shivang by the glory of God. Thanks for using this Project."
         })
     },
     {

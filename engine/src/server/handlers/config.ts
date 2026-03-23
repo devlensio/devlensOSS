@@ -1,12 +1,16 @@
 import { resolveConfig, maskConfig, writeConfig } from "../../config";
 import type { DevLensConfig } from "../../config";
 
-
-
 export function handleGetConfig(req: Request): Response {
-  const config = resolveConfig(req);
-  const safe   = maskConfig(config);
-  return Response.json({ success: true, data: safe });
+  // GET must not throw if no config exists yet — return empty so the
+  // frontend can show the config panel even before any setup is done.
+  try {
+    const config = resolveConfig(req);
+    const safe   = maskConfig(config);
+    return Response.json({ success: true, data: safe });
+  } catch {
+    return Response.json({ success: true, data: {} });
+  }
 }
 
 
@@ -36,9 +40,18 @@ export function handleGetConfig(req: Request): Response {
 
 export async function handlePatchConfig(req: Request): Promise<Response> {
 
-  const currentConfig = resolveConfig(req);
+  // Do NOT call resolveConfig() here — it validates and throws if no config
+  // exists yet (no Ollama, no API key). That's exactly the state where the
+  // user needs to PATCH to fix things. Instead, read deployment mode safely.
+  let deploymentMode = "local";
+  try {
+    const current = resolveConfig(req);
+    deploymentMode = current.deploymentMode;
+  } catch {
+    // No valid config yet — allow PATCH through so user can set one up
+  }
 
-  if (currentConfig.deploymentMode === "cloud") {
+  if (deploymentMode === "cloud") {
     return Response.json(
       {
         success: false,
@@ -126,13 +139,22 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
   }
 
   // ── Return updated masked config ──────────────────────────────────────────
-  // Re-resolve after write so response reflects the new saved state
-  const updated = resolveConfig(req);
-  const safe    = maskConfig(updated);
-
-  return Response.json({
-    success: true,
-    data:    safe,
-    message: "Config saved Successfully",
-  });
+  // Re-resolve after write so response reflects the new saved state.
+  // Use try/catch — user may have saved a partial config (e.g. provider set
+  // but API key not yet filled in). Still return success since the write worked.
+  try {
+    const updated = resolveConfig(req);
+    const safe    = maskConfig(updated);
+    return Response.json({
+      success: true,
+      data:    safe,
+      message: "Config saved successfully.",
+    });
+  } catch {
+    return Response.json({
+      success: true,
+      data:    {},
+      message: "Config saved. Complete your setup to enable summarization.",
+    });
+  }
 }
