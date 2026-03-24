@@ -4,7 +4,7 @@
 
 <h1>DevLens</h1>
 
-<p><strong>Codebase intelligence for TypeScript & JavaScript projects.</strong><br/>
+<p><strong>Codebase intelligent Graph Visualizer for TypeScript & JavaScript projects.</strong><br/>
 Turn any repo into an interactive dependency graph — with AI summaries, importance scoring, and commit diffs. Runs entirely on your machine.</p>
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
