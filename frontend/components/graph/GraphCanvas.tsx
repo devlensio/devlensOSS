@@ -132,13 +132,13 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
 
         // Re-run layout
         cy.layout({
-          name: "fcose",
+          name: "breadthfirst",
           animate: true,
           animationDuration: 400,
           fit: true,
           padding: 80,
-          nodeSeparation: 200,
-          idealEdgeLength: 300,
+          nodeSeparation: 300,
+          idealEdgeLength: 500,
           nodeRepulsion: 100000,
         } as any).run();
       },
@@ -216,7 +216,6 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
               "text-outline-width": 0,
               "text-wrap": "ellipsis" as any,
               "text-max-width": "data(size)",
-              "border-width": 0,
               width: "data(size)",
               height: "data(size)",
             },
@@ -246,7 +245,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           // ── Dimmed nodes/edges ─────────────────────────────────────────
           {
             selector: "node.dimmed",
-            style: { opacity: 0.05 },
+            style: { opacity: 0.0, events: 'no' },
           },
 
           // ── Base edge ──────────────────────────────────────────────────
@@ -285,7 +284,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
             style: {
               "line-color": "#1a1f26",
               "target-arrow-color": "#1a1f26",
-              opacity: 0.1,
+              opacity: 0,
               "text-opacity": 0,
               "text-background-opacity": 0 as any,
             },
@@ -319,7 +318,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           fit: true,
           padding: 80,
           nodeSeparation: 200,
-          idealEdgeLength: 300,
+          idealEdgeLength: 150,
           nodeRepulsion: 100000,
         } as any,
 

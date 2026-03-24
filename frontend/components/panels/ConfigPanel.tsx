@@ -71,7 +71,7 @@ export default function ConfigPanel({ open, onClose }: ConfigPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-primary">Configuration</h2>
+            <h2 className="text-primary font-semibold ">Configuration</h2>
             <p className="text-xs text-muted mt-0.5">Saved to ~/.devlens/config.json</p>
           </div>
           <button

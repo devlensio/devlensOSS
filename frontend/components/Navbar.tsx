@@ -53,7 +53,7 @@ export default function Navbar() {
       {/* Panels */}
       <ConfigPanel open={openConfig} onClose={closeConfig} />
       {/* JobsPanel */}
-      <JobsPanel open={openJobs} onClose={closeJob}/>
+      {openJobs && <JobsPanel open={openJobs} onClose={closeJob}/>}
     </>
   );
 }
