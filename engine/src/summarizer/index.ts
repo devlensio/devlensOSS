@@ -93,6 +93,7 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
     const prevResult = storage.getGraph(graphId, input.previousCommitHash);
     if (prevResult) {
       const prevById = new Map(prevResult.allNodes.map(n => [n.id, n]));
+      let duplicateNodes = 0;
       for (const node of result.allNodes) {
         const prev = prevById.get(node.id);
         if (
@@ -106,8 +107,10 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
           node.security         = prev.security;
           node.summaryModel     = prev.summaryModel;
           node.summarizedAt     = prev.summarizedAt;
+          duplicateNodes++;
         }
       }
+      console.log(duplicateNodes ,"Nodes' Summaries were copied from previous Hash", input.previousCommitHash);
     }
   }
  

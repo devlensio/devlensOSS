@@ -80,7 +80,7 @@ function generateGraphId(repoPath: string, isGithubRepo: boolean): string {
 function getGitInfo(repoPath: string): GitInfo {
   try {
     const commitHash = execSync("git rev-parse HEAD", { cwd: repoPath })
-      .toString().trim().slice(0, 8);
+      .toString().trim();
     const branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoPath })
       .toString().trim();
     const message = execSync("git log -1 --pretty=%s", { cwd: repoPath })

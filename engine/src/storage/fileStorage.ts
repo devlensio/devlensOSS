@@ -704,37 +704,31 @@ export async function findLastSummarizedAncestor(
 ): Promise<string | undefined> {
   const meta = readMeta(graphId);
   if (!meta || meta.summarizedCommits?.length === 0) return undefined;
- 
+
   const summarizedSet = new Set(meta.summarizedCommits);
- 
-  // No-git repos use timestamp hashes — there is no ancestry to walk.
-  // The only useful check is whether this exact commit was already summarized,
-  // but that's handled by isCommitSummarized() before this is ever called.
-  // Smart reuse across runs is not possible without git history.
+
   const commitEntry = meta.commits.find(c => c.commitHash === commitHash);
   if (commitEntry && !commitEntry.hasGit) return undefined;
- 
+
   try {
     const git = simpleGit(repoPath);
- 
-    const log = await git.log({
-      from: commitHash,
-      "--ancestry-path": null,
-    } as any);
- 
-    // Walk history newest to oldest — first summarized ancestor wins
-    for (const commit of log.all) {
-      if (summarizedSet.has(commit.hash)) return commit.hash;
+
+    const raw    = await git.raw(["log", "--format=%H", commitHash]);
+    const hashes = raw.trim().split("\n").filter(Boolean);
+
+    for (const hash of hashes) {
+      // exact match — full hash stored
+      if (summarizedSet.has(hash)) return hash;
+
+      // startsWith handles transition: stored short hash vs full hash from git
+      // or vice versa — works regardless of which side is shorter
+      for (const stored of summarizedSet) {
+        if (hash.startsWith(stored) || stored.startsWith(hash)) return stored;  //comparing startswith only for the case where user have already summareized. Earlier in the Pipeline the in getGitInfo method I was using only first 8 characters, but in large monoRepos it is possible that git may use full 40 characters long commit, so Its better to  just compare that.
+      }
     }
- 
-    // Also check short hashes — git sometimes uses 7-char short hashes
-    for (const commit of log.all) {
-      const shortHash = commit.hash.slice(0, 7);
-      if (summarizedSet.has(shortHash)) return shortHash;
-    }
- 
+
     return undefined;
- 
+
   } catch (err) {
     console.warn(`Could not walk git history for ${repoPath}:`, err);
     return undefined;
