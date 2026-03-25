@@ -173,11 +173,11 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
   async function summarizeNode(node: CodeNode): Promise<void> {
     // Skip if already summarized (copied from previous commit)
     if (node.technicalSummary){
-      console.log("Summary already exists, skipping");
+      console.log("Summary already exists, skipping for node", node.id);
       return;
     } 
  
-    console.log(`🚀 Starting LLM summary for node "${node.id}"`);
+    console.log(` Starting summarization for node "${node.id}"`);
     const output = exceedsThreshold(node)
       ? await mapreduceSummarize(node, client, systemPrompt)
       : await client.summarize({
@@ -262,7 +262,7 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
  
     if (group.size <= MAX_GROUP_SUMMARY_SIZE) {
       // Small cycle — one grouped LLM call
-      console.log(`🚀 Starting grouped LLM summary for cycle group ${gi} (${group.nodeIds.length} nodes)`);
+      console.log(` Starting grouped LLM summary for cycle group ${gi} (${group.nodeIds.length} nodes)`);
       const messages = buildCycleGroupPrompt(group.nodeIds, { allNodes: allNodesMap, edgeIndex, routeIndex, systemPrompt });
       const output   = await client.summarize({ messages, temperature: 0 });
  
