@@ -62,6 +62,7 @@ const ALL_NODE_TYPES = [
 const DIFF_COLORS = {
   added:        { text: "#3fb950", bg: "#3fb95015", border: "#3fb95030" },
   removed:      { text: "#f85149", bg: "#f8514915", border: "#f8514930" },
+  codeChanged:  { text: "#f59e0b", bg: "#f59e0b15", border: "#f59e0b30" },
   scoreChanged: { text: "#d29922", bg: "#d2992215", border: "#d2992230" },
   moved:        { text: "#818cf8", bg: "#818cf815", border: "#818cf830" },
 };
@@ -961,7 +962,8 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
             {[
               { label: "Added",   count: diff.added.length,        color: DIFF_COLORS.added.text        },
               { label: "Removed", count: diff.removed.length,      color: DIFF_COLORS.removed.text      },
-              { label: "Changed", count: diff.scoreChanged.length, color: DIFF_COLORS.scoreChanged.text },
+              { label: "Code Changes", count: diff.codeChanged.length, color: DIFF_COLORS.codeChanged.text },
+              { label: "Score Changed", count: diff.scoreChanged.length, color: DIFF_COLORS.scoreChanged.text },
               { label: "Moved",   count: diff.moved.length,        color: DIFF_COLORS.moved.text        },
             ].map(({ label, count, color }) =>
               count > 0 ? (
@@ -994,6 +996,30 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
               {diff.removed.map(n => (
                 <DiffRow key={n.nodeId} label={n.name} sub={n.filePath}
                   score={n.score} color={DIFF_COLORS.removed.text}
+                  onFocus={() => onNodeFocus(n.nodeId)} />
+              ))}
+            </DiffSection>
+          )}
+
+          {diff.codeChanged.length > 0 && (
+            <DiffSection title="Code Changes" color={DIFF_COLORS.codeChanged.text}>
+              {diff.codeChanged.map(n => (
+                <DiffRow key={n.nodeId} label={n.name}
+                  sub={`${n.scoreBefore.toFixed(1)} → ${n.scoreAfter.toFixed(1)}`}
+                  score={n.scoreAfter}
+                  badge={n.scoreAfter > n.scoreBefore
+                    ? `+${(n.scoreAfter - n.scoreBefore).toFixed(1)}`
+                    : n.scoreAfter < n.scoreBefore
+                      ? (n.scoreAfter - n.scoreBefore).toFixed(1)
+                      : "~"
+                  }
+                  badgeColor={n.scoreAfter > n.scoreBefore
+                    ? "#3fb950"
+                    : n.scoreAfter < n.scoreBefore
+                      ? "#f85149"
+                      : "#f59e0b"
+                  }
+                  color={DIFF_COLORS.codeChanged.text}
                   onFocus={() => onNodeFocus(n.nodeId)} />
               ))}
             </DiffSection>

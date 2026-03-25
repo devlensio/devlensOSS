@@ -84,7 +84,9 @@ export async function runJob(job: Job, queue: JobQueue): Promise<void> {
   }
 
   //if force summarization then remove the commit entirely from the meta 
+  console.log("Force Summarized ? : ", job.forceSummarize ?? "false");
   if(job.forceSummarize){
+    console.log("Removing Summarized Commits!");
       storage.removeFromSummarizedCommits(graphId, commitHash);
   }
 

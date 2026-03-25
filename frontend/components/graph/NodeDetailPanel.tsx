@@ -121,14 +121,16 @@ const METHOD_COLORS: Record<
 };
 
 const DIFF_STATUS_COLORS = {
-  added: { bg: "#3fb95018", text: "#3fb950", border: "#3fb95030" },
-  removed: { bg: "#f8514918", text: "#f85149", border: "#f8514930" },
+  added:        { bg: "#3fb95018", text: "#3fb950", border: "#3fb95030" },
+  removed:      { bg: "#f8514918", text: "#f85149", border: "#f8514930" },
   scoreChanged: { bg: "#d2992218", text: "#d29922", border: "#d2992230" },
-  moved: { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  moved:        { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  codeChanged:  { bg: "#f59e0b18", text: "#f59e0b", border: "#f59e0b30" },
 };
 
 const DIFF_STATUS_LABELS = {
   added: "Added",
+  codeChanged: "Code Changed",
   removed: "Removed",
   scoreChanged: "Score Changed",
   moved: "Moved",
@@ -147,7 +149,7 @@ const SHOW_N = 6;
 // ─── DiffInfo type ────────────────────────────────────────────────────────────
 
 export interface DiffInfo {
-  status: "added" | "removed" | "scoreChanged" | "moved";
+  status: "added" | "removed" | "codeChanged" | "scoreChanged" | "moved";
   scoreBefore?: number;
   scoreAfter?: number;
   delta?: number;

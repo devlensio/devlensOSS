@@ -312,12 +312,22 @@ export interface MovedNode {
   scoreAfter:  number;
 }
 
-
+export interface CodeChange {
+  nodeId:      string;
+  name:        string;
+  type:        string;
+  filePath:    string;
+  score:       number;
+  scoreBefore: number;
+  scoreAfter:  number;
+}
+ 
 // this is to compare 2 different commits
 export interface NodeDiff {
   added:        DiffNode[];
   removed:      DiffNode[];
   scoreChanged: ScoreChange[];
+  codeChanged:  CodeChange[];
   edgesChanged: EdgeChange[];
   moved:        MovedNode[];
   unchanged:    number;

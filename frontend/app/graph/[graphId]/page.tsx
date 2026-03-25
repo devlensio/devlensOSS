@@ -123,13 +123,12 @@ export default function GraphPage({ params }: Props) {
 
   const diffNodeMap = useMemo(() => {
     if (!diffData) return null;
-    const added = new Set(diffData.added.map((n) => n.nodeId));
-    const removed = new Set(diffData.removed.map((n) => n.nodeId));
-    const scoreChanged = new Map(
-      diffData.scoreChanged.map((n) => [n.nodeId, n]),
-    );
-    const moved = new Map(diffData.moved.map((n) => [n.nodeId, n]));
-    return { added, removed, scoreChanged, moved };
+    const added        = new Set(diffData.added.map((n) => n.nodeId));
+    const removed      = new Set(diffData.removed.map((n) => n.nodeId));
+    const scoreChanged = new Map(diffData.scoreChanged.map((n) => [n.nodeId, n]));
+    const moved        = new Map(diffData.moved.map((n) => [n.nodeId, n]));
+    const codeChanged  = new Map((diffData.codeChanged ?? []).map((n) => [n.nodeId, n]));
+    return { added, removed, scoreChanged, moved, codeChanged };
   }, [diffData]);
 
   // ── Diff color overrides ──────────────────────────────────────────────────
@@ -137,9 +136,10 @@ export default function GraphPage({ params }: Props) {
   const diffColorOverrides = useMemo((): Record<string, string> => {
     if (!diffNodeMap) return {};
     const overrides: Record<string, string> = {};
-    for (const id of diffNodeMap.added) overrides[id] = "#3fb950";
-    for (const id of diffNodeMap.scoreChanged.keys()) overrides[id] = "#d29922";
-    for (const id of diffNodeMap.moved.keys()) overrides[id] = "#818cf8";
+    for (const id of diffNodeMap.added)               overrides[id] = "#3fb950";
+    for (const id of diffNodeMap.scoreChanged.keys())  overrides[id] = "#d29922";
+    for (const id of diffNodeMap.moved.keys())         overrides[id] = "#818cf8";
+    for (const id of diffNodeMap.codeChanged.keys())   overrides[id] = "#f59e0b";
     return overrides;
   }, [diffNodeMap]);
 
@@ -248,22 +248,30 @@ export default function GraphPage({ params }: Props) {
 
   const focusedNodeDiffInfo = useMemo((): DiffInfo | undefined => {
     if (!diffMode || !diffNodeMap || !focusedNodeId) return undefined;
-    if (diffNodeMap.added.has(focusedNodeId)) return { status: "added" };
+    if (diffNodeMap.added.has(focusedNodeId))   return { status: "added" };
     if (diffNodeMap.removed.has(focusedNodeId)) return { status: "removed" };
     const sc = diffNodeMap.scoreChanged.get(focusedNodeId);
     if (sc)
       return {
-        status: "scoreChanged",
+        status:      "scoreChanged",
         scoreBefore: sc.scoreBefore,
-        scoreAfter: sc.scoreAfter,
-        delta: sc.delta,
+        scoreAfter:  sc.scoreAfter,
+        delta:       sc.delta,
       };
     const mv = diffNodeMap.moved.get(focusedNodeId);
     if (mv)
       return {
-        status: "moved",
+        status:   "moved",
         fromFile: mv.fromFile,
-        toFile: mv.toFile,
+        toFile:   mv.toFile,
+      };
+    const cc = diffNodeMap.codeChanged.get(focusedNodeId);
+    if (cc)
+      return {
+        status:      "codeChanged",
+        scoreBefore: cc.scoreBefore,
+        scoreAfter:  cc.scoreAfter,
+        delta:       parseFloat((cc.scoreAfter - cc.scoreBefore).toFixed(2)),
       };
     return undefined;
   }, [diffMode, diffNodeMap, focusedNodeId]);

@@ -77,6 +77,7 @@ export interface CommitData {
 export interface NodeDiff {
   added:        DiffNode[];
   removed:      DiffNode[];
+  codeChanged: DiffNode[];
   scoreChanged: ScoreChange[];
   edgesChanged: EdgeChange[];
   moved:        MovedNode[];
@@ -112,6 +113,16 @@ interface MovedNode {
   name:        string;
   fromFile:    string;
   toFile:      string;
+  scoreBefore: number;
+  scoreAfter:  number;
+}
+
+interface CodeChange {
+  nodeId:      string;
+  name:        string;
+  type:        string;
+  filePath:    string;
+  score:       number;   // current score (scoreAfter) — matches DiffNode shape
   scoreBefore: number;
   scoreAfter:  number;
 }
@@ -474,37 +485,37 @@ export function deleteCommit(graphId: string, commitHash: string): boolean {
 
 // ─── Diff — computed on demand, never stored ──────────────────────────────────
 
-const SCORE_CHANGE_THRESHOLD = 0.1;
-
+const SCORE_CHANGE_THRESHOLD = 0.5;
+ 
 export function diffCommits(
   graphId:      string,
   fromHash:     string,
   toHash:       string
 ): NodeDiff | undefined {
   ensureStorageExists();
-
+ 
   const fileA = commitFile(graphId, fromHash);
   const fileB = commitFile(graphId, toHash);
-
+ 
   if (!fs.existsSync(fileA) || !fs.existsSync(fileB)) return undefined;
-
+ 
   const dataA = JSON.parse(fs.readFileSync(fileA, "utf-8")) as CommitData;
   const dataB = JSON.parse(fs.readFileSync(fileB, "utf-8")) as CommitData;
-
+ 
   // Build id → node maps — O(n)
   const nodesA = new Map<string, CodeNode>(dataA.allNodes.map((n) => [n.id, n]));
   const nodesB = new Map<string, CodeNode>(dataB.allNodes.map((n) => [n.id, n]));
-
+ 
   // Build name+type → node map for A — used for moved node detection
   const byNameA = new Map<string, CodeNode>();
   for (const node of dataA.allNodes) {
     byNameA.set(`${node.name}::${node.type}`, node);
   }
-
+ 
   // Build edge maps — nodeId → Set of "type::targetId"
   const edgesA = new Map<string, Set<string>>();
   const edgesB = new Map<string, Set<string>>();
-
+ 
   for (const edge of dataA.allEdges) {
     if (!edgesA.has(edge.from)) edgesA.set(edge.from, new Set());
     edgesA.get(edge.from)!.add(`${edge.type}::${edge.to}`);
@@ -513,23 +524,25 @@ export function diffCommits(
     if (!edgesB.has(edge.from)) edgesB.set(edge.from, new Set());
     edgesB.get(edge.from)!.add(`${edge.type}::${edge.to}`);
   }
-
+ 
   const added:        DiffNode[]    = [];
   const removed:      DiffNode[]    = [];
   const scoreChanged: ScoreChange[] = [];
+  const codeChanged:  CodeChange[]  = [];
   const edgesChanged: EdgeChange[]  = [];
   const moved:        MovedNode[]   = [];
   const movedIds     = new Set<string>(); // track moved nodes to exclude from added/removed
+  const codeChangedIds = new Set<string>(); // track code-changed nodes to exclude from unchanged
   let   unchanged    = 0;
-
+ 
   // ── Find moved nodes first ───────────────────────────────────
   // Moved = same name+type, different filePath, id changed
   for (const [idB, nodeB] of nodesB) {
     if (nodesA.has(idB)) continue; // same id = not moved
-
+ 
     const key   = `${nodeB.name}::${nodeB.type}`;
     const nodeA = byNameA.get(key);
-
+ 
     if (nodeA && nodeA.filePath !== nodeB.filePath) {
       moved.push({
         nodeId:      idB,
@@ -543,7 +556,29 @@ export function diffCommits(
       movedIds.add(nodeA.id);
     }
   }
-
+ 
+  // ── Find code-changed nodes ──────────────────────────────────
+  // Code changed = same ID, same file, but codeHash differs.
+  // Must run before added/removed so codeChangedIds is populated.
+  for (const [idA, nodeA] of nodesA) {
+    const nodeB = nodesB.get(idA);
+    if (!nodeB)                   continue; // not in both commits
+    if (movedIds.has(idA))        continue; // already counted as moved
+    if (!nodeA.codeHash || !nodeB.codeHash) continue; // no hash — skip
+    if (nodeA.codeHash === nodeB.codeHash)  continue; // code unchanged
+ 
+    codeChanged.push({
+      nodeId:      idA,
+      name:        nodeA.name,
+      type:        nodeA.type,
+      filePath:    nodeA.filePath,
+      score:       dataB.nodeScores[idA] ?? 0,
+      scoreBefore: dataA.nodeScores[idA] ?? 0,
+      scoreAfter:  dataB.nodeScores[idA] ?? 0,
+    });
+    codeChangedIds.add(idA);
+  }
+ 
   // ── Find added nodes ─────────────────────────────────────────
   for (const [idB, nodeB] of nodesB) {
     if (nodesA.has(idB) || movedIds.has(idB)) continue;
@@ -555,7 +590,7 @@ export function diffCommits(
       filePath: nodeB.filePath,
     });
   }
-
+ 
   // ── Find removed nodes ───────────────────────────────────────
   for (const [idA, nodeA] of nodesA) {
     if (nodesB.has(idA) || movedIds.has(idA)) continue;
@@ -567,16 +602,16 @@ export function diffCommits(
       filePath: nodeA.filePath,
     });
   }
-
+ 
   // ── Find score and edge changes for nodes in both commits ────
   for (const [idA, nodeA] of nodesA) {
     const nodeB = nodesB.get(idA);
     if (!nodeB || movedIds.has(idA)) continue;
-
+ 
     const scoreA = dataA.nodeScores[idA] ?? 0;
     const scoreB = dataB.nodeScores[idA] ?? 0;
     const delta  = scoreB - scoreA;
-
+ 
     if (Math.abs(delta) >= SCORE_CHANGE_THRESHOLD) {
       scoreChanged.push({
         nodeId:      idA,
@@ -587,11 +622,11 @@ export function diffCommits(
         delta:       parseFloat(delta.toFixed(2)),
       });
     }
-
+ 
     // Edge diff for this node
     const eA = edgesA.get(idA) ?? new Set<string>();
     const eB = edgesB.get(idA) ?? new Set<string>();
-
+ 
     const addedEdges   = [...eB].filter((e) => !eA.has(e)).map((e) => {
       const [type, to] = e.split("::");
       return { type, to };
@@ -600,7 +635,7 @@ export function diffCommits(
       const [type, to] = e.split("::");
       return { type, to };
     });
-
+ 
     if (addedEdges.length > 0 || removedEdges.length > 0) {
       edgesChanged.push({
         nodeId:       idA,
@@ -608,18 +643,16 @@ export function diffCommits(
         addedEdges,
         removedEdges,
       });
-    } else if (Math.abs(delta) < SCORE_CHANGE_THRESHOLD) {
+    } else if (Math.abs(delta) < SCORE_CHANGE_THRESHOLD && !codeChangedIds.has(idA)) {
       unchanged++;
     }
   }
-
+ 
   // Sort score changes by absolute delta descending
   scoreChanged.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-
-  return { added, removed, scoreChanged, edgesChanged, moved, unchanged };
+ 
+  return { added, removed, scoreChanged, codeChanged, edgesChanged, moved, unchanged };
 }
-
-
 // ─── Summarization helpers ────────────────────────────────────────────────────
 
 // Marks a commit as fully summarized in meta.json.

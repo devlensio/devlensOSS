@@ -4,6 +4,7 @@ export async function handleDiff(graphId: string, req: Request): Promise<Respons
     const { searchParams } = new URL(req.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    console.log("difference from:", from, "to", to);
 
     if (!from || !to) {
         return Response.json(

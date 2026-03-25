@@ -82,6 +82,7 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
   // ── Step 2: Skip if already summarized ────────────────────────────────────
   if (storage.isCommitSummarized(graphId, commitHash)) {
     callbacks.onComplete();
+    console.log("Already Summarized!");
     return;
   }
  
