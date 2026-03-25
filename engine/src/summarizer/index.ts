@@ -110,6 +110,8 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
           duplicateNodes++;
         }
       }
+      const toSummarize = result.allNodes.filter(n => !n.technicalSummary).length;
+      console.log(`${duplicateNodes} copied, ${toSummarize} to summarize`);
       console.log(duplicateNodes ,"Nodes' Summaries were copied from previous Hash", input.previousCommitHash);
     }
   }
@@ -170,8 +172,12 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
   // ── Helper: summarize one node ────────────────────────────────────────────
   async function summarizeNode(node: CodeNode): Promise<void> {
     // Skip if already summarized (copied from previous commit)
-    if (node.technicalSummary) return;
+    if (node.technicalSummary){
+      console.log("Summary already exists, skipping");
+      return;
+    } 
  
+    console.log(`🚀 Starting LLM summary for node "${node.id}"`);
     const output = exceedsThreshold(node)
       ? await mapreduceSummarize(node, client, systemPrompt)
       : await client.summarize({
@@ -225,10 +231,11 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
   for (let lvl = levelStart; lvl < checkpoint.nodeOrder.length; lvl++) {
       const level = checkpoint.nodeOrder[lvl];
       const nodes = level.map(id => allNodesMap.get(id)).filter(Boolean) as CodeNode[];
- 
+        
+      const newInLevel = nodes.filter(n => !n.technicalSummary).length;
+      console.log(`🔍 Level ${lvl}: ${nodes.length} nodes, ${newInLevel} new to summarize (skipped ${nodes.length - newInLevel})`);
       // All nodes in this level summarized in parallel
       await Promise.all(nodes.map(summarizeNode));
- 
       saveBatch(nodes);
       markLevelCompleted(checkpoint, lvl);
       saveCheckpoint(checkpoint);
@@ -255,6 +262,7 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
  
     if (group.size <= MAX_GROUP_SUMMARY_SIZE) {
       // Small cycle — one grouped LLM call
+      console.log(`🚀 Starting grouped LLM summary for cycle group ${gi} (${group.nodeIds.length} nodes)`);
       const messages = buildCycleGroupPrompt(group.nodeIds, { allNodes: allNodesMap, edgeIndex, routeIndex, systemPrompt });
       const output   = await client.summarize({ messages, temperature: 0 });
  
@@ -296,9 +304,12 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
     const batchEnd   = Math.min(fi + FILE_BATCH_SIZE - 1, checkpoint.fileNodes.length - 1);
     const batchIds   = checkpoint.fileNodes.slice(fi, batchEnd + 1);
     const batchNodes = batchIds.map(id => allNodesMap.get(id)).filter(Boolean) as CodeNode[];
- 
+  
+    //Debug-Log
+    const newInBatch = batchNodes.filter(n => !n.technicalSummary).length;
+    console.log(`🔍 File batch ${fi}-${batchEnd}: ${batchNodes.length} nodes, ${newInBatch} new to summarize (skipped ${batchNodes.length - newInBatch})`);
+
     await Promise.all(batchNodes.map(summarizeNode));
- 
     saveBatch(batchNodes);
     markFileNodeBatchCompleted(checkpoint, batchEnd, batchNodes.length);
     saveCheckpoint(checkpoint);
