@@ -172,7 +172,8 @@ function validate(config: DevLensConfig): void {
       `  Fix option 1 — add to ${CONFIG_FILE}:\n` +
       `    { "summarization": { "apiKey": "your-key-here" } }\n` +
       `  Fix option 2 — set environment variable:\n` +
-      `    ${ENV.LLM_KEY}=your-key-here`
+      `    ${ENV.LLM_KEY}=your-key-here \n` +
+      `Fix option 3 - Skip Summarization`
     );
   }
 

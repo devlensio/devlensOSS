@@ -27,7 +27,7 @@ export default function ConfigPanel({ open, onClose }: ConfigPanelProps) {
   });
 
   useEffect(() => {
-    if (!config) return;
+    if (!config?.summarization) return;
     setSumConfig({
       provider:  config.summarization.provider,
       model:     config.summarization.model,

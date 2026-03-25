@@ -1,9 +1,9 @@
 import { queue } from "../../jobs";
-import { resolveConfig } from "../../config";
+import { DevLensConfig, resolveConfig } from "../../config";
 import { isTerminal, toJobSummary } from "../../jobs/types";
 import type { JobInput } from "../../jobs/types";
 import { existsSync, lstatSync } from "node:fs";
-import { resolve, normalize }   from "node:path";
+import { resolve, normalize } from "node:path";
 import { storage } from "../../storage";
 
 //  handleAnalyze 
@@ -33,11 +33,11 @@ export async function handleAnalyze(req: Request): Promise<Response> {
   }
 
   const { repoPath, isGithubRepo, skipSummarization, forceSummarize, thresholds } = body as {
-    repoPath:      string;
+    repoPath: string;
     isGithubRepo?: boolean;
     skipSummarization?: boolean;
     forceSummarize?: boolean;
-    thresholds?:   Record<string, number>;
+    thresholds?: Record<string, number>;
   };
 
   // Validate repoPath
@@ -62,13 +62,33 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     }
   }
 
+  // dummy config in case if user has not configured the LLM and just wants to see the graph and not summaries
+  const SKIP_SUMMARIZATION_CONFIG: DevLensConfig = {
+  deploymentMode: "local",
+  summarization: {
+    provider:  "ollama",   // won't be called — skipSummarization will bypass this
+    model:     "none",
+    batchSize: 50,
+  },
+  embedding: {  //embeddings will be used for cloud
+    provider: "ollama",
+    model:    "none",
+  },
+};
+
   // Resolve config for this request
-  const config = resolveConfig(req);
+  let config: DevLensConfig;
+  if (skipSummarization) {
+    config = SKIP_SUMMARIZATION_CONFIG;
+  }
+  else {
+    config = resolveConfig(req);
+  }
 
   const input: JobInput = {
-    repoPath:    absolutePath,
+    repoPath: absolutePath,
     isGithubRepo: isGithubRepo ?? false,
-    skipSummarization:  skipSummarization ?? false,
+    skipSummarization: skipSummarization ?? false,
     forceSummarize: forceSummarize ?? false,
     thresholds,
     config,
@@ -77,15 +97,15 @@ export async function handleAnalyze(req: Request): Promise<Response> {
   // enqueue() handles deduplication internally —
   // returns existing job if same repoPath is already active
   const job = queue.enqueue(input);
-  
+
   return Response.json({
     success: true,
     data: {
-      jobId:      job.jobId,
-      status:     job.status,
-      repoPath:   job.repoPath,
-      createdAt:  job.createdAt,
-      existing:   job.status !== "queued",  // true = deduplication hit — returned an already-running job
+      jobId: job.jobId,
+      status: job.status,
+      repoPath: job.repoPath,
+      createdAt: job.createdAt,
+      existing: job.status !== "queued",  // true = deduplication hit — returned an already-running job
     },
   });
 }
@@ -105,9 +125,9 @@ export async function handleAnalyze(req: Request): Promise<Response> {
 //   - a job for the same repoPath is already active (deduplication)
 
 export async function handleSummarize(
-  graphId:    string,
+  graphId: string,
   commitHash: string,
-  req:        Request
+  req: Request
 ): Promise<Response> {
   // Verify the graph and commit exist
   const meta = storage.getGraphMeta(graphId);
@@ -123,8 +143,8 @@ export async function handleSummarize(
     return Response.json(
       {
         success: false,
-        error:   `Commit ${commitHash} not found in graph ${graphId}`,
-        hint:    "Run POST /api/analyze first to analyse this repo",
+        error: `Commit ${commitHash} not found in graph ${graphId}`,
+        hint: "Run POST /api/analyze first to analyse this repo",
       },
       { status: 404 }
     );
@@ -135,8 +155,8 @@ export async function handleSummarize(
     return Response.json(
       {
         success: false,
-        error:   "This commit is already summarized",
-        hint:    "Delete the graph and re-analyze if you want fresh summaries",
+        error: "This commit is already summarized",
+        hint: "Delete the graph and re-analyze if you want fresh summaries",
       },
       { status: 409 }
     );
@@ -156,8 +176,8 @@ export async function handleSummarize(
   }
 
   const input: JobInput = {
-    repoPath:          meta.repoPath,
-    isGithubRepo:      meta.isGithubRepo,
+    repoPath: meta.repoPath,
+    isGithubRepo: meta.isGithubRepo,
     skipSummarization: false,
     forceSummarize,
     config,
@@ -168,12 +188,12 @@ export async function handleSummarize(
   return Response.json({
     success: true,
     data: {
-      jobId:      job.jobId,
-      status:     job.status,
+      jobId: job.jobId,
+      status: job.status,
       graphId,
       commitHash,
-      repoPath:   meta.repoPath,
-      existing:   job.status !== "queued",
+      repoPath: meta.repoPath,
+      existing: job.status !== "queued",
     },
   });
 }
@@ -276,9 +296,9 @@ export function handleJobStream(jobId: string): Response {
     status: 200,
     headers: {
       // Required SSE headers
-      "Content-Type":  "text/event-stream",
+      "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection":    "keep-alive",
+      "Connection": "keep-alive",
 
       // Disable buffering in nginx/proxies — critical for SSE to work
       // Without this, proxies buffer the stream and browser gets nothing
@@ -316,8 +336,8 @@ export function handlePauseJob(jobId: string): Response {
     return Response.json(
       {
         success: false,
-        error:   "Job can only be paused during summarization phase",
-        hint:    `Current phase: ${job.phase ?? "not started"}, status: ${job.status}`,
+        error: "Job can only be paused during summarization phase",
+        hint: `Current phase: ${job.phase ?? "not started"}, status: ${job.status}`,
       },
       { status: 400 }
     );
@@ -325,7 +345,7 @@ export function handlePauseJob(jobId: string): Response {
 
   return Response.json({
     success: true,
-    data:    { jobId, message: "Pause requested — will pause after current batch" },
+    data: { jobId, message: "Pause requested — will pause after current batch" },
   });
 }
 
@@ -349,8 +369,8 @@ export function handleResumeJob(jobId: string): Response {
     return Response.json(
       {
         success: false,
-        error:   "Cancelled jobs cannot be resumed",
-        hint:    "Submit a new analysis request instead",
+        error: "Cancelled jobs cannot be resumed",
+        hint: "Submit a new analysis request instead",
       },
       { status: 400 }
     );
@@ -361,7 +381,7 @@ export function handleResumeJob(jobId: string): Response {
     return Response.json(
       {
         success: false,
-        error:   `Job cannot be resumed from status: ${job.status}`,
+        error: `Job cannot be resumed from status: ${job.status}`,
       },
       { status: 400 }
     );
@@ -371,9 +391,9 @@ export function handleResumeJob(jobId: string): Response {
     success: true,
     data: {
       jobId,
-      message:           "Job resumed from checkpoint",
-      completedNodes:    job.summarizationCompleted ?? 0,
-      totalNodes:        job.summarizationTotal     ?? 0,
+      message: "Job resumed from checkpoint",
+      completedNodes: job.summarizationCompleted ?? 0,
+      totalNodes: job.summarizationTotal ?? 0,
     },
   });
 }
@@ -400,7 +420,7 @@ export function handleCancelJob(jobId: string): Response {
     return Response.json(
       {
         success: false,
-        error:   `Job is already ${job.status} — cannot cancel`,
+        error: `Job is already ${job.status} — cannot cancel`,
       },
       { status: 400 }
     );

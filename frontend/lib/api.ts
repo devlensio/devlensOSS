@@ -12,12 +12,16 @@ import type {
 
 const ENGINE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "http://localhost:3000";
 
-// ── Base helpers ─────────────────────────────────────────────────────────────
+//  Base helpers ─
+//
+// All helpers extract the error message from the response body before throwing.
+// Backend always returns { success: false, error: "..." } on failure —
+// we surface that message directly so the user sees something actionable.
 
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(`${ENGINE_URL}${url}`);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  const json = await res.json();
+  const res  = await fetch(`${ENGINE_URL}${url}`);
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
 }
 
@@ -27,8 +31,8 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body:    body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  const json = await res.json();
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
 }
 
@@ -38,33 +42,33 @@ async function patch<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  const json = await res.json();
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
 }
 
 async function del<T>(url: string): Promise<T> {
-  const res = await fetch(`${ENGINE_URL}${url}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  const json = await res.json();
+  const res  = await fetch(`${ENGINE_URL}${url}`, { method: "DELETE" });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
 }
 
-// ── API 
+//  API ─
 
 export const api = {
 
   health: () =>
     get<{ status: string }>("/api/health"),
 
-  // ── Config 
+  //  Config 
   getConfig: () =>
     get<DevLensConfig>("/api/config"),
 
   patchConfig: (config: Partial<DevLensConfig>) =>
     patch<DevLensConfig>("/api/config", config),
 
- 
+  //  Graphs 
   listGraphs: () =>
     get<GraphListItem[]>("/api/graphs"),
 
@@ -93,11 +97,11 @@ export const api = {
   getNodeCode: (graphId: string, commitHash: string, nodeId: string) =>
     post<CodeNode>(`/api/graph/${graphId}/${commitHash}/node`, { nodeId }),
 
-  //Jobs 
+  //  Jobs 
   analyze: (body: {
-    repoPath:          string;
+    repoPath:           string;
     skipSummarization?: boolean;
-    forceSummarize?:   boolean;
+    forceSummarize?:    boolean;
   }) => post<Job>("/api/analyze", body),
 
   listJobs: () =>
@@ -106,14 +110,9 @@ export const api = {
   getJob: (jobId: string) =>
     get<Job>(`/api/job/${jobId}`),
 
-  pauseJob: (jobId: string) =>
-    post<null>(`/api/job/${jobId}/pause`),
-
-  resumeJob: (jobId: string) =>
-    post<null>(`/api/job/${jobId}/resume`),
-
-  cancelJob: (jobId: string) =>
-    post<null>(`/api/job/${jobId}/cancel`),
+  pauseJob:  (jobId: string) => post<null>(`/api/job/${jobId}/pause`),
+  resumeJob: (jobId: string) => post<null>(`/api/job/${jobId}/resume`),
+  cancelJob: (jobId: string) => post<null>(`/api/job/${jobId}/cancel`),
 
   summarize: (graphId: string, commitHash: string) =>
     post<null>(`/api/graph/${graphId}/${commitHash}/summarize`),

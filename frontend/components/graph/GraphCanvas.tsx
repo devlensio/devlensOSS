@@ -132,7 +132,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
 
         // Re-run layout
         cy.layout({
-          name: "breadthfirst",
+          name: "fcose",
           animate: true,
           animationDuration: 400,
           fit: true,
