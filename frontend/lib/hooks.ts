@@ -34,6 +34,7 @@ export function useGraph(graphId: string, commitHash?: string) {
     queryFn:  () => api.getGraph(graphId, commitHash),
     enabled:  !!graphId,
     staleTime: Infinity,  // graph data never goes stale
+    gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
   });
 }
 
@@ -51,6 +52,7 @@ export function useClusters(graphId: string, commitHash?: string) {
     queryFn:  () => api.getClusters(graphId, commitHash),
     enabled:  !!graphId,
     staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
   });
 }
 
@@ -60,6 +62,7 @@ export function useNodeCode(graphId: string, commitHash: string, nodeId: string 
     queryFn:  () => api.getNodeCode(graphId, commitHash, nodeId!),
     enabled:  !!nodeId,  // only fetch when a node is selected
     staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
   });
 }
 
@@ -161,5 +164,6 @@ export function useCommitDiff(graphId: string, fromHash: string, toHash: string)
     queryFn:  () => api.getDiff(graphId, fromHash, toHash),
     enabled:  !!fromHash && !!toHash && fromHash !== toHash,
     staleTime: Infinity,  // diff between two fixed commits never changes
+    gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
   });
 }
