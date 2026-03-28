@@ -8,6 +8,7 @@ import { detectImportEdges } from "./edges/importEdges";
 import { detectPropEdges } from "./edges/propEdges";
 import { detectRouteEdges } from "./edges/routeEdge";
 import { detectStateEdges } from "./edges/stateEdges";
+import { detectTestEdges } from "./edges/testEdges";
 
 
 export interface EdgeDetectionResult {
@@ -41,6 +42,7 @@ export function detectEdges(
         repoPath,
         fingerprint
     );
+    const testEdges = detectTestEdges(lookupMp, repoPath);  // This does not needs nodes, as it detect edges from the file
     console.log(`Running edge detectors...`);
     console.log(`  CALLS edges: ${callEdges.length}`);
     console.log(`  IMPORTS edges: ${importEdges.length}`);
@@ -50,7 +52,9 @@ export function detectEdges(
     console.log(`  EVENT edges: ${eventResults.edges.length}`);
     console.log(`  ROUTE edges:   ${routeEdges.length}`);
     console.log(`  GUARD edges: ${guardEdges.length}`);
+    console.log(`  TEST edges: ${testEdges.length}`);
     console.log(`  Ghost nodes created: ${eventResults.ghostNodes.length}`);
+
 
     const allEdges: CodeEdge[] = [
         ...callEdges,
@@ -61,6 +65,7 @@ export function detectEdges(
         ...eventResults.edges,
         ...routeEdges,
         ...guardEdges,
+        ...testEdges,
     ];
 
     console.log(`Total edges detected: ${allEdges.length}`);

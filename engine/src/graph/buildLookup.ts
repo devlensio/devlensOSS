@@ -1,5 +1,5 @@
 
-// before creating edges, we need to build lookup maps for efficient onde lookup in O(N)
+// before creating edges, we need to build lookup maps for efficient node lookup in O(N)
 import { CodeNode } from "../types";
 
 
@@ -19,7 +19,7 @@ export function buildLookupMaps(codeNodes: CodeNode[]): LookupMaps {
     for (const node of codeNodes) {
         // FILE nodes go into their own dedicated map — kept separate so other
         // detectors (guards, call edges, etc.) only see function/component nodes
-        if (node.type === "FILE") {
+        if (["FILE", "TEST", "STORY"].includes(node.type)) {
             fileNodesByPath.set(node.filePath, node);
             continue;
         }

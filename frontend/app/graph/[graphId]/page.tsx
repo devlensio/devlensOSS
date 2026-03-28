@@ -60,6 +60,8 @@ export default function GraphPage({ params }: Props) {
     setSummaryDismissed(false);
   }, [jobId]);
 
+    
+
   // ── State ─────────────────────────────────────────────────────────────────
   const [reanalyzing, setReanalyzing] = useState(false);
   const [reloadPending, setReloadPending] = useState(false);
@@ -68,7 +70,7 @@ export default function GraphPage({ params }: Props) {
     useState<NodeType[]>(DEFAULT_NODE_TYPES);
   const [activeEdgeTypes, setActiveEdgeTypes] =
     useState<EdgeType[]>(DEFAULT_EDGE_TYPES);
-  const [scoreThreshold, setScoreThreshold] = useState(1);
+  const [userThreshold, setUserThreshold] = useState<number | null>(null);
   const [showRouteNodes, setShowRouteNodes] = useState(false);
   const [routeHopDepth, setRouteHopDepth] = useState(2);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -77,6 +79,26 @@ export default function GraphPage({ params }: Props) {
   const [diffData, setDiffData] = useState<NodeDiff | null>(null);
   const [diffFromHash, setDiffFromHash] = useState<string>("");
   const [diffToHash, setDiffToHash] = useState<string>("");
+
+
+  // We will only be showing top 500 scoring nodes when the graph initially renders, to reduce clutteredness
+  const autoThreshold = useMemo((): number => {
+    if(!graph)return 0;
+    if(graph.nodes.length <= 500){
+      return 0;
+    };
+    const start = new Date().getTime();
+    const sorted = graph.nodes.map(n => n.score ?? 0).sort((a, b)=> b-a);
+    const threshold = sorted[499] ?? 0;
+    console.log("Setting score threshold as => ", threshold);
+    const end = new Date().getTime();
+    console.log("Total time taken for sorting => ", end-start);
+    return threshold;
+
+  }, [graph?.graphId]);
+
+
+  const scoreThreshold = userThreshold !== null ? userThreshold : autoThreshold;
 
   // ── Highlight helpers ─────────────────────────────────────────────────────
 
@@ -89,6 +111,9 @@ export default function GraphPage({ params }: Props) {
     setHighlightedIds([]);
     canvasRef.current?.clearHighlight();
   }
+
+
+
 
   // ── Reload — clear pending when refetch completes ─────────────────────────
 
@@ -193,7 +218,7 @@ export default function GraphPage({ params }: Props) {
 
       if (routeReachableIds.has(n.id)) return true;
       return (
-        activeNodeTypes.includes(n.type) && (n.score ?? 0) >= scoreThreshold
+        activeNodeTypes.includes(n.type) && (n.score ?? 0) >= scoreThreshold!
       );
     });
 
@@ -306,7 +331,7 @@ export default function GraphPage({ params }: Props) {
   function handleReset() {
     setActiveNodeTypes(DEFAULT_NODE_TYPES);
     setActiveEdgeTypes(DEFAULT_EDGE_TYPES);
-    setScoreThreshold(0);
+    setUserThreshold(null);
     setShowRouteNodes(false);
     setRouteHopDepth(2);
     clearHighlight();
@@ -407,7 +432,7 @@ export default function GraphPage({ params }: Props) {
             onApply={(nodes, edges, score) => {
               setActiveNodeTypes(nodes);
               setActiveEdgeTypes(edges);
-              setScoreThreshold(score);
+              setUserThreshold(score);
             }}
             showRouteNodes={showRouteNodes}
             onRouteToggle={handleRouteToggle}
@@ -545,6 +570,7 @@ export default function GraphPage({ params }: Props) {
           </div>
         )}
 
+        
         {/* Canvas — hidden while reanalyzing to avoid showing stale graph */}
         {!isAnalyzing && !graphLoading && !reanalyzing && graph && (
           <div className="absolute inset-0">

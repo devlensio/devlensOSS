@@ -103,7 +103,9 @@ export type NodeType =
   | "UTILITY"
   | "FILE"
   | "GHOST"
-  | "ROUTE";
+  | "ROUTE"
+  | "TEST"
+  | "STORY";
 
 export interface CodeNode {
   id: string;
@@ -139,7 +141,8 @@ export type EdgeType =
   | "LISTENS"
   | "WRAPPED_BY"
   | "GUARDS"
-  | "HANDLES";  // SPECIAL EDGES FOR THE ROUTE NODE TYPE
+  | "HANDLES"  // SPECIAL EDGES FOR THE ROUTE NODE TYPE
+  | "TESTS";  //Special edge from Test files to the components/nodes it tests
 
 export interface CodeEdge {
   from: string;

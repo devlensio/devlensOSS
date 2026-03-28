@@ -21,11 +21,18 @@ const IGNORE_DIRS = [
 
 // File patterns to skip
 function shouldIgnoreFile(fileName: string): boolean {
-  if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(fileName)) return true;
-  if (/\.stories\.(ts|tsx|js|jsx)$/.test(fileName)) return true;
+  // In V1.0 I am now detecting test and story files as well because we have added an edge TESTS and 2 node types TEST and STORY
+  // if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(fileName)) return true;
+  // if (/\.stories\.(ts|tsx|js|jsx)$/.test(fileName)) return true;
   if (/\.d\.ts$/.test(fileName)) return true;
   if (/\.config\.(ts|js)$/.test(fileName)) return true;
   return false;
+}
+
+function getFileNodeType(fileName: string): "TEST" | "STORY" | "FILE" {
+  if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(fileName)) return "TEST";
+  if (/\.stories\.(ts|tsx|js|jsx)$/.test(fileName)) return "STORY";
+  return "FILE";
 }
 
 // Recursively walks directory and adds valid source files to the project
@@ -94,12 +101,13 @@ export function parseRepo(repoPath: string): ParserResult {
     try {
       const absFilePath = file.getFilePath();
       const relativePath = path.relative(repoPath, absFilePath).replace(/\\/g, "/");
+      const fileType = getFileNodeType(path.basename(relativePath)); // returns either TEST / STORY / FILE type
 
       // One FILE node per source file — represents the file itself in the graph
       const fileNode: CodeNode = {
         id: `file::${relativePath}`,
         name: path.basename(relativePath),
-        type: "FILE",
+        type: fileType,
         filePath: relativePath,
         startLine: 1,
         endLine: file.getEndLineNumber(),
@@ -108,7 +116,7 @@ export function parseRepo(repoPath: string): ParserResult {
           nodeCount: 0,
           childNodeIds: [],
           language: absFilePath.endsWith('.ts') || absFilePath.endsWith('.tsx') ? 'typescript' :
-                    absFilePath.endsWith('.js') || absFilePath.endsWith('.jsx') ? 'javascript' : 'unknown',
+            absFilePath.endsWith('.js') || absFilePath.endsWith('.jsx') ? 'javascript' : 'unknown',
         },
       };
 
@@ -118,7 +126,7 @@ export function parseRepo(repoPath: string): ParserResult {
       const stores = extractStores(file);
 
       const extracted = [...components, ...hooks, ...functions, ...stores];
-      
+
       for (const node of extracted) {
         // Normalize all extracted nodes to relative paths so every node in the
         // graph uses the same coordinate system as the FILE nodes.
@@ -126,19 +134,40 @@ export function parseRepo(repoPath: string): ParserResult {
         node.filePath = relativePath;
         node.id = `${relativePath}::${node.name}`;
         node.parentFile = `file::${relativePath}`;
-        if(node.rawCode){
+        if (node.rawCode) {
           node.codeHash = createHash("sha256").update(node.rawCode).digest("hex").slice(0, 16);
         }
       }
-      fileNode.metadata.nodeCount = extracted.length;
-      fileNode.metadata.childNodeIds = extracted.map(n => n.id);
-      // File node hash — based on all child code combined
-      const fileRawCode = extracted.map(n => n.rawCode ?? "").join("\n");
-      if (fileRawCode.trim()) {
-        fileNode.codeHash = createHash("sha256").update(fileRawCode).digest("hex").slice(0, 16);
+
+      
+      if (fileType === "TEST" || fileType === "STORY") {
+        // Do not add child nodes for test/story files — they are test helpers,
+        fileNode.metadata.testCases = extracted.map(n => n.name);
+        fileNode.metadata.nodeCount = 0;
+        fileNode.metadata.childNodeIds = [];
+
+        // File hash based on all child code combined
+        const fileRawCode = extracted.map(n => n.rawCode ?? "").join("\n");
+        if (fileRawCode.trim()) {
+          fileNode.codeHash = createHash("sha256")
+            .update(fileRawCode).digest("hex").slice(0, 16);
+        }
+
+        allNodes.push(fileNode); // only the file node, no children
+
+      }
+      else {
+        fileNode.metadata.nodeCount = extracted.length;
+        fileNode.metadata.childNodeIds = extracted.map(n => n.id);
+        // File node hash — based on all child code combined
+        const fileRawCode = extracted.map(n => n.rawCode ?? "").join("\n");
+        if (fileRawCode.trim()) {
+          fileNode.codeHash = createHash("sha256").update(fileRawCode).digest("hex").slice(0, 16);
+        }
+
+        allNodes.push(fileNode, ...extracted);
       }
 
-      allNodes.push(fileNode, ...extracted);
     } catch (error) {
       // Never let one bad file break the entire analysis
       console.warn(`Skipped file due to error: ${file.getFilePath()}`);

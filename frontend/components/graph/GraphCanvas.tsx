@@ -193,6 +193,8 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       },
     }));
 
+    
+
     // ── Initialize Cytoscape ─────────────────────────────────────────────────
 
     useEffect(() => {

@@ -218,10 +218,10 @@ export default function FilterBar({
         </span>
         <input
           type="range"
-          min={0} max={10} step={0.5}
+          min={0} max={10} step={0.2}
           value={draftScore}
           onChange={e => setDraftScore(Number(e.target.value))}
-          className="w-16"
+          className="w-32"
           style={{ accentColor: C.teal }}
         />
         <span className="text-xs font-mono w-5 text-right" style={{ color: C.teal }}>
