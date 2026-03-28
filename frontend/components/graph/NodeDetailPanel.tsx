@@ -1010,7 +1010,7 @@ export default function NodeDetailPanel({
               </p>
             </div>
           )}
-
+          {console.log("Summaries for the nodes are : ", node) as any}
           {/* Summaries */}
           {(node.businessSummary || node.technicalSummary) && (
             <div
