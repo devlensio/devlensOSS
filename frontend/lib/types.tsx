@@ -8,7 +8,9 @@ export type NodeType =
   | "UTILITY"
   | "FILE"
   | "GHOST"
-  | "ROUTE";
+  | "ROUTE"
+  | "TEST"
+  | "STORY";
 
 export type EdgeType =
   | "CALLS"
@@ -20,7 +22,8 @@ export type EdgeType =
   | "LISTENS"
   | "WRAPPED_BY"
   | "GUARDS"
-  | "HANDLES";
+  | "HANDLES"
+  | "TESTS";
 
   export type RouteNodeType =
   | "PAGE"

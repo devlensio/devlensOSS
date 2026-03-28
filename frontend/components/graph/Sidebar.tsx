@@ -36,27 +36,32 @@ const TYPE_COLORS: Record<string, string> = {
   COMPONENT:   "#2dd4bf",
   HOOK:        "#c084fc",
   FUNCTION:    "#60a5fa",
-  STATE_STORE: "#fb923c",
+  STATE_STORE: "#a53141",
   UTILITY:     "#94a3b8",
   FILE:        "#f472b6",
   GHOST:       "#6b7280",
   ROUTE:       "#818cf8",
+  TEST:        "#f97316",
+  STORY:       "#f472b6",
 };
 
 const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: string }> = {
   COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
   HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
   FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },
+  STATE_STORE: { bg: "#a5314118", text: "#a53141", border: "#a5314130" },
   UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
   FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
   GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
   ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
+  STORY:       { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
 };
 
 const ALL_NODE_TYPES = [
   "COMPONENT", "HOOK", "FUNCTION", "STATE_STORE",
   "UTILITY", "FILE", "GHOST", "ROUTE",
+  "TEST", "STORY",
 ] as const;
 
 const DIFF_COLORS = {

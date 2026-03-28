@@ -25,11 +25,13 @@ const NODE_COLORS: Record<string, string> = {
   COMPONENT: "#2dd4bf",
   HOOK: "#c084fc",
   FUNCTION: "#60a5fa",
-  STATE_STORE: "#fb923c",
+  STATE_STORE: "#a53141",
   UTILITY: "#94a3b8",
-  FILE: "#f472b6",
+  FILE: "#752d15",
   GHOST: "#6b7280",
   ROUTE: "#818cf8",
+  TEST: "#f97316",
+  STORY: "#f472b6",
 };
 
 const NODE_SHAPES: Record<string, string> = {
@@ -41,6 +43,8 @@ const NODE_SHAPES: Record<string, string> = {
   FILE: "tag",
   GHOST: "diamond",
   ROUTE: "pentagon",
+  TEST: "triangle",
+  STORY: "round-triangle",
 };
 
 const EDGE_COLORS: Record<string, string> = {
@@ -53,6 +57,8 @@ const EDGE_COLORS: Record<string, string> = {
   LISTENS: "#c084fc",
   WRAPPED_BY: "#3fb950",
   GUARDS: "#d29922",
+  HANDLES:    "#8286bb",
+  TESTS:      "#f97316"
 };
 
 interface GraphCanvasProps {
@@ -193,8 +199,6 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       },
     }));
 
-    
-
     // ── Initialize Cytoscape ─────────────────────────────────────────────────
 
     useEffect(() => {
@@ -247,7 +251,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           // ── Dimmed nodes/edges ─────────────────────────────────────────
           {
             selector: "node.dimmed",
-            style: { opacity: 0.0, events: 'no' },
+            style: { opacity: 0.0, events: "no" },
           },
 
           // ── Base edge ──────────────────────────────────────────────────

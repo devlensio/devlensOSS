@@ -34,6 +34,7 @@ const PROTECTED_EDGE_TYPES = new Set([
   "READS_FROM",
   "WRITES_TO",
   "HANDLES",
+  "TESTS",
 ]);
 
 // Node types that are never removed regardless of score
@@ -41,6 +42,8 @@ const PROTECTED_NODE_TYPES = new Set([
   "STATE_STORE",
   "GHOST",
   "ROUTE",
+  "STORY",
+  "TEST"
 ]);
 
 export function filterNoise(

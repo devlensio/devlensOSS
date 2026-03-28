@@ -97,6 +97,8 @@ function calcTypeBonus(node: CodeNode): number {
     case "HOOK":        return 0.75;
     case "FUNCTION":    return 0.5;
     case "ROUTE": return 2;
+    case "TEST":        return 0.3;   //  low bonus because test files are secondary, do not play role in the logical part
+    case "STORY":       return 0.3;
     default:            return 0.0;
   }
 }

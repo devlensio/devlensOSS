@@ -28,6 +28,7 @@ import {
   HiOutlineCpuChip,
   HiOutlineChevronDown,
 } from "react-icons/hi2";
+import { GrDocumentTest } from "react-icons/gr";
 
 hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("javascript", javascript);
@@ -58,22 +59,26 @@ const TYPE_COLORS: Record<
   COMPONENT: { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
   HOOK: { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
   FUNCTION: { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },
+  STATE_STORE: { bg: "#a5314118", text: "#a53141", border: "#a5314130" },
   UTILITY: { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
   FILE: { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
   GHOST: { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
   ROUTE: { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  TEST: { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
+  STORY: { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
 };
 
 const TYPE_DOT: Record<string, string> = {
   COMPONENT: "#2dd4bf",
   HOOK: "#c084fc",
   FUNCTION: "#60a5fa",
-  STATE_STORE: "#fb923c",
+  STATE_STORE: "#a53141",
   UTILITY: "#94a3b8",
   FILE: "#f472b6",
   GHOST: "#6b7280",
   ROUTE: "#818cf8",
+  TEST: "#f97316",
+  STORY: "#f472b6",
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
@@ -104,7 +109,8 @@ const EDGE_COLORS: Record<string, string> = {
   LISTENS: "#a78bfa",
   WRAPPED_BY: "#3fb950",
   GUARDS: "#d29922",
-  HANDLES: "#818cf8",
+  HANDLES: "#8286bb",
+  TESTS: "#f97316",
 };
 
 const METHOD_COLORS: Record<
@@ -121,11 +127,11 @@ const METHOD_COLORS: Record<
 };
 
 const DIFF_STATUS_COLORS = {
-  added:        { bg: "#3fb95018", text: "#3fb950", border: "#3fb95030" },
-  removed:      { bg: "#f8514918", text: "#f85149", border: "#f8514930" },
+  added: { bg: "#3fb95018", text: "#3fb950", border: "#3fb95030" },
+  removed: { bg: "#f8514918", text: "#f85149", border: "#f8514930" },
   scoreChanged: { bg: "#d2992218", text: "#d29922", border: "#d2992230" },
-  moved:        { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
-  codeChanged:  { bg: "#f59e0b18", text: "#f59e0b", border: "#f59e0b30" },
+  moved: { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  codeChanged: { bg: "#f59e0b18", text: "#f59e0b", border: "#f59e0b30" },
 };
 
 const DIFF_STATUS_LABELS = {
@@ -202,6 +208,8 @@ function EdgeIcon({ type, color }: { type: string; color: string }) {
       return <HiOutlineShieldExclamation size={size} color={color} />;
     case "HANDLES":
       return <HiOutlineGlobeAlt size={size} color={color} />;
+    case "TESTS":
+      return <GrDocumentTest size={size} color={color} />;
     default:
       return <HiOutlineBolt size={size} color={color} />;
   }
@@ -223,7 +231,7 @@ function ExpandableText({
     <div>
       <p
         className="text-sm leading-7 text-gray-300 tracking-wider!"
-        style={{letterSpacing: "0.01em" }}
+        style={{ letterSpacing: "0.01em" }}
       >
         {displayed}
       </p>
@@ -1052,6 +1060,43 @@ export default function NodeDetailPanel({
               )}
             </div>
           )}
+
+          {/* Test cases — shown for TEST and STORY nodes */}
+          {(node.type === "TEST" || node.type === "STORY") &&
+            (() => {
+              const testCases = node.metadata?.testCases as
+                | string[]
+                | undefined;
+              if (!testCases?.length) return null;
+              return (
+                <div
+                  className="px-5 py-4"
+                  style={{ borderBottom: `1px solid ${C.borderSub}` }}
+                >
+                  <Label>
+                    {(node.type === "TEST" ? "Test Cases " : "Stories ") + "/ Functions"}
+                  </Label>
+                  <div className="flex flex-col gap-1">
+                    {testCases.map((name, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+                        style={{ background: C.elevated, color: C.textSub }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{
+                            background:
+                              node.type === "TEST" ? "#f97316" : "#f472b6",
+                          }}
+                        />
+                        {name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
           {/* Connections */}
           {(Object.keys(outgoing).length > 0 ||
