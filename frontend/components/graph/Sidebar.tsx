@@ -15,6 +15,7 @@ import {
   HiOutlineChevronDown,
   HiOutlineXMark,
 } from "react-icons/hi2";
+import { NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -32,18 +33,6 @@ const C = {
   rail:      "#090c10",
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  COMPONENT:   "#2dd4bf",
-  HOOK:        "#c084fc",
-  FUNCTION:    "#60a5fa",
-  STATE_STORE: "#a53141",
-  UTILITY:     "#94a3b8",
-  FILE:        "#f472b6",
-  GHOST:       "#6b7280",
-  ROUTE:       "#818cf8",
-  TEST:        "#f97316",
-  STORY:       "#f472b6",
-};
 
 const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: string }> = {
   COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
@@ -58,11 +47,7 @@ const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: strin
   STORY:       { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
 };
 
-const ALL_NODE_TYPES = [
-  "COMPONENT", "HOOK", "FUNCTION", "STATE_STORE",
-  "UTILITY", "FILE", "GHOST", "ROUTE",
-  "TEST", "STORY",
-] as const;
+
 
 const DIFF_COLORS = {
   added:        { text: "#3fb950", bg: "#3fb95015", border: "#3fb95030" },
@@ -365,9 +350,9 @@ function TypeFilterChips({ active, onToggle }: {
 }) {
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      {ALL_NODE_TYPES.map(type => {
+      {NODE_TYPES.map(type => {
         const on    = active.includes(type);
-        const color = TYPE_COLORS[type];
+        const color = NODE_COLORS[type];
         return (
           <button
             key={type}
@@ -395,7 +380,7 @@ function TypeFilterChips({ active, onToggle }: {
 // ─── Shared: NodeRow ──────────────────────────────────────────────────────────
 
 function NodeRow({ node, onFocus }: { node: CodeNode; onFocus: () => void }) {
-  const color = TYPE_COLORS[node.type] ?? C.textSub;
+  const color = NODE_COLORS[node.type] ?? C.textSub;
   return (
     <button
       onClick={onFocus}
@@ -520,10 +505,10 @@ function ProjectPanel({ graph }: { graph: GraphResponse | undefined }) {
       {/* Node breakdown */}
       <Section title="Node Breakdown">
         <div className="space-y-1.5">
-          {ALL_NODE_TYPES.map(type => {
+          {NODE_TYPES.map(type => {
             const count = graph.nodes.filter(n => n.type === type).length;
             if (count === 0) return null;
-            const color = TYPE_COLORS[type];
+            const color = NODE_COLORS[type];
             const pct   = Math.round((count / graph.nodes.length) * 100);
             return (
               <div key={type} className="flex items-center gap-2">
@@ -570,7 +555,7 @@ function NodesPanel({ nodes, nodesById, onNodeFocus }: {
   onNodeFocus: (id: string) => void;
 }) {
   const [search,      setSearch]      = useState("");
-  const [typeFilters, setTypeFilters] = useState<string[]>([...ALL_NODE_TYPES]);
+  const [typeFilters, setTypeFilters] = useState<string[]>([...NODE_TYPES]);
 
   function toggleType(type: string) {
     setTypeFilters(prev =>
@@ -621,7 +606,7 @@ function SearchPanel({ nodes, nodesById, onNodeFocus }: {
   onNodeFocus: (id: string) => void;
 }) {
   const [search,      setSearch]      = useState("");
-  const [typeFilters, setTypeFilters] = useState<string[]>([...ALL_NODE_TYPES]);
+  const [typeFilters, setTypeFilters] = useState<string[]>([...NODE_TYPES]);
 
   function toggleType(type: string) {
     setTypeFilters(prev =>

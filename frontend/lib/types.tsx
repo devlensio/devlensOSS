@@ -335,3 +335,13 @@ export interface NodeDiff {
   moved:        MovedNode[];
   unchanged:    number;
 }
+
+
+// This interface for the overlayed graph when a node is being clicked
+export interface OverlayGraph {
+  rootNodeId:      string;
+  activeNodeTypes: NodeType[];
+  activeEdgeTypes: EdgeType[];
+  mode: "full" | "khop" | "blast";
+  hopDepth?: number; // only for khop/blast radius mode
+}

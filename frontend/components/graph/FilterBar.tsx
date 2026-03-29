@@ -10,21 +10,9 @@ import {
   HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { MdFullscreen, MdFullscreenExit } from "react-icons/md";
+import { EDGE_COLORS, EDGE_TYPES, NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const NODE_TYPE_COLORS: Record<NodeType, string> = {
-  COMPONENT:   "#2dd4bf",
-  HOOK:        "#c084fc",
-  FUNCTION:    "#60a5fa",
-  STATE_STORE: "#a53141",
-  UTILITY:     "#94a3b8",
-  FILE:        "#f472b6",
-  GHOST:       "#6b7280",
-  ROUTE:       "#818cf8",
-  TEST:        "#f97316",
-  STORY:       "#f472b6",
-};
 
 const NODE_TYPE_LABELS: Record<NodeType, string> = {
   COMPONENT:   "Component",
@@ -39,14 +27,6 @@ const NODE_TYPE_LABELS: Record<NodeType, string> = {
   STORY:       "Storybook"
 };
 
-const BASE_NODE_TYPES: NodeType[] = [
-  "COMPONENT", "HOOK", "FUNCTION", "STATE_STORE", "UTILITY", "ROUTE", "FILE", "GHOST", "TEST", "STORY"
-];
-
-const EDGE_TYPES: EdgeType[] = [
-  "CALLS", "PROP_PASS", "IMPORTS", "READS_FROM",
-  "WRITES_TO", "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS", "HANDLES", "TESTS"
-];
 
 const EDGE_LABELS: Record<EdgeType, string> = {
   CALLS:      "Calls",
@@ -61,29 +41,6 @@ const EDGE_LABELS: Record<EdgeType, string> = {
   HANDLES:    "Handles",
   TESTS:      "Tests"
 };
-
-const EDGE_COLORS: Record<EdgeType, string> = {
-  CALLS:      "#3b82f6",
-  IMPORTS:    "#94a3b8",
-  READS_FROM: "#f59e0b",
-  WRITES_TO:  "#f85149",
-  PROP_PASS:  "#2dd4bf",
-  EMITS:      "#c084fc",
-  LISTENS:    "#242ecd",
-  WRAPPED_BY: "#3fb950",
-  GUARDS:     "#d29922",
-  HANDLES:    "#8286bb",
-  TESTS:      "#f97316"
-};
-
-export const DEFAULT_NODE_TYPES: NodeType[] = [
-  "COMPONENT", "HOOK", "FUNCTION", "STATE_STORE", "UTILITY",
-];
-
-export const DEFAULT_EDGE_TYPES: EdgeType[] = [
-  "CALLS", "PROP_PASS", "READS_FROM", "WRITES_TO",
-  "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS"
-];
 
 const HOP_OPTIONS = [1, 2, 3, 4, 5, Infinity];
 
@@ -195,9 +152,9 @@ export default function FilterBar({
       {/* ── Node type dropdown ───────────────────────────────────── */}
       <MultiSelectDropdown
         label="Nodes"
-        allTypes={BASE_NODE_TYPES}
+        allTypes={NODE_TYPES}
         activeTypes={draftNodes}
-        colors={NODE_TYPE_COLORS}
+        colors={NODE_COLORS}
         labels={NODE_TYPE_LABELS}
         onToggle={toggleDraftNode}
         onSetAll={setDraftNodes}

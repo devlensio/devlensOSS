@@ -9,13 +9,16 @@ import GraphCanvas, { GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import NodeDetailPanel, { DiffInfo } from "@/components/graph/NodeDetailPanel";
 import Sidebar from "@/components/graph/Sidebar";
 import { EdgeType, NodeType, NodeDiff } from "@/lib/types";
-import FilterBar, {
-  DEFAULT_EDGE_TYPES,
-  DEFAULT_NODE_TYPES,
-} from "@/components/graph/FilterBar";
+import FilterBar from "@/components/graph/FilterBar";
 import { buildAdjacency, bfsReachable } from "@/lib/graphAlgo";
 import { HiOutlineArrowPath, HiOutlineChevronDown } from "react-icons/hi2";
 import { IoArrowBack } from "react-icons/io5";
+import { useOverlayGraph } from "@/lib/overlayGraph";
+import SubgraphOverlay from "@/components/graph/SubgraphOverlay";
+import {
+  DEFAULT_EDGE_TYPES,
+  DEFAULT_NODE_TYPES,
+} from "@/components/graph/cytoscapeConfig";
 
 interface Props {
   params: Promise<{ graphId: string }>;
@@ -27,6 +30,7 @@ export default function GraphPage({ params }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const analyze = useAnalyze();
+  const overlay = useOverlayGraph();
   const canvasRef = useRef<GraphCanvasHandle>(null);
 
   const commitHash = searchParams.get("commit") ?? undefined;
@@ -60,8 +64,6 @@ export default function GraphPage({ params }: Props) {
     setSummaryDismissed(false);
   }, [jobId]);
 
-    
-
   // ── State ─────────────────────────────────────────────────────────────────
   const [reanalyzing, setReanalyzing] = useState(false);
   const [reloadPending, setReloadPending] = useState(false);
@@ -80,23 +82,20 @@ export default function GraphPage({ params }: Props) {
   const [diffFromHash, setDiffFromHash] = useState<string>("");
   const [diffToHash, setDiffToHash] = useState<string>("");
 
-
   // We will only be showing top 500 scoring nodes when the graph initially renders, to reduce clutteredness
   const autoThreshold = useMemo((): number => {
-    if(!graph)return 0;
-    if(graph.nodes.length <= 500){
+    if (!graph) return 0;
+    if (graph.nodes.length <= 500) {
       return 0;
-    };
+    }
     const start = new Date().getTime();
-    const sorted = graph.nodes.map(n => n.score ?? 0).sort((a, b)=> b-a);
+    const sorted = graph.nodes.map((n) => n.score ?? 0).sort((a, b) => b - a);
     const threshold = sorted[499] ?? 0;
     console.log("Setting score threshold as => ", threshold);
     const end = new Date().getTime();
-    console.log("Total time taken for sorting => ", end-start);
+    console.log("Total time taken for sorting => ", end - start);
     return threshold;
-
   }, [graph?.graphId]);
-
 
   const scoreThreshold = userThreshold !== null ? userThreshold : autoThreshold;
 
@@ -111,9 +110,6 @@ export default function GraphPage({ params }: Props) {
     setHighlightedIds([]);
     canvasRef.current?.clearHighlight();
   }
-
-
-
 
   // ── Reload — clear pending when refetch completes ─────────────────────────
 
@@ -148,11 +144,15 @@ export default function GraphPage({ params }: Props) {
 
   const diffNodeMap = useMemo(() => {
     if (!diffData) return null;
-    const added        = new Set(diffData.added.map((n) => n.nodeId));
-    const removed      = new Set(diffData.removed.map((n) => n.nodeId));
-    const scoreChanged = new Map(diffData.scoreChanged.map((n) => [n.nodeId, n]));
-    const moved        = new Map(diffData.moved.map((n) => [n.nodeId, n]));
-    const codeChanged  = new Map((diffData.codeChanged ?? []).map((n) => [n.nodeId, n]));
+    const added = new Set(diffData.added.map((n) => n.nodeId));
+    const removed = new Set(diffData.removed.map((n) => n.nodeId));
+    const scoreChanged = new Map(
+      diffData.scoreChanged.map((n) => [n.nodeId, n]),
+    );
+    const moved = new Map(diffData.moved.map((n) => [n.nodeId, n]));
+    const codeChanged = new Map(
+      (diffData.codeChanged ?? []).map((n) => [n.nodeId, n]),
+    );
     return { added, removed, scoreChanged, moved, codeChanged };
   }, [diffData]);
 
@@ -161,10 +161,10 @@ export default function GraphPage({ params }: Props) {
   const diffColorOverrides = useMemo((): Record<string, string> => {
     if (!diffNodeMap) return {};
     const overrides: Record<string, string> = {};
-    for (const id of diffNodeMap.added)               overrides[id] = "#3fb950";
-    for (const id of diffNodeMap.scoreChanged.keys())  overrides[id] = "#d29922";
-    for (const id of diffNodeMap.moved.keys())         overrides[id] = "#818cf8";
-    for (const id of diffNodeMap.codeChanged.keys())   overrides[id] = "#f59e0b";
+    for (const id of diffNodeMap.added) overrides[id] = "#3fb950";
+    for (const id of diffNodeMap.scoreChanged.keys()) overrides[id] = "#d29922";
+    for (const id of diffNodeMap.moved.keys()) overrides[id] = "#818cf8";
+    for (const id of diffNodeMap.codeChanged.keys()) overrides[id] = "#f59e0b";
     return overrides;
   }, [diffNodeMap]);
 
@@ -273,30 +273,30 @@ export default function GraphPage({ params }: Props) {
 
   const focusedNodeDiffInfo = useMemo((): DiffInfo | undefined => {
     if (!diffMode || !diffNodeMap || !focusedNodeId) return undefined;
-    if (diffNodeMap.added.has(focusedNodeId))   return { status: "added" };
+    if (diffNodeMap.added.has(focusedNodeId)) return { status: "added" };
     if (diffNodeMap.removed.has(focusedNodeId)) return { status: "removed" };
     const sc = diffNodeMap.scoreChanged.get(focusedNodeId);
     if (sc)
       return {
-        status:      "scoreChanged",
+        status: "scoreChanged",
         scoreBefore: sc.scoreBefore,
-        scoreAfter:  sc.scoreAfter,
-        delta:       sc.delta,
+        scoreAfter: sc.scoreAfter,
+        delta: sc.delta,
       };
     const mv = diffNodeMap.moved.get(focusedNodeId);
     if (mv)
       return {
-        status:   "moved",
+        status: "moved",
         fromFile: mv.fromFile,
-        toFile:   mv.toFile,
+        toFile: mv.toFile,
       };
     const cc = diffNodeMap.codeChanged.get(focusedNodeId);
     if (cc)
       return {
-        status:      "codeChanged",
+        status: "codeChanged",
         scoreBefore: cc.scoreBefore,
-        scoreAfter:  cc.scoreAfter,
-        delta:       parseFloat((cc.scoreAfter - cc.scoreBefore).toFixed(2)),
+        scoreAfter: cc.scoreAfter,
+        delta: parseFloat((cc.scoreAfter - cc.scoreBefore).toFixed(2)),
       };
     return undefined;
   }, [diffMode, diffNodeMap, focusedNodeId]);
@@ -316,6 +316,16 @@ export default function GraphPage({ params }: Props) {
       document.documentElement.requestFullscreen();
     else document.exitFullscreen();
   }
+
+  const activeNodeTypesRef = useRef(activeNodeTypes);
+  const activeEdgeTypesRef = useRef(activeEdgeTypes);
+
+  useEffect(() => {
+    activeNodeTypesRef.current = activeNodeTypes;
+  }, [activeNodeTypes]);
+  useEffect(() => {
+    activeEdgeTypesRef.current = activeEdgeTypes;
+  }, [activeEdgeTypes]);
 
   // ── Route toggle ──────────────────────────────────────────────────────────
 
@@ -368,7 +378,24 @@ export default function GraphPage({ params }: Props) {
 
   function handleNodeFocus(id: string) {
     setFocusedNodeId(id);
-    canvasRef.current?.focusNode(id);
+    // const node = graph?.nodesById[id];
+    
+    // Only focus on main canvas if overlay is not open
+    // When overlay is open, main canvas is hidden behind it
+    if (!overlay.isOpen) {
+      canvasRef.current?.focusNode(id);
+    }
+    console.log(
+      "HHere is the active node and edge types:",
+      activeNodeTypesRef.current,
+      activeEdgeTypesRef.current,
+    );
+    const node = graph?.nodesById[id];
+    console.log("node type:", node?.type, "node:", node);
+    overlay.open(id, node?.type as NodeType, {
+      activeNodeTypes: activeNodeTypesRef.current,
+      activeEdgeTypes: activeEdgeTypesRef.current,
+    });
   }
 
   const repoName =
@@ -393,7 +420,7 @@ export default function GraphPage({ params }: Props) {
           className="flex items-center gap-1.5 text-sm text-muted hover:text-primary
                      transition-colors shrink-0"
         >
-          <IoArrowBack/>
+          <IoArrowBack />
           Back
         </button>
 
@@ -570,7 +597,6 @@ export default function GraphPage({ params }: Props) {
           </div>
         )}
 
-        
         {/* Canvas — hidden while reanalyzing to avoid showing stale graph */}
         {!isAnalyzing && !graphLoading && !reanalyzing && graph && (
           <div className="absolute inset-0">
@@ -579,8 +605,12 @@ export default function GraphPage({ params }: Props) {
               nodes={visibleNodes}
               edges={visibleEdges}
               onNodeClick={(id) => {
-                if (id) handleNodeFocus(id);
-                else setFocusedNodeId(null);
+                if (id) {
+                  handleNodeFocus(id);
+                } else {
+                  setFocusedNodeId(null);
+                  overlay.close();
+                }
               }}
             />
 
@@ -611,8 +641,23 @@ export default function GraphPage({ params }: Props) {
                 onNodeFocus={handleNodeFocus}
                 onHighlight={highlight}
                 onClearHighlight={clearHighlight}
+                onUpdateOverlay={overlay.isOpen ? overlay.updateFilters : undefined}
                 diffInfo={focusedNodeDiffInfo}
                 diffFromHash={diffMode ? diffFromHash : undefined}
+              />
+            )}
+
+            {overlay.isOpen && overlay.current && (
+              <SubgraphOverlay
+                stack={overlay.overlayStack}
+                current={overlay.current}
+                graph={graph}
+                nodesById={graph.nodesById}
+                onNavigate={overlay.navigate}
+                onBack={overlay.back}
+                onClose={overlay.close}
+                onUpdateFilters={overlay.updateFilters}
+                onNodeSelect={setFocusedNodeId}
               />
             )}
           </div>

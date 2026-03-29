@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CodeNode, CodeEdge, NodeType } from "@/lib/types";
+import type { CodeNode, CodeEdge, NodeType, OverlayGraph } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { bfsReachable, blastRadius, buildAdjacency } from "@/lib/graphAlgo";
 import hljs from "highlight.js/lib/core";
@@ -27,6 +27,8 @@ import {
   HiOutlineRectangleStack,
   HiOutlineCpuChip,
   HiOutlineChevronDown,
+  HiOutlineBeaker,
+  HiOutlineBookOpen,
 } from "react-icons/hi2";
 import { GrDocumentTest } from "react-icons/gr";
 
@@ -52,44 +54,43 @@ const C = {
 
 // ─── Type colours ─────────────────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<
-  NodeType,
-  { bg: string; text: string; border: string }
-> = {
-  COMPONENT: { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
-  HOOK: { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
-  FUNCTION: { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#a5314118", text: "#a53141", border: "#a5314130" },
-  UTILITY: { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
-  FILE: { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-  GHOST: { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
-  ROUTE: { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
-  TEST: { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
-  STORY: { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
+const TYPE_COLORS: Record<NodeType, { bg: string; text: string; border: string }> = {
+  COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
+  HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
+  FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
+  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },  // ← orange
+  UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
+  FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
+  GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
+  ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
+  TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
+  STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },  // ← violet
 };
 
 const TYPE_DOT: Record<string, string> = {
-  COMPONENT: "#2dd4bf",
-  HOOK: "#c084fc",
-  FUNCTION: "#60a5fa",
-  STATE_STORE: "#a53141",
-  UTILITY: "#94a3b8",
-  FILE: "#f472b6",
-  GHOST: "#6b7280",
-  ROUTE: "#818cf8",
-  TEST: "#f97316",
-  STORY: "#f472b6",
+  COMPONENT:   "#2dd4bf",
+  HOOK:        "#c084fc",
+  FUNCTION:    "#60a5fa",
+  STATE_STORE: "#fb923c",  // ← orange
+  UTILITY:     "#94a3b8",
+  FILE:        "#f472b6",
+  GHOST:       "#6b7280",
+  ROUTE:       "#818cf8",
+  TEST:        "#f97316",
+  STORY:       "#a78bfa",  // ← violet
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  COMPONENT: <HiOutlineRectangleStack size={16} />,
-  HOOK: <HiOutlineArrowPath size={16} />,
-  FUNCTION: <HiOutlineCommandLine size={16} />,
+  COMPONENT:   <HiOutlineRectangleStack size={16} />,
+  HOOK:        <HiOutlineArrowPath size={16} />,
+  FUNCTION:    <HiOutlineCommandLine size={16} />,
   STATE_STORE: <HiOutlineCircleStack size={16} />,
-  UTILITY: <HiOutlineCpuChip size={16} />,
-  FILE: <HiOutlineCodeBracket size={16} />,
-  GHOST: <HiOutlineBolt size={16} />,
-  ROUTE: <HiOutlineGlobeAlt size={16} />,
+  UTILITY:     <HiOutlineCpuChip size={16} />,
+  FILE:        <HiOutlineCodeBracket size={16} />,
+  GHOST:       <HiOutlineBolt size={16} />,
+  ROUTE:       <HiOutlineGlobeAlt size={16} />,
+  TEST:        <HiOutlineBeaker size={16} />,      // ← add
+  STORY:       <HiOutlineBookOpen size={16} />,    // ← add
 };
 
 const SEV_COLORS: Record<string, { bg: string; text: string; border: string }> =
@@ -572,6 +573,7 @@ interface NodeDetailPanelProps {
   onNodeFocus: (nodeId: string) => void;
   onHighlight: (nodeIds: string[]) => void;
   onClearHighlight: () => void;
+  onUpdateOverlay?: (overlay: Partial<OverlayGraph>) => void;
   diffInfo?: DiffInfo;
   diffFromHash?: string;
 }
@@ -588,13 +590,14 @@ export default function NodeDetailPanel({
   onNodeFocus,
   onHighlight,
   onClearHighlight,
+  onUpdateOverlay,
   diffInfo,
   diffFromHash,
 }: NodeDetailPanelProps) {
   const [width, setWidth] = useState(DEFAULT_W);
   const [showCode, setShowCode] = useState(false);
-  const [kHop, setKHop] = useState(2);
-  const [blastK, setBlastK] = useState<number>(Infinity);
+  const [kHop, setKHop] = useState(1);
+  const [blastK, setBlastK] = useState<number>(1);
   const [codeHeight, setCodeHeight] = useState(DEF_CODE_H);
 
   const isDragging = useRef(false);
@@ -685,18 +688,20 @@ export default function NodeDetailPanel({
     }, {});
 
   function handleKHop() {
-    if (!nodeId) return;
-    const { adj } = buildAdjacency(edges);
-    onHighlight([
-      nodeId,
-      ...Array.from(bfsReachable(nodeId, adj, kHop)).map((r) => r.nodeId),
-    ]);
+    onUpdateOverlay?.({mode: "khop", hopDepth: kHop});
+    // if (!nodeId) return;
+    // const { adj } = buildAdjacency(edges);
+    // onHighlight([
+    //   nodeId,
+    //   ...Array.from(bfsReachable(nodeId, adj, kHop)).map((r) => r.nodeId),
+    // ]);
   }
 
   function handleBlastRadius() {
-    if (!nodeId) return;
-    const { radj } = buildAdjacency(edges);
-    onHighlight([nodeId, ...Array.from(blastRadius(nodeId, radj, blastK))]);
+    onUpdateOverlay?.({mode: "blast", hopDepth: blastK});
+    // if (!nodeId) return;
+    // const { radj } = buildAdjacency(edges);
+    // onHighlight([nodeId, ...Array.from(blastRadius(nodeId, radj, blastK))]);
   }
 
   const highlighted = nodeWithCode?.rawCode
