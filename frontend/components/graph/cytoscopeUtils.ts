@@ -12,7 +12,7 @@ export function scoreToSize(score: number, min: number, max: number): number {
   if (max === min) return 60;
   const normalized = (score - min) / (max - min);
   const size = 40 + Math.pow(normalized, 0.5) * 120;
-  return Math.round(size);
+  return Math.max(80, Math.round(size));
 }
 
 // FILE, GHOST, and ROUTE are excluded from the default render set.

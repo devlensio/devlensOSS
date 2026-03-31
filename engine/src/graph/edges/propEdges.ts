@@ -61,34 +61,22 @@ export function detectPropEdges(nodes: CodeNode[], lookupMp: LookupMaps, repoPat
         const sourceFile = project.getSourceFile(absPath);
         if (!sourceFile) continue;
 
-        // Find the specific function/component declaration by name and line range
-        // Only scan JSX within this component's body — not the whole file
-        const allFunctions = [
-            ...sourceFile.getFunctions(),
-            ...sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction),
-            ...sourceFile.getDescendantsOfKind(SyntaxKind.FunctionExpression),
-        ];
 
-        // Find the function that matches this component by name and line range
-        const componentFn = allFunctions.find(fn => {
-            const start = fn.getStartLineNumber();
-            const end = fn.getEndLineNumber();
-            return (
-                component.startLine >= start &&
-                component.endLine <= end &&
-                // For named functions, also check name matches
-                (fn.getKind() !== SyntaxKind.FunctionDeclaration ||
-                    (fn as any).getName?.() === component.name)
-            );
-        });
 
-        // Only scan JSX within this component's scope
-        const scanTarget = componentFn ?? sourceFile;
 
-        const jsxOpeningElements = scanTarget.getDescendantsOfKind(SyntaxKind.JsxOpeningElement);
-        const jsxSelfClosingElements = scanTarget.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement);
 
-        const allJsxElements = [...jsxOpeningElements, ...jsxSelfClosingElements];
+
+
+        // Find all JSX elements in the file
+        const jsxOpeningElements = sourceFile.getDescendantsOfKind(SyntaxKind.JsxOpeningElement);
+        const jsxSelfClosingElements = sourceFile.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement);
+
+        // Filter to only JSX within this component's line range (meaning which lies between this component's startLine and endLine)
+        const allJsxElements = [...jsxOpeningElements, ...jsxSelfClosingElements]
+            .filter(el => {
+                const line = el.getStartLineNumber();
+                return line >= component.startLine && line <= component.endLine;
+            });
 
         for (const jsxElement of allJsxElements) {
             const tagName = jsxElement.getTagNameNode().getText();
