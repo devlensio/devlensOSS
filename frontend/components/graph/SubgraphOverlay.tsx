@@ -19,6 +19,8 @@ import OverlayFilterBar from "./OverlayFilterBar";
 
 cytoscape.use(fcose);
 
+const DEFAULT_INITIAL_DEPTH = 3; //When a node is selected this is the depth upto which initially the subgraph will be shown.
+
 interface SubgraphOverlayProps {
   stack: OverlayGraph[];
   current: OverlayGraph;
@@ -71,8 +73,8 @@ export default function SubgraphOverlay({
   } 
   else {
     // full — merge forward + backward BFS
-    const forward  = bfsReachable(current.rootNodeId, adj,  Infinity);
-    const backward = bfsReachable(current.rootNodeId, radj,  Infinity);
+    const forward  = bfsReachable(current.rootNodeId, adj,  DEFAULT_INITIAL_DEPTH);
+    const backward = bfsReachable(current.rootNodeId, radj,  DEFAULT_INITIAL_DEPTH);
     allIds = new Set([
       current.rootNodeId,
       ...[...forward].map(r => r.nodeId),
