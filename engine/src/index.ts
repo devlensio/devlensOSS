@@ -1,17 +1,15 @@
-import dotenv from "dotenv";
-dotenv.config();
+export * from "./types";
+export * from "./jobs/types";
+export * from "./storage/fileStorage";
+export * from "./storage/interface";
+export * from "./jobs/queue/interface";
+export * from "./summarizer/types";
+export * from "./clustering";
+export * from "./pipeline";
+export * from "./config/types";
 
-import { analyzeFingerprint } from "./fingerprint";
-import { analyzeFilesystem } from "./filesystem";
-import { parseRepo } from "./parser";
-
-const repoPath = process.cwd();        
-
-const fingerprint = analyzeFingerprint(repoPath);
-console.log("Fingerprint:", JSON.stringify(fingerprint, null, 2));
-
-const routes = analyzeFilesystem(repoPath, fingerprint);
-console.log("Routes found:", routes.length);
-
-const parserResult = parseRepo(repoPath);
-console.log("Parser stats:", JSON.stringify(parserResult.stats, null, 2));
+// Functions that cloud backend will need
+export { analyzePipeline }   from "./pipeline";
+export { runSummarization }  from "./summarizer";
+export { resolveConfig }     from "./config";
+export { computeClusters }   from "./clustering";
