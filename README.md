@@ -171,17 +171,14 @@ Use K-hops to understand the neighbourhood of any node — what it calls and wha
 git clone https://github.com/devlensio/devlensOSS.git
 cd devlensOSS
 
-# 2. Install root dependencies
+# 2. Install all dependencies (engine + frontend + shared)
 bun install
 
-# 3. Install engine + frontend dependencies
-bun run install:all
-
-# 4. Configure environment (optional — can also be set in the UI)
+# 3. Configure environment (optional — can also be set in the UI)
 cp .env.example .env
 # Edit .env with your LLM provider settings
 
-# 5. Start both servers
+# 4. Start both servers
 bun run dev
 ```
 

@@ -2,11 +2,20 @@
   "name": "devlens",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["engine", "frontend"],
   "scripts": {
-    "dev":          "concurrently --names engine,frontend --prefix-colors cyan,magenta \"bun run dev:engine\" \"bun run dev:frontend\"",
-    "dev:engine":   "cd engine && bun --env-file ../.env --watch src/server/index.ts",
-    "dev:frontend": "cd frontend && bun run dev",
-    "install:all":  "cd engine && bun install && cd ../frontend && bun install"
+    "dev":         "concurrently --names engine,frontend --prefix-colors cyan,magenta \"bun run dev:engine\" \"bun run dev:frontend\"",
+    "dev:engine":  "cd engine && bun --env-file ../.env --watch src/server/index.ts",
+    "dev:frontend": "cd frontend && bun run dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@google/genai":     "^1.44.0",
+    "dotenv":            "^17.3.1",
+    "openai":            "^6.27.0",
+    "simple-git":        "^3.32.3",
+    "ts-morph":          "^27.0.2",
+    "uuid":              "^13.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

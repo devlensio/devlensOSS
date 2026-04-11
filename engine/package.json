@@ -29,14 +29,5 @@
     "ts-node":     "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript":  "^5.9.3"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
-    "@google/genai":     "^1.44.0",
-    "dotenv":            "^17.3.1",
-    "openai":            "^6.27.0",
-    "simple-git":        "^3.32.3",
-    "ts-morph":          "^27.0.2",
-    "uuid":              "^13.0.0"
   }
 }
