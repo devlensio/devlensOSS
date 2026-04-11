@@ -1,6 +1,6 @@
 //This file will extract the React Components from the files
 import { SourceFile, SyntaxKind, Node } from "ts-morph";
-import { CodeNode } from "../../types";
+import type { CodeNode } from "../../types";
 
 // Generates a unique id for a node
 function makeId(filePath: string, name: string): string {

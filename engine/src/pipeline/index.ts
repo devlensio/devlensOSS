@@ -6,8 +6,8 @@ import { analyzeFilesystem } from "../filesystem";
 import { parseRepo } from "../parser";
 import { detectEdges } from "../graph";
 import { scoreAndFilter } from "../scoring";
-import { FilterThresholds } from "../scoring/noiseFilter";
-import {
+import type { FilterThresholds } from "../scoring/noiseFilter";
+import type {
   CodeNode,
   CodeEdge,
   ProjectFingerprint,

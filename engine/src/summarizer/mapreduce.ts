@@ -1,5 +1,5 @@
-import { CodeNode } from "../types";
-import { LLMClient, LLMMessage, NodeSummaryOutput } from "./providers/types";
+import type { CodeNode } from "../types";
+import type { LLMClient, LLMMessage, NodeSummaryOutput } from "./providers/types";
 import { MAPREDUCE_TOKEN_THRESHOLD } from "./types";
 
 // ─── Token Estimation ─────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
-import { CodeNode, CodeEdge } from "../../types";
-import { LookupMaps } from "../buildLookup";
+import type { CodeNode, CodeEdge } from "../../types";
+import type { LookupMaps } from "../buildLookup";
 
 // ─── detectRouteEdges ─────────────────────────────────────────────────────────
 //

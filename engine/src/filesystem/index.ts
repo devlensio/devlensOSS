@@ -1,5 +1,5 @@
 import path from "path";
-import { BackendRouteNode, ProjectFingerprint, RouteNode } from "../types";
+import type { BackendRouteNode, ProjectFingerprint, RouteNode } from "../types";
 import { analyzeAppRouter } from "./appRouter";
 import { analyzePagesRouter } from "./pagesRouter";
 import { analyzeBackendRoutes } from "./backendRoutes";

@@ -1,8 +1,8 @@
 import { Project, SyntaxKind } from "ts-morph";
 import path from "path";
 import fs from "fs";
-import { CodeNode, CodeEdge, RouteNode, BackendRouteNode, ProjectFingerprint } from "../../types";
-import { LookupMaps } from "../buildLookup";
+import type { CodeNode, CodeEdge, RouteNode, BackendRouteNode, ProjectFingerprint } from "../../types";
+import type { LookupMaps } from "../buildLookup";
 
 // Recursively walk directory and add files to project
 function addFilesRecursively(dir: string, project: Project): void {

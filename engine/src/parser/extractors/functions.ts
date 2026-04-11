@@ -1,5 +1,5 @@
 import { SourceFile, SyntaxKind } from "ts-morph";
-import { CodeNode } from "../../types";
+import type { CodeNode } from "../../types";
 
 // these are used to detect the routes in the Nextjs
 const HTTP_METHOD_EXPORTS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);

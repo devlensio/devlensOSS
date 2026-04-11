@@ -1,8 +1,8 @@
 //This file will detect the TEST edges from the test/story files to the components they are testing. 
 
 import path from "path";
-import { CodeEdge } from "../../types";
-import { LookupMaps } from "../buildLookup";
+import type { CodeEdge } from "../../types";
+import type { LookupMaps } from "../buildLookup";
 import fs from "fs";
 import { Project } from "ts-morph";
 import { isLocalImport } from "./importEdges";

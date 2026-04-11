@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ProjectFingerprint } from "../types";
+import type { ProjectFingerprint } from "../types";
 import {
   detectLanguage,
   detectFramework,

@@ -1,4 +1,4 @@
-import { CodeNode } from "../types";
+import type { CodeNode } from "../types";
 
 // ─── Internal Gravity (G_int) ──────────────────────────────────────────────
 // Formula: Σ(S²) / ΣS

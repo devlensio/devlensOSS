@@ -1,4 +1,4 @@
-import { DevLensConfig, CONFIG_HEADERS } from "../types";
+import { type DevLensConfig, CONFIG_HEADERS } from "../types";
 
 // ─ applyRequestHeaders 
 //

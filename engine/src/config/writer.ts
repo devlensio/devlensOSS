@@ -2,7 +2,7 @@
 
 import fs   from "fs";
 import { CONFIG_FILE, CONFIG_DIR } from "./providers/file";
-import { DevLensConfig } from "./types";
+import type { DevLensConfig } from "./types";
 
 
 // What the user can send from the settings UI.

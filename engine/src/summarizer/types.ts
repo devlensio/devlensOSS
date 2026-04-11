@@ -1,6 +1,6 @@
 //storing types used for summarization flow
 
-import { PipelineResult } from "../pipeline";
+import type { PipelineResult } from "../pipeline";
 
 export interface NodeSummary {
     // The result of summarizing a single node.

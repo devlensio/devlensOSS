@@ -2,8 +2,8 @@ import fs   from "fs";
 import path from "path";
 import os   from "os";
 import {
-  DevLensConfig,
-  Neo4jConfig,
+  type DevLensConfig,
+  type Neo4jConfig,
   OLLAMA_DEFAULTS,
   ANTHROPIC_DEFAULTS,
 } from "../types";

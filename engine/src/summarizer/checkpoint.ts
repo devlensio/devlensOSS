@@ -8,7 +8,7 @@
 
 import fs from "fs";
 import { getCheckpointPath } from "../storage/fileStorage";
-import { SummaryCheckpoint } from "./types";
+import type { SummaryCheckpoint } from "./types";
 
 // ─── Load / Save / Delete ─────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { DevLensConfig, OLLAMA_DEFAULTS, ANTHROPIC_DEFAULTS } from "./types";
+import { type DevLensConfig, OLLAMA_DEFAULTS, ANTHROPIC_DEFAULTS } from "./types";
 import { loadFileConfig } from "./providers/file";
 import { applyRequestHeaders } from "./providers/request";
 

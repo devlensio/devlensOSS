@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { LLMClient, LLMRequest, NodeSummaryOutput } from "./types";
+import type { LLMClient, LLMRequest, NodeSummaryOutput } from "./types";
 
 // ─── Response Parser ──────────────────────────────────────────────────────────
 //

@@ -1,7 +1,7 @@
 //Topo Sort
 
-import { CodeEdge, CodeNode } from "../types";
-import { CycleGroup, TopologicalResult } from "./types";
+import type { CodeEdge, CodeNode } from "../types";
+import type { CycleGroup, TopologicalResult } from "./types";
 
 export function buildTopologicalOrder(nodes: CodeNode[], edges: CodeEdge[]): TopologicalResult {
     //file nodes will be handled seperately. 

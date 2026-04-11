@@ -1,8 +1,8 @@
-import { CodeNode, CodeEdge } from "../types";
+import type { CodeNode, CodeEdge } from "../types";
 import { countConnections } from "./connectionCounter";
 import { scoreNode } from "./nodeScorer";
 import { scoreFile } from "./fileScorer";
-import { filterNoise, FilterResult, FilterThresholds } from "./noiseFilter";
+import { filterNoise, type FilterResult, type FilterThresholds } from "./noiseFilter";
 
 export interface ScoringResult {
   // All nodes and edges after noise filtering

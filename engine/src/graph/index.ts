@@ -1,4 +1,4 @@
-import { BackendRouteNode, CodeEdge, CodeNode, ProjectFingerprint, RouteNode } from "../types";
+import type { BackendRouteNode, CodeEdge, CodeNode, ProjectFingerprint, RouteNode } from "../types";
 import { buildLookupMaps } from "./buildLookup";
 import { detectCallEdges } from "./edges/callEdges";
 import { detectEventEdges } from "./edges/eventEdges";

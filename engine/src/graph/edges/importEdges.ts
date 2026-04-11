@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { CodeEdge, CodeNode } from "../../types";
-import { LookupMaps } from "../buildLookup";
+import type { CodeEdge, CodeNode } from "../../types";
+import type { LookupMaps } from "../buildLookup";
 import { Project } from "ts-morph";
 
 // Aliases we consider as local imports

@@ -1,7 +1,7 @@
 import { Project } from "ts-morph";
 import path from "path";
 import fs from "fs";
-import { CodeNode } from "../types";
+import type { CodeNode } from "../types";
 import { extractComponents } from "./extractors/components";
 import { extractHooks } from "./extractors/hooks";
 import { extractFunctions } from "./extractors/functions";

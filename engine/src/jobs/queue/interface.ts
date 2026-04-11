@@ -1,4 +1,4 @@
-import { Job, JobInput, JobSummary, ProgressEvent } from "../types";
+import type { Job, JobInput, JobSummary, ProgressEvent } from "../types";
 
 // ─── JobQueue Interface ───────────────────────────────────────────────────────
 //

@@ -1,5 +1,5 @@
 import { fileStorage } from "./fileStorage";
-import { GraphStorage } from "./interface";
+import type { GraphStorage } from "./interface";
 
 export const storage: GraphStorage = fileStorage;
 

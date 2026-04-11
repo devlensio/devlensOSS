@@ -1,7 +1,7 @@
 import { Project, SyntaxKind } from "ts-morph";
 import path from "path";
 import fs from "fs";
-import { BackendRouteNode, BackendFramework } from "../types";
+import type { BackendRouteNode, BackendFramework } from "../types";
 
 const HTTP_METHODS = [
   "get", "post", "put", "delete",

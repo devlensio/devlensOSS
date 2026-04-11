@@ -29,8 +29,8 @@
 
 import { storage }               from "../storage";
 import { resolveConfig }         from "../config";
-import { CodeNode }              from "../types";
-import { FILE_BATCH_SIZE, SummarizationInput }    from "./types";
+import type { CodeNode }              from "../types";
+import { FILE_BATCH_SIZE, type SummarizationInput }    from "./types";
 import { buildTopologicalOrder } from "./topological";
 import {
   createCheckpoint,
