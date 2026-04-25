@@ -87,7 +87,7 @@ function resolveBackendHandler(
 
   // Strategy 1 — handler defined in the same file as the route registration
   const nodesInFile = lookup.nodesByFile.get(filePath) ?? [];
-  const sameFile = nodesInFile.find(n => n.name === handlerName);
+  const sameFile = nodesInFile.find(n => n.name === handlerName); //same file won't have duplicates, so no need for checking id I think
   if (sameFile) return sameFile;
 
   // Strategy 2 — handler imported from another file, look up by name only.
@@ -96,6 +96,8 @@ function resolveBackendHandler(
   const byName = lookup.nodesByName.get(handlerName) ?? [];
   if (byName.length === 0) return undefined;
   if (byName.length === 1) return byName[0];
+
+  //another case can be (which is sort of a TODO: is that when the handler is itself a function and not some name/reference of the function). in the backendRoutes.ts extractor, I am currently not considering the case where the handler is an inline function, e.g. app.get('/path', (req, res) => { ... }). In that case, there won't be a named handler to link to at all, the TODO is to either assign this inline function block a node and thus a node id a well which should be unique btw, should I introduce a new type of node for this ? Ummm.....
 
   // Multiple candidates — pick the one whose filePath shares the most
   // path segments with the route file
