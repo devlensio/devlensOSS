@@ -153,6 +153,30 @@ function routesToCodeNodes(
       const name = `${route.httpMethod} ${route.urlPath}`;
       const id   = `${relativeFilePath}::${name}`;
 
+
+      // create synthetic function type nodes for the inline handlers
+      let inlineHandlerId: string | undefined;
+      if(route.inlineHandler){
+        inlineHandlerId = `${relativeFilePath}::${name}::handler`;
+        nodes.push({
+          id:         inlineHandlerId,
+          name:       `${name} handler`,
+          type:       "FUNCTION",
+          filePath:   relativeFilePath,
+          startLine:  route.inlineHandler.startLine,
+          endLine:    route.inlineHandler.endLine,
+          rawCode:    route.inlineHandler.rawCode,
+          codeHash:   createHash("sha256").update(route.inlineHandler.rawCode).digest("hex").slice(0, 16),
+          parentFile: `file::${relativeFilePath}`,
+          metadata: {
+            isHttpHandler:   true,
+            httpMethod:      route.httpMethod,
+            isInlineHandler: true,
+          },
+        });
+      }
+
+
       nodes.push({
         id,
         name,
@@ -178,7 +202,7 @@ function routesToCodeNodes(
       const httpMethods = route.httpMethods && route.httpMethods.length > 0
         ? route.httpMethods
         : route.type === "API_ROUTE"
-          ? ["GET", "POST"]   // fallback — we'll refine via routeEdges handler lookup
+          ? ["GET", "PUT", "POST", "DELETE", "PATCH"]   // fallback — we'll refine via routeEdges handler lookup
           : [null];           // non-API routes (PAGE, LAYOUT etc.) have no method
 
       for (const method of httpMethods) {
@@ -250,7 +274,7 @@ export async function analyzePipeline(
 
   // Convert routes -> CodeNodes so they join the graph as nodes as well
   // It is important to add here before the detection of the edges
-  const routeNodes = routesToCodeNodes(routes, absoluteRepoPath);
+  let routeNodes = routesToCodeNodes(routes, absoluteRepoPath);
   console.log(`  Route nodes created: ${routeNodes.length}`);
 
   // ── Step 3: Parse source files into nodes ─────────────────────
@@ -268,6 +292,14 @@ export async function analyzePipeline(
     absoluteRepoPath,
     fingerprint
   );
+
+  // filter API_ROUTE nodes without handlers - because at the time of converting routes to code nodes, POST and GET both possibilties are taken for the API_ROUTE nodes, however it is possible that only one of them is being used for that route. Meaning only one handler and for the second method undefined handler.
+  routeNodes = routeNodes.filter(routeNode => {
+    if(routeNode.metadata.routeNodeType === "API_ROUTE"){
+      const hasHandler = edgeResult.edges.some(edge => edge.type === "HANDLES" && edge.from === routeNode.id);
+      return hasHandler;
+    }
+  })
 
   const allNodes: CodeNode[] = [...parserResult.nodes, ...routeNodes, ...edgeResult.ghostNodes];
   const allEdges: CodeEdge[] = edgeResult.edges;

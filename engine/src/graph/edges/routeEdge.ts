@@ -80,6 +80,14 @@ function resolveBackendHandler(
   routeNode: CodeNode,
   lookup:    LookupMaps,
 ): CodeNode | undefined {
+
+  // check for the inline handler first. synthetic node for the inline function was created in the routesToCodeNodes function in the backendRoutes.ts extractor
+  const inlineHandlerId = routeNode.metadata.inlineHandlerId as string | undefined;
+  if(inlineHandlerId){
+    return lookup.nodesByFile.get(routeNode.filePath)?.find(n => n.id === inlineHandlerId);
+  }
+
+  //if no inline handler, then proceed with the regular handler name resolution
   const handlerName = routeNode.metadata.handlerName as string | undefined;
   if (!handlerName) return undefined;
 
@@ -97,7 +105,6 @@ function resolveBackendHandler(
   if (byName.length === 0) return undefined;
   if (byName.length === 1) return byName[0];
 
-  //another case can be (which is sort of a TODO: is that when the handler is itself a function and not some name/reference of the function). in the backendRoutes.ts extractor, I am currently not considering the case where the handler is an inline function, e.g. app.get('/path', (req, res) => { ... }). In that case, there won't be a named handler to link to at all, the TODO is to either assign this inline function block a node and thus a node id a well which should be unique btw, should I introduce a new type of node for this ? Ummm.....
 
   // Multiple candidates — pick the one whose filePath shares the most
   // path segments with the route file
@@ -121,7 +128,9 @@ function resolveNextjsApiHandler(
       n.metadata.isHttpHandler === true &&
       n.metadata.httpMethod    === httpMethod
   );
-
+  
+  // console.log("routeNode filePath:", filePath, "and handler => ", handler, "and http method => ", httpMethod);
+  // nodesInFile.forEach(n => console.log("candidate handler in file:", filePath, "for node name: ", n.name, "with metadata => ", n.metadata));
   if (handler) return handler;
 
   // Fallback — look for a node whose name exactly matches the HTTP method

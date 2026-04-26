@@ -150,15 +150,26 @@ export function analyzeBackendRoutes(repoPath: string): BackendRouteNode[] {
 
         // Extract handler name if last argument is a simple identifier
         let handlerName: string | undefined;
+        let inlineHandler: {rawCode: string, startLine: number, endLine: number} | undefined;
+
         if (args.length >= 2) {
-          const lastArgText = args[args.length - 1].getText();
+          const lastArg = args[args.length - 1];
+          const lastArgText = lastArg.getText();
+          
           if (
             !lastArgText.includes("=>") &&
             !lastArgText.includes("function") &&
             /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(lastArgText)
           ) {
             handlerName = lastArgText;
-          }
+          }else if(lastArgText.includes("=>") || lastArgText.includes("function")){
+            //extract the inline handler 
+            inlineHandler = {
+              rawCode:   lastArgText,
+              startLine: lastArg.getStartLineNumber(),
+              endLine:   lastArg.getEndLineNumber(),
+            }
+          };
         }
 
         const params = extractParams(urlPath);
@@ -169,6 +180,7 @@ export function analyzeBackendRoutes(repoPath: string): BackendRouteNode[] {
           filePath,
           httpMethod: normalizeMethod(methodName),
           handlerName,
+          inlineHandler,
           framework,
           isDynamic: params.length > 0,
           params: params.length > 0 ? params : undefined,

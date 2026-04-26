@@ -10,12 +10,12 @@ export interface FilterResult {
 // Default Thresholds — used when UI does not overrides, exposed as constants so contributors can tune them
 export const DEFAULT_THRESHOLDS = {
   // Non-FILE nodes below this score are removed
-  NODE_MIN_SCORE: 2.0,
+  NODE_MIN_SCORE: 0,
 
   // FILE nodes below this score are removed
   // Lower than node threshold because files can be important
   // even if their children scored low (e.g. constants files)
-  FILE_MIN_SCORE: 1.5,
+  FILE_MIN_SCORE: 0,
 
   // Ghost nodes are never removed — they represent real connections
   GHOST_MIN_SCORE: 0,

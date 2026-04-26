@@ -92,6 +92,11 @@ export interface BackendRouteNode {
   framework: BackendFramework;
   isDynamic: boolean;
   params?: string[];
+  inlineHandler?: {
+    rawCode: string;
+    startLine: number;
+    endLine: number;
+  }
 }
 
 // ─── Code Nodes ──────
