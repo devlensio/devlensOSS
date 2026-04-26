@@ -8,7 +8,7 @@ function makeId(filePath: string, name: string): string {
 }
 
 // Checks if a node returns JSX by looking for JSX elements in its body
-function returnsJSX(node: Node): boolean {
+export function returnsJSX(node: Node): boolean {
   const jsxElements = node.getDescendantsOfKind(SyntaxKind.JsxElement);
   const jsxSelfClosing = node.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement);
   const jsxFragments = node.getDescendantsOfKind(SyntaxKind.JsxFragment);

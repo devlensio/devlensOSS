@@ -1,5 +1,6 @@
 import { SourceFile, SyntaxKind } from "ts-morph";
 import type { CodeNode } from "../../types";
+import { returnsJSX } from "./components";
 
 // these are used to detect the routes in the Nextjs
 const HTTP_METHOD_EXPORTS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);
@@ -108,10 +109,10 @@ export function extractFunctions(file: SourceFile): CodeNode[] {
     const name = fn.getName();
     if (!name) continue;
 
-    // Skip React components (uppercase) — handled by components extractor.
+    // Skip React components (uppercase and must return JSX) — handled by components extractor.
     // Exception: HTTP method exports (GET, POST, etc.) are uppercase but are
     // route handlers, not components. Captured in the dedicated section below.
-    if (/^[A-Z]/.test(name) && !HTTP_METHOD_EXPORTS.has(name)) continue;
+    if (/^[A-Z]/.test(name) && !HTTP_METHOD_EXPORTS.has(name) && returnsJSX(fn)) continue;
 
     // Skip hooks - handled by hooks extractor
     if (/^use[A-Z]/.test(name)) continue;
