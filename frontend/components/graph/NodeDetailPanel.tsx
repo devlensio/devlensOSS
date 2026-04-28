@@ -112,6 +112,7 @@ const EDGE_COLORS: Record<string, string> = {
   GUARDS: "#d29922",
   HANDLES: "#8286bb",
   TESTS: "#f97316",
+  USES: "#a78bfa",
 };
 
 const METHOD_COLORS: Record<
@@ -211,6 +212,8 @@ function EdgeIcon({ type, color }: { type: string; color: string }) {
       return <HiOutlineGlobeAlt size={size} color={color} />;
     case "TESTS":
       return <GrDocumentTest size={size} color={color} />;
+    case "USES":
+      return <HiOutlineCommandLine size={size} color={color} />;
     default:
       return <HiOutlineBolt size={size} color={color} />;
   }

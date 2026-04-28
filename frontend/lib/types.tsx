@@ -23,7 +23,8 @@ export type EdgeType =
   | "WRAPPED_BY"
   | "GUARDS"
   | "HANDLES"
-  | "TESTS";
+  | "TESTS"
+  | "USES";
 
   export type RouteNodeType =
   | "PAGE"

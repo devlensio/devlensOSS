@@ -28,6 +28,42 @@ function extractHooks(node: Node): string[] {
   return [...new Set(hooks)]; // deduplicate
 }
 
+// This will return all the external calls made inside the component (meaning all the calls except the calls to the inner functions and the hooks)
+function extractAllCalls(node: Node): string[] {
+  const innerFunctionNames = new Set<string>();
+  
+  // variable declearations like const fn = () => {} or const fn = function() {}
+  for(const varDecl of node.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+    const name = varDecl.getName();
+    const init = varDecl.getInitializer();
+    if(!init) continue;
+    if(init.getKind() === SyntaxKind.ArrowFunction || init.getKind() === SyntaxKind.FunctionExpression) {
+      innerFunctionNames.add(name);
+    }
+  }
+
+  // Function declarations like function fn() {}
+  for(const fn of node.getDescendantsOfKind(SyntaxKind.FunctionDeclaration)) {
+    const name = fn.getName();
+    if(name) innerFunctionNames.add(name);
+  }
+
+  const calls = node.getDescendantsOfKind(SyntaxKind.CallExpression);
+  const externalCalls = new Set<string>();
+
+  for(const call of calls) {
+    const expr = call.getExpression();
+    const rootName = expr.getText().split(".")[0]; 
+
+    if(rootName.startsWith("use")) continue; // skip hooks
+    if(rootName.startsWith("React")) continue; // even if we dont skip this and it gets added in the external call, the edge will never be made because there is no node with the name starting with React in our graph, but still I am skipping it here to avoid confusion and noise in the metadata (same is the case with the hooks and other inbuilt functions as well, e.g. console.log, Math.round etc.)
+    if(innerFunctionNames.has(rootName)) continue; // skip calls to inner functions
+
+    externalCalls.add(rootName);
+  }
+  return [...externalCalls];
+}
+
 // Checks if a component has any state (useState or useReducer)
 function hasState(hooks: string[]): boolean {
   return hooks.includes("useState") || hooks.includes("useReducer");
@@ -51,6 +87,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
     if (!returnsJSX(fn)) continue;
 
     const hooks = extractHooks(fn);
+    const externalCalls = extractAllCalls(fn);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -62,6 +99,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
       rawCode: fn.getText(),
       metadata: {
         hooks,
+        uses: externalCalls,
         hasState: hasState(hooks),
         exportType: fn.isDefaultExport() ? "default" : "named",
       },
@@ -117,6 +155,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
     if (!returnsJSX(nodeToAnalyze)) continue;
 
     const hooks = extractHooks(nodeToAnalyze);
+    const externalCalls = extractAllCalls(nodeToAnalyze);
 
     const variableStatement = variable.getVariableStatement();
     const isExported = variableStatement
@@ -136,6 +175,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
       rawCode: variable.getText(),
       metadata: {
         hooks,
+        uses: externalCalls,
         hasState: hasState(hooks),
         exportType: isDefault ? "default" : isExported ? "named" : "none",
         isMemoized: isMemoOrForwardRef,  // useful metadata for scoring later

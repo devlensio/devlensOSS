@@ -147,7 +147,8 @@ export type EdgeType =
   | "WRAPPED_BY"
   | "GUARDS"
   | "HANDLES"  // SPECIAL EDGES FOR THE ROUTE NODE TYPE
-  | "TESTS";  //Special edge from Test files to the components/nodes it tests
+  | "TESTS"  //Special edge from Test files to the components/nodes it tests
+  | "USES";  // New type of Edge added, specific for JSX components to external functions it USES 
 
 export interface CodeEdge {
   from: string;
