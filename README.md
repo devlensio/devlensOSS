@@ -15,7 +15,7 @@ Turn any repo into an interactive dependency graph — with AI summaries, import
 
 ---
 
-[![DevLens Demo](assets/image.png)](https://youtu.be/G27jKbVUsTo)
+[![DevLens Demo](assets/image.png)](https://youtu.be/6OMsk8lNv4c?si=wpYF80IcfuJpN_Gf)
 *Click to watch the demo*
 
 </div>
