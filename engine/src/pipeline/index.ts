@@ -299,6 +299,7 @@ export async function analyzePipeline(
       const hasHandler = edgeResult.edges.some(edge => edge.type === "HANDLES" && edge.from === routeNode.id);
       return hasHandler;
     }
+    return true;
   })
 
   const allNodes: CodeNode[] = [...parserResult.nodes, ...routeNodes, ...edgeResult.ghostNodes];
