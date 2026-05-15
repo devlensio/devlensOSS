@@ -13,3 +13,4 @@ export { analyzePipeline }   from "./pipeline";
 export { runSummarization }  from "./summarizer";
 export { resolveConfig }     from "./config";
 export { computeClusters }   from "./clustering";
+export { EDGE_LABELS } from "./summarizer/prompts";

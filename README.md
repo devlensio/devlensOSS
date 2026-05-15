@@ -61,7 +61,7 @@ Everything runs on your machine. Your code never leaves.
 ### Graph Engine
 
 - **Full AST analysis** via ts-morph — components, hooks, functions, stores, utilities, files, and API routes
-- **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`
+- **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`
 - **State layer detection** — detects Redux, Zustand, Jotai, and custom hooks, then maps every component that reads or writes to each store
 - **Importance scoring** — multi-pass algorithm considering complexity, fan-in, fan-out, and type bonuses
 - **Route entry points** — detects Next.js app/pages router and Express/Fastify/Koa routes; BFS expansion from HTTP endpoints reveals full call chains

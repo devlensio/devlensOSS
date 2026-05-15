@@ -33,7 +33,7 @@ export function buildEdgeIndex(edges: CodeEdge[]): EdgeIndex {
 
   for (const edge of edges) {
     getOrCreate(outgoing, edge.from, edge.type).push(edge.to);
-    getOrCreate(incoming, edge.to,   edge.type).push(edge.from);
+    getOrCreate(incoming, edge.to, edge.type).push(edge.from);
   }
 
   return { outgoing, incoming };
@@ -51,10 +51,10 @@ export function buildRouteIndex(routes: RouteNode[] | BackendRouteNode[]): Route
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface PromptContext {
-  node:        CodeNode;
-  allNodes:    Map<string, CodeNode>;  // id → node, built once before batch loop
-  edgeIndex:   EdgeIndex;              // built once via buildEdgeIndex()
-  routeIndex:  RouteIndex;             // built once via buildRouteIndex()
+  node: CodeNode;
+  allNodes: Map<string, CodeNode>;  // id → node, built once before batch loop
+  edgeIndex: EdgeIndex;              // built once via buildEdgeIndex()
+  routeIndex: RouteIndex;             // built once via buildRouteIndex()
   systemPrompt: string;                // built once via buildSystemPrompt()
 }
 
@@ -107,16 +107,19 @@ export function buildSystemPrompt(fingerprint: ProjectFingerprint): string {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const EDGE_LABELS: Record<string, string> = {
-  CALLS:      "Calls",
+export const EDGE_LABELS: Record<string, string> = {
+  CALLS: "Calls",
   READS_FROM: "Reads from",
-  WRITES_TO:  "Writes to",
-  GUARDS:     "Guards",
-  IMPORTS:    "Imports",
-  PROP_PASS:  "Passes props to",
-  EMITS:      "Emits event",
-  LISTENS:    "Listens to",
+  WRITES_TO: "Writes to",
+  IMPORTS: "Imports",
+  PROP_PASS: "Passes props to",
+  EMITS: "Emits event",
+  LISTENS: "Listens to",
   WRAPPED_BY: "Wrapped by",
+  GUARDS: "Guards",
+  HANDLES: "Handles",
+  TESTS: "Tests",
+  USES: "Uses"
 };
 
 // Renders a dep summary line — uses technicalSummary if available, else just the name.
@@ -206,7 +209,7 @@ function buildUserPrompt(ctx: PromptContext): string {
 export function buildPrompt(ctx: PromptContext): LLMMessage[] {
   return [
     { role: "system", content: ctx.systemPrompt },
-    { role: "user",   content: buildUserPrompt(ctx) },
+    { role: "user", content: buildUserPrompt(ctx) },
   ];
 }
 
@@ -214,7 +217,7 @@ export function buildPrompt(ctx: PromptContext): LLMMessage[] {
 // Used when cycleGroup.size <= MAX_GROUP_SUMMARY_SIZE.
 export function buildCycleGroupPrompt(
   nodeIds: string[],
-  ctx:     Omit<PromptContext, "node">
+  ctx: Omit<PromptContext, "node">
 ): LLMMessage[] {
   const nodes = nodeIds.map(id => ctx.allNodes.get(id)).filter(Boolean) as CodeNode[];
 
@@ -229,6 +232,6 @@ export function buildCycleGroupPrompt(
 
   return [
     { role: "system", content: systemWithNote },
-    { role: "user",   content: userContent },
+    { role: "user", content: userContent },
   ];
 }
