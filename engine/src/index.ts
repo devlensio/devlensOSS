@@ -14,3 +14,4 @@ export { runSummarization }  from "./summarizer";
 export { resolveConfig }     from "./config";
 export { computeClusters }   from "./clustering";
 export { EDGE_LABELS } from "./summarizer/prompts";
+export {CycleGroup, TopologicalResult} from "./summarizer/types";
