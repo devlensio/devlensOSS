@@ -39,3 +39,8 @@ yarn-error.log*
 *.swp
 
 *.tsbuildinfo
+
+engine/bun.lock
+engine/package-lock.json
+frontend/bun.lock
+frontend/package-lock.json
