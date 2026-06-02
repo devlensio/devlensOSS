@@ -15,7 +15,7 @@ Turn any repo into an interactive dependency graph — with AI summaries, import
 
 ---
 
-[![DevLens Demo](assets/image.png)](https://youtu.be/G27jKbVUsTo)
+[![DevLens Demo](assets/image.png)](https://youtu.be/6OMsk8lNv4c?si=wpYF80IcfuJpN_Gf)
 *Click to watch the demo*
 
 </div>
@@ -25,11 +25,11 @@ Turn any repo into an interactive dependency graph — with AI summaries, import
 ## Table of Contents
 
 - [What is DevLens?](#what-is-devlens)
+- [Getting Started](#getting-started)
 - [Key Features](#key-features)
 - [How It Works](#how-it-works)
 - [Performance](#performance)
 - [Use Cases](#use-cases)
-- [Getting Started](#getting-started)
 - [Configuration](#configuration)
 - [DevLens Cloud](#devlens-cloud)
 - [Project Structure](#project-structure)
@@ -56,12 +56,59 @@ Everything runs on your machine. Your code never leaves.
 
 ---
 
+## Getting Started
+
+### Prerequisites
+
+- [Bun](https://bun.sh) v1.0+
+- Node.js 18+
+- An LLM provider API key (optional, only if you want summaries)(see [Configuration](#configuration))
+
+### Installation
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/devlensio/devlensOSS.git
+cd devlensOSS
+
+# 2. Install all dependencies (engine + frontend + shared)
+bun install
+
+# 3. Configure environment (optional — can also be set in the UI)
+cp .env.example .env
+# Edit .env with your LLM provider settings
+
+# 4. Start both servers
+bun run dev
+```
+
+The engine starts at `http://localhost:3000` and the frontend at `http://localhost:3001`. Make sure both ports are available before starting.
+
+Open `http://localhost:3001`, paste the absolute path to any React/Next.js/Node.js/Express repo (it must have a `package.json` in the root), and click **Analyze**.
+
+### Quick start with Ollama (free, local)
+
+```bash
+# Install Ollama from https://ollama.ai
+ollama pull qwen2.5-coder:7b
+
+# In your .env:
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen2.5-coder:7b
+
+bun run dev
+```
+
+> **Note:** Local Ollama models are functional but slow — expect hours for large repos. For best results, use a fast hosted model like `grok-4.1-fast` via OpenRouter. Avoid free-tier OpenRouter models as they have rate limits too low for full summarization runs (free models don't work most of the times).
+
+---
+
 ## Key Features
 
 ### Graph Engine
 
 - **Full AST analysis** via ts-morph — components, hooks, functions, stores, utilities, files, and API routes
-- **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`
+- **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`
 - **State layer detection** — detects Redux, Zustand, Jotai, and custom hooks, then maps every component that reads or writes to each store
 - **Importance scoring** — multi-pass algorithm considering complexity, fan-in, fan-out, and type bonuses
 - **Route entry points** — detects Next.js app/pages router and Express/Fastify/Koa routes; BFS expansion from HTTP endpoints reveals full call chains
@@ -156,52 +203,7 @@ Use K-hops to understand the neighbourhood of any node — what it calls and wha
 
 ---
 
-## Getting Started
 
-### Prerequisites
-
-- [Bun](https://bun.sh) v1.0+
-- Node.js 18+
-- An LLM provider API key (see [Configuration](#configuration))
-
-### Installation
-
-```bash
-# 1. Clone the repo
-git clone https://github.com/devlensio/devlensOSS.git
-cd devlensOSS
-
-# 2. Install all dependencies (engine + frontend + shared)
-bun install
-
-# 3. Configure environment (optional — can also be set in the UI)
-cp .env.example .env
-# Edit .env with your LLM provider settings
-
-# 4. Start both servers
-bun run dev
-```
-
-The engine starts at `http://localhost:3000` and the frontend at `http://localhost:3001`. Make sure both ports are available before starting.
-
-Open `http://localhost:3001`, paste the absolute path to any React/Next.js/Node.js/Express repo (it must have a `package.json` in the root), and click **Analyze**.
-
-### Quick start with Ollama (free, local)
-
-```bash
-# Install Ollama from https://ollama.ai
-ollama pull qwen2.5-coder:7b
-
-# In your .env:
-LLM_PROVIDER=ollama
-LLM_MODEL=qwen2.5-coder:7b
-
-bun run dev
-```
-
-> **Note:** Local Ollama models are functional but slow — expect hours for large repos. For best results, use a fast hosted model like `grok-4.1-fast` via OpenRouter. Avoid free-tier OpenRouter models as they have rate limits too low for full summarization runs (free models don't work most of the times).
-
----
 
 ## Configuration
 

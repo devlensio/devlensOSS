@@ -74,12 +74,12 @@ export interface TopologicalResult {
 
 // Edge types that drive topological sort order.
 // A node must wait for all nodes it has these edges TO before being summarized.
-export const HARD_DEPENDENCY_EDGES = new Set([
-  "CALLS",
-  "READS_FROM",
-  "WRITES_TO",
-  "GUARDS",
-]);
+// export const HARD_DEPENDENCY_EDGES = new Set([
+//   "CALLS",
+//   "READS_FROM",
+//   "WRITES_TO",
+//   "GUARDS",
+// ]);
 
 
 // Cycle groups at or below this size → summarize together in one LLM call
