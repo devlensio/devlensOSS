@@ -32,6 +32,7 @@ import {
   HiOutlineBookOpen,
 } from "react-icons/hi2";
 import { GrDocumentTest } from "react-icons/gr";
+import { sanitizeSummary, sanitizeHighlightedCode } from "@/lib/sanitize";
 
 hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("javascript", javascript);
@@ -276,7 +277,7 @@ function SummaryHtml({ html }: { html: string }) {
           maxHeight: expanded ? undefined : COLLAPSED_H,
           overflow: "hidden",
         }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeSummary(html) }}
       />
       {overflows && (
         <button
@@ -528,7 +529,7 @@ function CodeVersion({
           <pre
             className="p-4 overflow-x-auto leading-7 text-sm"
             style={{ maxHeight: 300 }}
-            dangerouslySetInnerHTML={{ __html: highlighted }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHighlightedCode(highlighted) }}
           />
         ) : (
           <p className="p-4 text-sm" style={{ color: C.textDim }}>
@@ -1072,7 +1073,7 @@ export default function NodeDetailPanel({
               <div
                 className="summary-html text-sm leading-relaxed"
                 style={{ color: `${sevC.text}cc` }}
-                dangerouslySetInnerHTML={{ __html: node.security!.summary }}
+                dangerouslySetInnerHTML={{ __html: sanitizeSummary(node.security!.summary) }}
               />
             </div>
           )}
@@ -1438,7 +1439,7 @@ export default function NodeDetailPanel({
                   <pre
                     className="p-4 overflow-x-auto overflow-y-auto leading-7 text-sm"
                     style={{ height: codeHeight }}
-                    dangerouslySetInnerHTML={{ __html: highlighted }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHighlightedCode(highlighted) }}
                   />
 
                   {/* Vertical resize handle */}

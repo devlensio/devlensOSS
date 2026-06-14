@@ -4,6 +4,7 @@ import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { toElements } from "./cytoscopeUtils";
 import { getCytoscapeStyles, getLayoutConfig } from "./cytoscapeConfig";
+import { sanitizeSummary } from "@/lib/sanitize";
 
 cytoscape.use(fcose);
 
@@ -271,7 +272,7 @@ export function NodeTooltip({
                     <div
                       className="summary-html"
                       style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
-                      dangerouslySetInnerHTML={{ __html: t.technicalSummary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.technicalSummary) }}
                     />
                   </div>
                 )}
@@ -288,7 +289,7 @@ export function NodeTooltip({
                     <div
                       className="summary-html"
                       style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
-                      dangerouslySetInnerHTML={{ __html: t.businessSummary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.businessSummary) }}
                     />
                   </div>
                 )}
