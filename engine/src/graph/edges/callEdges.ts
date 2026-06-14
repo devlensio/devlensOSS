@@ -1,5 +1,6 @@
 import type { CodeEdge, CodeNode } from "../../types";
 import type { LookupMaps } from "../buildLookup";
+import { closestByPath } from "./utils";
 
 
 export function detectCallEdges(nodes: CodeNode[], lookupMp: LookupMaps): CodeEdge[] {
@@ -29,33 +30,30 @@ export function detectCallEdges(nodes: CodeNode[], lookupMp: LookupMaps): CodeEd
             // e.g. stripe.create, console.log, Math.round
             if (calledName.includes(".")) continue;
             const targets = lookupMp.nodesByName.get(calledName);
-            if (!targets || targets.length === 0) continue;        // we are skipping this because this means that the calledName is not present in out map meaning that it's either an external library call or a built in function
+            if (!targets || targets.length === 0) continue;
 
-            //create edges
-            for (const target of targets) {   //do not get confuse with this loop, it is possible that there are multiple functions with the same name in different files, I have created edges for all of them (Though in the refining phase I will use proximity to detect the actual target)
+            // When multiple nodes share the same name, pick the one whose
+            // file path shares the most leading segments with the caller.
+            // This eliminates false edges to same-named functions in unrelated files.
+            const target = targets.length === 1
+                ? targets[0]
+                : closestByPath(targets, node.filePath);
 
-                //avoid self referencing edges
-                if (target.id === node.id) continue;
-                console.log("Edge type being pushed", edgeType);
-                edges.push({
-                    from: node.id,
-                    to: target.id,
-                    type: edgeType,
-                    metadata: {
-                        calledName
-                    }
-                });
+            if (target.id === node.id) continue; // skip self-reference
 
-                // Accumulate resolved call for metadata writeback
-                if (!resolvedCallsMap.has(node.id)) {
-                    resolvedCallsMap.set(node.id, []);
-                }
-                // Avoid duplicates (same name resolved to multiple targets)
-                const existing = resolvedCallsMap.get(node.id)!;
-                if (!existing.some(r => r.nodeId === target.id)) {
-                    existing.push({ name: calledName, nodeId: target.id });
-                }
+            edges.push({
+                from: node.id,
+                to: target.id,
+                type: edgeType,
+                metadata: { calledName },
+            });
 
+            if (!resolvedCallsMap.has(node.id)) {
+                resolvedCallsMap.set(node.id, []);
+            }
+            const existing = resolvedCallsMap.get(node.id)!;
+            if (!existing.some(r => r.nodeId === target.id)) {
+                existing.push({ name: calledName, nodeId: target.id });
             }
         }
 
