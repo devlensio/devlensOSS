@@ -3,6 +3,7 @@ import path from "path";
 import { Project, SyntaxKind } from "ts-morph";
 import type { CodeEdge, CodeNode } from "../../types";
 import type { LookupMaps } from "../buildLookup";
+import { closestByPath } from "./utils";
 
 // Recursively walk directory and add files to project
 // Same approach as parser — reliable on Windows
@@ -62,11 +63,6 @@ export function detectPropEdges(nodes: CodeNode[], lookupMp: LookupMaps, repoPat
         if (!sourceFile) continue;
 
 
-
-
-
-
-
         // Find all JSX elements in the file
         const jsxOpeningElements = sourceFile.getDescendantsOfKind(SyntaxKind.JsxOpeningElement);
         const jsxSelfClosingElements = sourceFile.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement);
@@ -83,6 +79,25 @@ export function detectPropEdges(nodes: CodeNode[], lookupMp: LookupMaps, repoPat
             // Skip HTML native elements — they start with lowercase
             if (/^[a-z]/.test(tagName)) continue;
 
+            // ── Context.Provider detection ─────────────────────────────────
+            // <AuthContext.Provider value={...}> signals this component
+            // provides that context to its subtree → WRITES_TO edge.
+            if (tagName.endsWith(".Provider")) {
+                const contextName = tagName.slice(0, -".Provider".length);
+                const ctxStore = lookupMp.storeNodes.find(
+                    n => n.name === contextName && n.metadata.storeType === "context"
+                );
+                if (ctxStore) {
+                    edges.push({
+                        from: component.id,
+                        to: ctxStore.id,
+                        type: "WRITES_TO",
+                        metadata: { isContextProvider: true },
+                    });
+                }
+                continue; // not a renderable component node — skip normal lookup
+            }
+
             const targetNodes = lookupMp.nodesByName.get(tagName);
             if (!targetNodes || targetNodes.length === 0) continue; // this means that this is not a component we extracted
 
@@ -98,37 +113,40 @@ export function detectPropEdges(nodes: CodeNode[], lookupMp: LookupMaps, repoPat
                 }
             }
 
-            //here we create the edge to each matching target component
-            for (const targetNode of targetNodes) {
-                if (targetNode.id === component.id) continue; //skip self referencing
+            // When multiple components share the same name, pick the one
+            // physically closest to the rendering file to avoid false edges.
+            const targetNode = targetNodes.length === 1
+                ? targetNodes[0]
+                : closestByPath(targetNodes, component.filePath);
 
-                const edgeKey = `${component.id}→${targetNode.id}`;
-                if (edgeIndex.has(edgeKey)) {
-                    // Edge already exists — update renderCount
-                    const idx = edgeIndex.get(edgeKey)!;
-                    const existing = edges[idx];
-                    const currentCount = existing.metadata?.renderCount as number ?? 1;
-                    edges[idx] = {
-                        ...existing,
-                        metadata: {
-                            ...existing.metadata,
-                            renderCount: currentCount + 1,
-                        },
-                    };
-                } else {
-                    // create new edge
-                    const newEdge: CodeEdge = {
-                        from: component.id,
-                        to: targetNode.id,
-                        type: "PROP_PASS",
-                        metadata: {
-                            props,
-                            renderCount: 1,
-                        }
-                    };
-                    edgeIndex.set(edgeKey, edges.length);
-                    edges.push(newEdge);
-                }
+            if (targetNode.id === component.id) continue; //skip self referencing
+
+            const edgeKey = `${component.id}→${targetNode.id}`;
+            if (edgeIndex.has(edgeKey)) {
+                // Edge already exists — update renderCount
+                const idx = edgeIndex.get(edgeKey)!;
+                const existing = edges[idx];
+                const currentCount = existing.metadata?.renderCount as number ?? 1;
+                edges[idx] = {
+                    ...existing,
+                    metadata: {
+                        ...existing.metadata,
+                        renderCount: currentCount + 1,
+                    },
+                };
+            } else {
+                // create new edge
+                const newEdge: CodeEdge = {
+                    from: component.id,
+                    to: targetNode.id,
+                    type: "PROP_PASS",
+                    metadata: {
+                        props,
+                        renderCount: 1,
+                    }
+                };
+                edgeIndex.set(edgeKey, edges.length);
+                edges.push(newEdge);
             }
         }
     }

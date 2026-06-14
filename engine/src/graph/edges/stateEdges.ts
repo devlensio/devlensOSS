@@ -44,7 +44,8 @@ export function detectStateEdges(
     // Only components and hooks use state
     if (node.type !== "COMPONENT" && node.type !== "HOOK") continue;
 
-    const hooks = node.metadata.hooks as string[] | undefined;
+    // COMPONENT nodes store hook calls in metadata.hooks; HOOK nodes use metadata.dependencies
+    const hooks = (node.type === "HOOK" ? node.metadata.dependencies : node.metadata.hooks) as string[] | undefined;
     if (!hooks || hooks.length === 0) continue;
 
     for (const hookName of hooks) {
@@ -100,31 +101,21 @@ export function detectStateEdges(
       }
 
       // ─── Context ──────────────────────────────────────────────────────────
-      // useContext(AuthContext) — the argument tells us which context
-      // We stored context stores in storesByName by their variable name
-      // e.g. AuthContext, ThemeContext
-      // We can't get the argument here from metadata alone
-      // so we check if any context store name appears in the hooks list
-      // This is a heuristic — precise detection requires ts-morph on source
+      // useContext(AuthContext) — the parser now extracts the argument name
+      // and stores it in metadata.contextRefs (e.g. ["AuthContext"]).
+      // We do a direct name lookup so the edge is always correct.
+      // useContext is read-only — no WRITES_TO edge here.
       if (CONTEXT_HOOKS.includes(hookName)) {
-        // Look for context stores whose name appears as a dependency
-        // of this component — stored in metadata as hooks or calls
-        const calls = node.metadata.calls as string[] | undefined;
-        const allRefs = [...hooks, ...(calls || [])];
+        const contextRefs = node.metadata.contextRefs as string[] | undefined;
+        if (!contextRefs || contextRefs.length === 0) continue;
 
-        for (const ref of allRefs) {
+        for (const ref of contextRefs) {
           const contextStore = storesByName.get(ref);
           if (contextStore && contextStore.metadata.storeType === "context") {
             edges.push({
               from: node.id,
               to: contextStore.id,
               type: "READS_FROM",
-              metadata: { hookUsed: hookName, storeType: "context" },
-            });
-            edges.push({
-              from: node.id,
-              to: contextStore.id,
-              type: "WRITES_TO",
               metadata: { hookUsed: hookName, storeType: "context" },
             });
           }

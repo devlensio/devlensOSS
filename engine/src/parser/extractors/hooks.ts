@@ -1,4 +1,4 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { SourceFile, SyntaxKind, Node } from "ts-morph";
 import type { CodeNode } from "../../types";
 
 function makeId(filePath: string, name: string): string {
@@ -15,6 +15,17 @@ function extractDependencies(node: any): string[] {
     }
   }
   return [...new Set(deps)];
+}
+
+function extractContextRefs(node: Node): string[] {
+  const refs: string[] = [];
+  for (const call of node.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getText() === "useContext") {
+      const arg = call.getArguments()[0];
+      if (arg) refs.push(arg.getText());
+    }
+  }
+  return [...new Set(refs)];
 }
 
 function extractReturnType(node: any): string {
@@ -48,6 +59,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
     const dependencies = extractDependencies(fn);
     const returnType = extractReturnType(fn);
     const isAsync = fn.isAsync();
+    const contextRefs = extractContextRefs(fn);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -58,8 +70,9 @@ export function extractHooks(file: SourceFile): CodeNode[] {
       endLine: fn.getEndLineNumber(),
       rawCode: fn.getText(),
       metadata: {
-        dependencies,   // other hooks this hook uses internally
-        returnType,     // array, object, or void
+        dependencies,
+        contextRefs,
+        returnType,
         isAsync,
       },
     });
@@ -83,6 +96,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
     const dependencies = extractDependencies(initializer);
     const returnType = extractReturnType(initializer);
     const isAsync = initializer.asKind(SyntaxKind.ArrowFunction)?.isAsync() ?? false;
+    const contextRefs = extractContextRefs(initializer);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -94,6 +108,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
       rawCode: variable.getText(),
       metadata: {
         dependencies,
+        contextRefs,
         returnType,
         isAsync,
       },

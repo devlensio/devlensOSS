@@ -28,6 +28,21 @@ function extractHooks(node: Node): string[] {
   return [...new Set(hooks)]; // deduplicate
 }
 
+// Extracts the context variable names passed to useContext() calls.
+// e.g. useContext(AuthContext) → ["AuthContext"]
+// This is stored separately from hooks so stateEdges.ts can do a direct
+// name lookup instead of relying on a fragile heuristic.
+function extractContextRefs(node: Node): string[] {
+  const refs: string[] = [];
+  for (const call of node.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getText() === "useContext") {
+      const arg = call.getArguments()[0];
+      if (arg) refs.push(arg.getText());
+    }
+  }
+  return [...new Set(refs)];
+}
+
 // This will return all the external calls made inside the component (meaning all the calls except the calls to the inner functions and the hooks)
 function extractAllCalls(node: Node): string[] {
   const innerFunctionNames = new Set<string>();
@@ -88,6 +103,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
 
     const hooks = extractHooks(fn);
     const externalCalls = extractAllCalls(fn);
+    const contextRefs = extractContextRefs(fn);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -99,6 +115,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
       rawCode: fn.getText(),
       metadata: {
         hooks,
+        contextRefs,
         uses: externalCalls,
         hasState: hasState(hooks),
         exportType: fn.isDefaultExport() ? "default" : "named",
@@ -156,6 +173,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
 
     const hooks = extractHooks(nodeToAnalyze);
     const externalCalls = extractAllCalls(nodeToAnalyze);
+    const contextRefs = extractContextRefs(nodeToAnalyze);
 
     const variableStatement = variable.getVariableStatement();
     const isExported = variableStatement
@@ -175,6 +193,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
       rawCode: variable.getText(),
       metadata: {
         hooks,
+        contextRefs,
         uses: externalCalls,
         hasState: hasState(hooks),
         exportType: isDefault ? "default" : isExported ? "named" : "none",
