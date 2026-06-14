@@ -93,20 +93,22 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
 
   const cyNodes = nodes.map(n => ({
     data: {
-      id:               n.id,
-      label:            n.name,
-      type:             n.type,
-      filePath:         n.filePath,
-      score:            n.score ?? 0,
-      size:             scoreToSize(n.score ?? 0, min, max),
-      startLine:        n.startLine,
-      endLine:          n.endLine,
-      parentFile:       n.parentFile,
-      codeHash:         n.codeHash,
-      technicalSummary: n.technicalSummary,
-      businessSummary:  n.businessSummary,
-      summarizedAt:     n.summarizedAt,
-      metadata:         n.metadata,
+      id:                n.id,
+      label:             n.name,
+      type:              n.type,
+      filePath:          n.filePath,
+      score:             n.score ?? 0,
+      size:              scoreToSize(n.score ?? 0, min, max),
+      startLine:         n.startLine,
+      endLine:           n.endLine,
+      parentFile:        n.parentFile,
+      codeHash:          n.codeHash,
+      technicalSummary:  n.technicalSummary,
+      businessSummary:   n.businessSummary,
+      summarizedAt:      n.summarizedAt,
+      metadata:          n.metadata,
+      // Hoisted from metadata so Cytoscape CSS selectors can target it directly
+      renderingBoundary: (n.metadata?.renderingBoundary as string) ?? null,
     }
   }));
 

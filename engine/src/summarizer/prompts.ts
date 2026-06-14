@@ -69,18 +69,34 @@ Your job is to summarize a single code node based on its source code and context
 Respond ONLY in this exact XML format — no preamble, no explanation outside the tags:
 
 <technical>
-What this code does: its inputs, outputs, side effects, and key logic.
+HTML content describing what this code does: its inputs, outputs, side effects, and key logic.
 </technical>
 <business>
-What problem this solves in the product. What feature or domain it belongs to.
+HTML content describing what problem this solves in the product and what feature or domain it belongs to.
 </business>
 <security_severity>none|low|medium|high</security_severity>
 <security_summary>
-If severity is not none: describe the vulnerability, what data is at risk, and how it could be exploited.
+HTML content describing the vulnerability (if severity is not none): what data is at risk and how it could be exploited.
 Leave empty if severity is none.
 </security_summary>
 
-Severity guide:
+## Formatting rules for content inside the XML tags
+Use HTML markup — the output is rendered in a browser. Follow these conventions:
+
+- Inline code, function names, variable names, parameter names, file paths:
+    <code>functionName()</code>  or  <code>someVariable</code>
+- Multi-line code blocks (more than one line of code):
+    <pre><code>const x = 1;\nreturn x;</code></pre>
+- Key points / bullet lists:
+    <ul><li>First point.</li><li>Second point.</li></ul>
+- Numbered steps (only when order matters):
+    <ol><li>Step one.</li><li>Step two.</li></ol>
+- Bold for important terms or labels: <strong>important</strong>
+- No <h1>/<h2> headings — use <strong> inline labels instead.
+- No inline styles. No <div> wrappers. No Markdown (no **, no backticks, no #).
+- Write in plain prose sentences; use lists only when there are three or more distinct items.
+
+## Severity guide
   none   — no security concerns
   low    — minor issue, limited impact (e.g. verbose error messages)
   medium — potential vulnerability, needs attention (e.g. missing input validation)

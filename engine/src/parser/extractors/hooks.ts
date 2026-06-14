@@ -1,5 +1,6 @@
 import { SourceFile, SyntaxKind, Node } from "ts-morph";
 import type { CodeNode } from "../../types";
+import { detectFunctionDirective, type RenderingBoundary } from "../directives";
 
 function makeId(filePath: string, name: string): string {
   return `${filePath}::${name}`;
@@ -42,7 +43,7 @@ function extractReturnType(node: any): string {
   return "unknown";
 }
 
-export function extractHooks(file: SourceFile): CodeNode[] {
+export function extractHooks(file: SourceFile, fileDirective: RenderingBoundary = null): CodeNode[] {
   const nodes: CodeNode[] = [];
   const filePath = file.getFilePath();
 
@@ -60,6 +61,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
     const returnType = extractReturnType(fn);
     const isAsync = fn.isAsync();
     const contextRefs = extractContextRefs(fn);
+    const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
 
     nodes.push({
       id: makeId(filePath, name),
@@ -74,6 +76,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
         contextRefs,
         returnType,
         isAsync,
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }
@@ -97,6 +100,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
     const returnType = extractReturnType(initializer);
     const isAsync = initializer.asKind(SyntaxKind.ArrowFunction)?.isAsync() ?? false;
     const contextRefs = extractContextRefs(initializer);
+    const renderingBoundary = detectFunctionDirective((initializer as any).getBody?.()) ?? fileDirective;
 
     nodes.push({
       id: makeId(filePath, name),
@@ -111,6 +115,7 @@ export function extractHooks(file: SourceFile): CodeNode[] {
         contextRefs,
         returnType,
         isAsync,
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }

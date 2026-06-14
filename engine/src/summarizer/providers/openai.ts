@@ -52,7 +52,7 @@ export class OpenAIClient implements LLMClient {
     const response = await this.client.chat.completions.create({
       model:       this.model,
       temperature: request.temperature ?? 0,
-      max_tokens:  request.maxTokens   ?? 1024,
+      max_tokens:  request.maxTokens   ?? 2048,
       messages:    request.messages.map(m => ({ role: m.role, content: m.content })),
     });
 

@@ -58,7 +58,7 @@ export class AnthropicClient implements LLMClient {
 
     const response = await this.client.messages.create({
       model:      this.model,
-      max_tokens: request.maxTokens  ?? 1024,
+      max_tokens: request.maxTokens  ?? 2048,
       temperature: request.temperature ?? 0,
       system:     systemMessage?.content,
       messages:   userMessages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),

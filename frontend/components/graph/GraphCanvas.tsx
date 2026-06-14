@@ -1,5 +1,5 @@
 import { CodeEdge, CodeNode } from "@/lib/types";
-import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useImperativeHandle, forwardRef, useState } from "react";
 import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { toElements } from "./cytoscopeUtils";
@@ -9,15 +9,19 @@ cytoscape.use(fcose);
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
-interface TooltipInfo {
-  x:        number;
-  y:        number;
-  type:     string;
-  filePath: string;
-  score:    number;
-  hasState: boolean;
-  hooks:    string[];
-  children: string[];
+export interface TooltipInfo {
+  x:                 number;
+  y:                 number;
+  name:              string;
+  type:              string;
+  filePath:          string;
+  score:             number;
+  hasState:          boolean;
+  hooks:             string[];
+  children:          string[];
+  renderingBoundary: string | null;
+  technicalSummary?: string;
+  businessSummary?:  string;
 }
 
 const TOOLTIP_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -33,85 +37,264 @@ const TOOLTIP_TYPE_COLORS: Record<string, { bg: string; text: string; border: st
   STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },
 };
 
-function NodeTooltip({ t }: { t: TooltipInfo }) {
-  const colors = TOOLTIP_TYPE_COLORS[t.type] ?? { bg: "#21262d", text: "#8b949e", border: "#30363d" };
-  const shortPath = t.filePath.split("/").slice(-3).join("/");
-  const hasExtra = t.hasState || t.hooks.length > 0 || t.children.length > 0;
+export function NodeTooltip({
+  t,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  t:             TooltipInfo;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [posStyle, setPosStyle] = useState<React.CSSProperties>({
+    position: "absolute", left: t.x + 16, top: t.y - 8,
+    transform: "translateY(-100%)", opacity: 0, zIndex: 50,
+  });
+  const [summaryOpen, setSummaryOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const parent = el.offsetParent?.getBoundingClientRect();
+    const pw = parent?.width ?? 9999;
+
+    const GAP = 16;
+    const fitsAbove = t.y - height - GAP >= 0;
+    const top       = fitsAbove ? t.y - 8 : t.y + GAP + 8;
+    const trY       = fitsAbove ? "-100%" : "0%";
+    const fitsRight = t.x + GAP + width <= pw;
+    const left      = fitsRight ? t.x + GAP : t.x - GAP - width;
+
+    setPosStyle({
+      position: "absolute", left, top,
+      transform: `translateY(${trY})`,
+      opacity: 1, zIndex: 50, transition: "opacity 0.1s",
+    });
+  }, [t.x, t.y]);
+
+  const hasSummary = !!(t.technicalSummary || t.businessSummary);
+  const colors     = TOOLTIP_TYPE_COLORS[t.type] ?? { bg: "#21262d", text: "#8b949e", border: "#30363d" };
+  const shortPath  = t.filePath.split("/").slice(-3).join("/");
+  const scoreNorm  = Math.min(Math.max((t.score ?? 0) / 10, 0), 1);
+  const scoreColor = scoreNorm > 0.6 ? "#2dd4bf" : scoreNorm > 0.3 ? "#f59e0b" : "#6e7681";
+  const hasDetails = t.hasState || t.hooks.length > 0;
+
+  const row: React.CSSProperties = {
+    display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6,
+  };
+  const lbl: React.CSSProperties = {
+    fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
+    textTransform: "uppercase", color: "#3c4a46", width: 40, flexShrink: 0, paddingTop: 1,
+  };
 
   return (
     <div
-      className="absolute pointer-events-none z-50"
-      style={{ left: t.x + 16, top: t.y - 8, transform: "translateY(-100%)" }}
+      ref={ref}
+      style={{ ...posStyle, pointerEvents: hasSummary ? "auto" : "none" }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
-      <div
-        className="rounded-lg px-3 py-2.5 text-xs shadow-xl"
-        style={{
-          background: "#161b22",
-          border: "1px solid #30363d",
-          minWidth: 180,
-          maxWidth: 280,
-        }}
-      >
-        {/* Type badge */}
-        <span
-          className="inline-block mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
-          style={{ background: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
-        >
-          {t.type.replace("_", " ")}
-        </span>
+      <div style={{
+        background:   "#0d1117",
+        border:       "1px solid #1e2530",
+        borderRadius: 10,
+        minWidth:     210,
+        maxWidth:     300,
+        overflow:     "hidden",
+        boxShadow:    "0 20px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03)",
+        fontFamily:   "system-ui, -apple-system, sans-serif",
+      }}>
 
-        {/* File path */}
-        <div
-          className="font-mono truncate"
-          style={{ color: "#2dd4bf" }}
-          title={t.filePath}
-        >
-          {shortPath}
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div style={{ padding: "11px 13px 10px", borderBottom: "1px solid #161b22" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 7 }}>
+            <span style={{
+              padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase",
+              background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+            }}>
+              {t.type.replace("_", " ")}
+            </span>
+            {t.renderingBoundary && (
+              <span style={{
+                padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                letterSpacing: "0.08em", textTransform: "uppercase",
+                background: t.renderingBoundary === "client" ? "#06b6d414" : "#f59e0b14",
+                color:      t.renderingBoundary === "client" ? "#06b6d4"   : "#f59e0b",
+                border:     `1px solid ${t.renderingBoundary === "client" ? "#06b6d428" : "#f59e0b28"}`,
+              }}>
+                {t.renderingBoundary}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#e6edf3", marginBottom: 3, lineHeight: 1.3, wordBreak: "break-word" }}>
+            {t.name}
+          </div>
+          <div style={{ fontSize: 10, fontFamily: "monospace", color: "#3c4a46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.filePath}>
+            {shortPath}
+          </div>
         </div>
 
-        {/* Divider */}
-        {hasExtra && (
-          <div className="my-2" style={{ borderTop: "1px solid #21262d" }} />
-        )}
-
-        {/* Hooks */}
-        {t.hooks.length > 0 && (
-          <div className="font-mono truncate mb-1" style={{ color: "#6e7681", fontSize: "10px" }}>
-            {t.hooks.slice(0, 4).join(", ")}{t.hooks.length > 4 ? " …" : ""}
-          </div>
-        )}
-
-        {/* Local state pill */}
-        {t.hasState && (
-          <div className="flex items-center gap-1.5 mb-1" style={{ color: "#8b949e" }}>
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#60a5fa" }} />
-            Local state
-          </div>
-        )}
-
-        {/* Direct children */}
-        {t.children.length > 0 && (
-          <div className="mt-1">
-            <div className="uppercase tracking-wide mb-1" style={{ color: "#484f58", fontSize: "10px" }}>
-              Children
+        {/* ── Score ──────────────────────────────────────────────── */}
+        <div style={{ padding: "9px 13px", borderBottom: (hasDetails || t.children.length > 0 || hasSummary) ? "1px solid #161b22" : undefined }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ ...lbl, paddingTop: 0 }}>Score</span>
+            <div style={{ flex: 1, height: 3, background: "#1c2128", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ width: `${scoreNorm * 100}%`, height: "100%", background: scoreColor, borderRadius: 999 }} />
             </div>
-            <div className="flex flex-wrap gap-1">
-              {t.children.slice(0, 8).map((name) => (
-                <span
-                  key={name}
-                  className="px-1.5 py-0.5 rounded font-mono"
-                  style={{ background: "#21262d", color: "#8b949e", fontSize: "10px" }}
-                >
+            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#8b949e", flexShrink: 0, minWidth: "3ch", textAlign: "right" }}>
+              {(t.score ?? 0).toFixed(1)}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Hooks + State ──────────────────────────────────────── */}
+        {hasDetails && (
+          <div style={{ padding: "9px 13px", borderBottom: (t.children.length > 0 || hasSummary) ? "1px solid #161b22" : undefined }}>
+            {t.hooks.length > 0 && (
+              <div style={{ ...row, marginBottom: t.hasState ? 6 : 0 }}>
+                <span style={lbl}>Hooks</span>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: "#6e7681", lineHeight: 1.6, wordBreak: "break-word" }}>
+                  {t.hooks.slice(0, 6).join(", ")}{t.hooks.length > 6 ? ` +${t.hooks.length - 6}` : ""}
+                </span>
+              </div>
+            )}
+            {t.hasState && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={lbl}>State</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#60a5fa" }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#60a5fa", flexShrink: 0 }} />
+                  local state
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Children ───────────────────────────────────────────── */}
+        {t.children.length > 0 && (
+          <div style={{ padding: "9px 13px", borderBottom: hasSummary ? "1px solid #161b22" : undefined }}>
+            <div style={{ fontSize: 9, fontFamily: "monospace", color: "#3c4a46", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6 }}>
+              Children · {t.children.length}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {t.children.slice(0, 9).map((name) => (
+                <span key={name} style={{
+                  padding: "2px 6px", borderRadius: 4, fontSize: 10,
+                  fontFamily: "monospace", background: "#161b22",
+                  color: "#8b949e", border: "1px solid #1e2530",
+                }}>
                   {name}
                 </span>
               ))}
-              {t.children.length > 8 && (
-                <span className="px-1.5 py-0.5" style={{ color: "#484f58", fontSize: "10px" }}>
-                  +{t.children.length - 8} more
+              {t.children.length > 9 && (
+                <span style={{ fontSize: 10, color: "#484f58", padding: "2px 4px" }}>
+                  +{t.children.length - 9}
                 </span>
               )}
             </div>
           </div>
+        )}
+
+        {/* ── Summary accordion ──────────────────────────────────── */}
+        {hasSummary && (
+          <>
+            <style>{`
+              .summary-html code {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                font-size: 0.8em;
+                background: rgba(255,255,255,0.08);
+                border-radius: 4px;
+                padding: 0.1em 0.4em;
+              }
+              .summary-html pre {
+                background: rgba(0,0,0,0.4);
+                border-radius: 6px;
+                padding: 0.5em 0.75em;
+                overflow-x: auto;
+                margin: 0.4em 0;
+                font-size: 0.8em;
+              }
+              .summary-html pre code { background: none; padding: 0; font-size: 1em; }
+              .summary-html ul, .summary-html ol { padding-left: 1.1em; margin: 0.25em 0; }
+              .summary-html li { margin: 0.15em 0; }
+              .summary-html strong { font-weight: 600; }
+              .summary-html p { margin: 0.25em 0; }
+              .summary-html p:first-child { margin-top: 0; }
+              .summary-html p:last-child  { margin-bottom: 0; }
+            `}</style>
+            <button
+              onClick={() => setSummaryOpen(o => !o)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 13px", cursor: "pointer",
+                background: summaryOpen ? "#0d1117" : "transparent",
+                border: "none",
+                borderBottom: summaryOpen ? "1px solid #161b22" : "none",
+                transition: "background 0.15s",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+              }}
+              onMouseEnter={e => { if (!summaryOpen) (e.currentTarget as HTMLElement).style.background = "#161b2280"; }}
+              onMouseLeave={e => { if (!summaryOpen) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: summaryOpen ? "#8b949e" : "#6e7681" }}>
+                <span style={{
+                  fontSize: 7, color: summaryOpen ? "#2dd4bf" : "#484f58",
+                  transform: summaryOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s, color 0.15s",
+                  display: "inline-block",
+                }}>▶</span>
+                Summary
+              </span>
+              {!summaryOpen && (
+                <span style={{ fontSize: 9, color: "#3c4a46", fontFamily: "monospace" }}>
+                  {t.technicalSummary && t.businessSummary ? "2 sections" : t.technicalSummary ? "technical" : "business"}
+                </span>
+              )}
+            </button>
+
+            {summaryOpen && (
+              <div style={{ padding: "11px 13px", maxHeight: 240, overflowY: "auto" }}>
+                {t.technicalSummary && (
+                  <div style={{ marginBottom: t.businessSummary ? 14 : 0 }}>
+                    <div style={{
+                      fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
+                      textTransform: "uppercase", color: "#60a5fa40",
+                      marginBottom: 5, display: "flex", alignItems: "center", gap: 5,
+                    }}>
+                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#60a5fa60", flexShrink: 0, display: "inline-block" }} />
+                      Technical
+                    </div>
+                    <div
+                      className="summary-html"
+                      style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
+                      dangerouslySetInnerHTML={{ __html: t.technicalSummary }}
+                    />
+                  </div>
+                )}
+                {t.businessSummary && (
+                  <div>
+                    <div style={{
+                      fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
+                      textTransform: "uppercase", color: "#2dd4bf40",
+                      marginBottom: 5, display: "flex", alignItems: "center", gap: 5,
+                    }}>
+                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#2dd4bf60", flexShrink: 0, display: "inline-block" }} />
+                      Business
+                    </div>
+                    <div
+                      className="summary-html"
+                      style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
+                      dangerouslySetInnerHTML={{ __html: t.businessSummary }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -139,8 +322,9 @@ interface GraphCanvasProps {
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
   ({ nodes, edges, onNodeClick }, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const cyRef        = useRef<cytoscape.Core | null>(null);
+    const containerRef  = useRef<HTMLDivElement>(null);
+    const cyRef         = useRef<cytoscape.Core | null>(null);
+    const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -273,22 +457,34 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           }
         });
 
+        if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
         setTooltip({
-          x:        pos.x,
-          y:        pos.y,
-          type:     e.target.data("type")     as string,
-          filePath: e.target.data("filePath") as string,
-          score:    e.target.data("score")    as number,
-          hasState: !!(meta?.hasState),
+          x:                 pos.x,
+          y:                 pos.y,
+          name:              e.target.data("label")             as string,
+          type:              e.target.data("type")              as string,
+          filePath:          e.target.data("filePath")          as string,
+          score:             e.target.data("score")             as number,
+          hasState:          !!(meta?.hasState),
           hooks,
           children,
+          renderingBoundary: (e.target.data("renderingBoundary") as string) ?? null,
+          technicalSummary:  e.target.data("technicalSummary")  as string | undefined,
+          businessSummary:   e.target.data("businessSummary")   as string | undefined,
         });
       });
       cy.on("mouseout", "node", (e) => {
         e.target.removeClass("hover");
+        // Brief delay so the user can move the mouse onto the tooltip (to read summaries)
+        hideTimerRef.current = setTimeout(() => {
+          setTooltip(null);
+          hideTimerRef.current = null;
+        }, 220);
+      });
+      cy.on("pan zoom", () => {
+        if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
         setTooltip(null);
       });
-      cy.on("pan zoom", () => setTooltip(null));
       cy.on("tap", (e) => {
         if (e.target === cy) {
           cy.nodes().style("z-index", 1);
@@ -309,7 +505,15 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           className="w-full h-full"
           style={{ background: "#13191f" }}
         />
-        {tooltip && <NodeTooltip t={tooltip} />}
+        {tooltip && (
+          <NodeTooltip
+            t={tooltip}
+            onMouseEnter={() => {
+              if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+            }}
+            onMouseLeave={() => setTooltip(null)}
+          />
+        )}
       </div>
     );
   },

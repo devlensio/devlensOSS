@@ -6,6 +6,7 @@ import { extractComponents } from "./extractors/components";
 import { extractHooks } from "./extractors/hooks";
 import { extractFunctions } from "./extractors/functions";
 import { extractStores } from "./extractors/stores";
+import { detectFileDirective } from "./directives";
 import { createHash } from "crypto";
 
 // Directories to skip entirely while walking
@@ -120,9 +121,10 @@ export function parseRepo(repoPath: string): ParserResult {
         },
       };
 
-      const components = extractComponents(file);
-      const hooks = extractHooks(file);
-      const functions = extractFunctions(file);
+      const fileDirective = detectFileDirective(file);
+      const components = extractComponents(file, fileDirective);
+      const hooks = extractHooks(file, fileDirective);
+      const functions = extractFunctions(file, fileDirective);
       const stores = extractStores(file);
 
       const extracted = [...components, ...hooks, ...functions, ...stores];

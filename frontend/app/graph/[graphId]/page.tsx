@@ -8,7 +8,7 @@ import { keys } from "@/lib/hooks";
 import GraphCanvas, { GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import NodeDetailPanel, { DiffInfo } from "@/components/graph/NodeDetailPanel";
 import Sidebar from "@/components/graph/Sidebar";
-import { EdgeType, NodeType, NodeDiff } from "@/lib/types";
+import { EdgeType, NodeType, NodeDiff, RenderingBoundary } from "@/lib/types";
 import FilterBar from "@/components/graph/FilterBar";
 import { buildAdjacency, bfsReachable } from "@/lib/graphAlgo";
 import { HiOutlineArrowPath, HiOutlineChevronDown } from "react-icons/hi2";
@@ -77,6 +77,7 @@ export default function GraphPage({ params }: Props) {
   const [routeHopDepth, setRouteHopDepth] = useState(2);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [highlightedIds, setHighlightedIds] = useState<string[]>([]);
+  const [activeBoundaries, setActiveBoundaries] = useState<Array<RenderingBoundary | "unset">>(["client", "server", "unset"]);
   const [diffMode, setDiffMode] = useState(false);
   const [diffData, setDiffData] = useState<NodeDiff | null>(null);
   const [diffFromHash, setDiffFromHash] = useState<string>("");
@@ -217,9 +218,13 @@ export default function GraphPage({ params }: Props) {
       seen.add(n.id);
 
       if (routeReachableIds.has(n.id)) return true;
-      return (
-        activeNodeTypes.includes(n.type) && (n.score ?? 0) >= scoreThreshold!
-      );
+      if (!activeNodeTypes.includes(n.type)) return false;
+      if ((n.score ?? 0) < scoreThreshold!) return false;
+
+      const rb = (n.metadata?.renderingBoundary as string) ?? "unset";
+      if (!activeBoundaries.includes(rb as any)) return false;
+
+      return true;
     });
 
     if (diffMode && diffData && diffNodeMap) {
@@ -244,6 +249,7 @@ export default function GraphPage({ params }: Props) {
     activeNodeTypes,
     scoreThreshold,
     routeReachableIds,
+    activeBoundaries,
     diffMode,
     diffData,
     diffNodeMap,
@@ -344,6 +350,7 @@ export default function GraphPage({ params }: Props) {
     setUserThreshold(null);
     setShowRouteNodes(false);
     setRouteHopDepth(2);
+    setActiveBoundaries(["client", "server", "unset"]);
     clearHighlight();
   }
 
@@ -473,6 +480,8 @@ export default function GraphPage({ params }: Props) {
             }
             isFullscreen={isFullscreen}
             onFullscreen={handleFullscreen}
+            activeBoundaries={activeBoundaries}
+            onBoundaryChange={setActiveBoundaries}
             onReset={handleReset}
           />
         )}

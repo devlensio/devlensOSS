@@ -7,7 +7,7 @@ import {
   OverlayGraph,
 } from "@/lib/types";
 import fcose from "cytoscape-fcose";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { toElements } from "./cytoscopeUtils";
 import cytoscape from "cytoscape";
@@ -16,6 +16,7 @@ import {
   getLayoutConfig,
 } from "./cytoscapeConfig";
 import OverlayFilterBar from "./OverlayFilterBar";
+import { NodeTooltip, TooltipInfo } from "./GraphCanvas";
 
 cytoscape.use(fcose);
 
@@ -45,6 +46,8 @@ export default function SubgraphOverlay({
   onNodeSelect,
 }: SubgraphOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
   // comute the subgraph (full BFS + full reverse BFS)
   const { subgraphNodes, subgraphEdges } = useMemo(() => {
@@ -151,7 +154,52 @@ export default function SubgraphOverlay({
       if (e.target === cy) onNodeSelect("");
     });
 
-    return () => cy.destroy();
+    cy.on("mouseover", "node", (e) => {
+      e.target.addClass("hover");
+      const pos = e.target.renderedPosition() as { x: number; y: number };
+      const meta = e.target.data("metadata") as Record<string, unknown> | undefined;
+      const hooks = Array.isArray(meta?.hooks) ? (meta!.hooks as string[]) : [];
+      const children: string[] = [];
+      e.target.outgoers("edge").forEach((edge: cytoscape.EdgeSingular) => {
+        if (edge.data("type") === "PROP_PASS") {
+          children.push(edge.target().data("label") as string);
+        }
+      });
+      if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+      setTooltip({
+        x:                 pos.x,
+        y:                 pos.y,
+        name:              e.target.data("label")             as string,
+        type:              e.target.data("type")              as string,
+        filePath:          e.target.data("filePath")          as string,
+        score:             e.target.data("score")             as number,
+        hasState:          !!(meta?.hasState),
+        hooks,
+        children,
+        renderingBoundary: (e.target.data("renderingBoundary") as string) ?? null,
+        technicalSummary:  e.target.data("technicalSummary")  as string | undefined,
+        businessSummary:   e.target.data("businessSummary")   as string | undefined,
+      });
+    });
+
+    cy.on("mouseout", "node", (e) => {
+      e.target.removeClass("hover");
+      hideTimerRef.current = setTimeout(() => {
+        setTooltip(null);
+        hideTimerRef.current = null;
+      }, 220);
+    });
+
+    cy.on("pan zoom", () => {
+      if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+      setTooltip(null);
+    });
+
+    return () => {
+      if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+      cy.destroy();
+      setTooltip(null);
+    };
   }, [subgraphEdges, subgraphNodes]);
 
   return (
@@ -215,7 +263,18 @@ export default function SubgraphOverlay({
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} className="flex-1 w-full" />
+      <div className="relative flex-1 w-full">
+        <div ref={containerRef} className="w-full h-full" />
+        {tooltip && (
+          <NodeTooltip
+            t={tooltip}
+            onMouseEnter={() => {
+              if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+            }}
+            onMouseLeave={() => setTooltip(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }

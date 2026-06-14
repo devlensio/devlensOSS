@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CodeNode, CodeEdge, NodeType, OverlayGraph } from "@/lib/types";
+import { getRenderingBoundary } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { bfsReachable, blastRadius, buildAdjacency } from "@/lib/graphAlgo";
 import hljs from "highlight.js/lib/core";
@@ -219,29 +220,67 @@ function EdgeIcon({ type, color }: { type: string; color: string }) {
   }
 }
 
-function ExpandableText({
-  text,
-  threshold = 180,
-}: {
-  text: string;
-  threshold?: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const long = text.length > threshold;
-  const displayed =
-    long && !open ? `${text.slice(0, threshold).trimEnd()}…` : text;
+const SUMMARY_HTML_STYLES = `
+  .summary-html code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8em;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+  }
+  .summary-html pre {
+    background: rgba(0,0,0,0.35);
+    border-radius: 8px;
+    padding: 0.65em 1em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+    font-size: 0.8em;
+  }
+  .summary-html pre code {
+    background: none;
+    padding: 0;
+    font-size: 1em;
+  }
+  .summary-html ul, .summary-html ol {
+    padding-left: 1.25em;
+    margin: 0.35em 0;
+  }
+  .summary-html li { margin: 0.2em 0; }
+  .summary-html strong { font-weight: 600; }
+  .summary-html p { margin: 0.3em 0; }
+  .summary-html p:first-child { margin-top: 0; }
+  .summary-html p:last-child  { margin-bottom: 0; }
+`;
+
+const COLLAPSED_H = 140;
+
+function SummaryHtml({ html }: { html: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setOverflows(el.scrollHeight > COLLAPSED_H + 4);
+  }, [html]);
 
   return (
     <div>
-      <p
-        className="text-sm leading-7 text-gray-300 tracking-wider!"
-        style={{ letterSpacing: "0.01em" }}
-      >
-        {displayed}
-      </p>
-      {long && (
+      <style>{SUMMARY_HTML_STYLES}</style>
+      <div
+        ref={ref}
+        className="summary-html text-sm leading-7 text-gray-300"
+        style={{
+          letterSpacing: "0.01em",
+          maxHeight: expanded ? undefined : COLLAPSED_H,
+          overflow: "hidden",
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {overflows && (
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setExpanded((v) => !v)}
           className="mt-2 cursor-pointer flex items-center gap-1 text-sm font-medium
                      transition-colors"
           style={{ color: C.teal }}
@@ -252,7 +291,7 @@ function ExpandableText({
             ((e.currentTarget as HTMLElement).style.opacity = "1")
           }
         >
-          {open ? "↑ Show less" : "↓ Read more"}
+          {expanded ? "↑ Show less" : "↓ Read more"}
         </button>
       )}
     </div>
@@ -771,6 +810,26 @@ export default function NodeDetailPanel({
                 {node.type.replace(/_/g, " ")}
               </span>
 
+              {/* Rendering boundary badge */}
+              {(() => {
+                const rb = getRenderingBoundary(node);
+                if (!rb) return null;
+                const isClient = rb === "client";
+                return (
+                  <span
+                    className="flex items-center gap-1 text-xs px-2 py-0.5
+                               rounded-full border font-medium uppercase tracking-wide"
+                    style={{
+                      background: isClient ? "#06b6d418" : "#f59e0b18",
+                      color:      isClient ? "#06b6d4"   : "#f59e0b",
+                      borderColor: isClient ? "#06b6d430" : "#f59e0b30",
+                    }}
+                  >
+                    {isClient ? "Client" : "Server"}
+                  </span>
+                );
+              })()}
+
               {/* Diff status badge */}
               {diffC && diffInfo && (
                 <span
@@ -1010,12 +1069,11 @@ export default function NodeDetailPanel({
                   {sev} risk
                 </span>
               </div>
-              <p
-                className="text-sm leading-relaxed"
+              <div
+                className="summary-html text-sm leading-relaxed"
                 style={{ color: `${sevC.text}cc` }}
-              >
-                {node.security!.summary}
-              </p>
+                dangerouslySetInnerHTML={{ __html: node.security!.summary }}
+              />
             </div>
           )}
           {console.log("Summaries for the nodes are : ", node) as any}
@@ -1042,7 +1100,7 @@ export default function NodeDetailPanel({
                       What it does
                     </span>
                   </div>
-                  <ExpandableText text={node.businessSummary} />
+                  <SummaryHtml html={node.businessSummary} />
                 </div>
               )}
 
@@ -1063,7 +1121,7 @@ export default function NodeDetailPanel({
                       Technical
                     </span>
                   </div>
-                  <ExpandableText text={node.technicalSummary} />
+                  <SummaryHtml html={node.technicalSummary} />
                 </div>
               )}
             </div>

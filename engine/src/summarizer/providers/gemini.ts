@@ -61,7 +61,7 @@ export class GeminiClient implements LLMClient {
       config: {
         systemInstruction: systemMessage?.content,
         temperature:       request.temperature ?? 0,
-        maxOutputTokens:   request.maxTokens   ?? 1024,
+        maxOutputTokens:   request.maxTokens   ?? 2048,
       },
     });
 

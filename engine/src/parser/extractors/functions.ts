@@ -1,6 +1,7 @@
 import { SourceFile, SyntaxKind } from "ts-morph";
 import type { CodeNode } from "../../types";
 import { returnsJSX } from "./components";
+import { detectFunctionDirective, type RenderingBoundary } from "../directives";
 
 // these are used to detect the routes in the Nextjs
 const HTTP_METHOD_EXPORTS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);
@@ -99,7 +100,7 @@ function extractThrowStatements(node: any): boolean {
   return throws.length > 0;
 }
 
-export function extractFunctions(file: SourceFile): CodeNode[] {
+export function extractFunctions(file: SourceFile, fileDirective: RenderingBoundary = null): CodeNode[] {
   const nodes: CodeNode[] = [];
   const filePath = file.getFilePath();
 
@@ -124,6 +125,7 @@ export function extractFunctions(file: SourceFile): CodeNode[] {
     const isAsync = fn.isAsync();
     const hasErrors = hasErrorHandling(fn);
     const throws = extractThrowStatements(fn);
+    const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
 
     nodes.push({
       id: makeId(filePath, name),
@@ -144,6 +146,7 @@ export function extractFunctions(file: SourceFile): CodeNode[] {
         lineCount: fn.getEndLineNumber() - fn.getStartLineNumber(),
         isHttpHandler: HTTP_METHOD_EXPORTS.has(name),
         httpMethod: HTTP_METHOD_EXPORTS.has(name) ? name : undefined,
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }
@@ -172,6 +175,7 @@ export function extractFunctions(file: SourceFile): CodeNode[] {
     const isAsync = initializer.getText().startsWith("async");
     const hasErrors = hasErrorHandling(initializer);
     const throws = extractThrowStatements(initializer);
+    const renderingBoundary = detectFunctionDirective((initializer as any).getBody?.()) ?? fileDirective;
 
     nodes.push({
       id: makeId(filePath, name),
@@ -192,6 +196,7 @@ export function extractFunctions(file: SourceFile): CodeNode[] {
         lineCount: variable.getEndLineNumber() - variable.getStartLineNumber(),
         isHttpHandler: HTTP_METHOD_EXPORTS.has(name),
         httpMethod:     HTTP_METHOD_EXPORTS.has(name) ? name : undefined,
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }

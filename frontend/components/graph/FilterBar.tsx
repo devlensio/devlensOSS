@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { NodeType, EdgeType, CommitSummary } from "@/lib/types";
+import type { NodeType, EdgeType, CommitSummary, RenderingBoundary } from "@/lib/types";
 import {
   HiOutlineChevronDown,
   HiOutlineInformationCircle,
   HiOutlineGlobeAlt,
   HiOutlineCheck,
   HiOutlineArrowPath,
+  HiOutlineAdjustmentsHorizontal,
 } from "react-icons/hi2";
 import { MdFullscreen, MdFullscreenExit } from "react-icons/md";
 import { EDGE_COLORS, EDGE_TYPES, NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
@@ -24,9 +25,8 @@ const NODE_TYPE_LABELS: Record<NodeType, string> = {
   GHOST:       "Ghost",
   ROUTE:       "Route",
   TEST:        "Test",
-  STORY:       "Storybook"
+  STORY:       "Storybook",
 };
-
 
 const EDGE_LABELS: Record<EdgeType, string> = {
   CALLS:      "Calls",
@@ -61,39 +61,32 @@ const C = {
   indigo:    "#818cf8",
 };
 
+const BOUNDARY_OPTIONS: Array<{ value: RenderingBoundary | "unset"; label: string; color: string }> = [
+  { value: "client", label: "Client", color: "#06b6d4" },
+  { value: "server", label: "Server", color: "#f59e0b" },
+  { value: "unset",  label: "Unset",  color: C.textDim },
+];
+
 // ─── Props ────────────────────────────────────────────────────────────────────
-//
-// FilterBar owns local draft state for nodes/edges/score.
-// Parent state is only updated when the user clicks Apply.
-// Entry Points and commit switcher still apply immediately.
 
 interface FilterBarProps {
-  // Committed values — drive visibleNodes in page.tsx
-  activeNodeTypes: NodeType[];
-  activeEdgeTypes: EdgeType[];
-  scoreThreshold:  number;
-
-  // Single apply callback — called when user commits changes
-  onApply: (nodeTypes: NodeType[], edgeTypes: EdgeType[], score: number) => void;
-
-  // Entry Points — applies immediately (triggers BFS)
+  activeNodeTypes:  NodeType[];
+  activeEdgeTypes:  EdgeType[];
+  scoreThreshold:   number;
+  onApply:          (nodeTypes: NodeType[], edgeTypes: EdgeType[], score: number) => void;
   showRouteNodes:   boolean;
   onRouteToggle:    () => void;
   hasRoutes:        boolean;
   routeHopDepth:    number;
   onHopDepthChange: (depth: number) => void;
-
-  // Commit switcher — applies immediately (navigation)
-  commits:       CommitSummary[];
-  activeCommit:  string;
-  onCommitChange:(hash: string) => void;
-
-  // Fullscreen
-  isFullscreen:  boolean;
-  onFullscreen:  () => void;
-
-  // Reset — resets both local draft and committed state
-  onReset: () => void;
+  commits:          CommitSummary[];
+  activeCommit:     string;
+  onCommitChange:   (hash: string) => void;
+  isFullscreen:     boolean;
+  onFullscreen:     () => void;
+  activeBoundaries: Array<RenderingBoundary | "unset">;
+  onBoundaryChange: (boundaries: Array<RenderingBoundary | "unset">) => void;
+  onReset:          () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -102,34 +95,26 @@ export default function FilterBar({
   activeNodeTypes, activeEdgeTypes, scoreThreshold,
   onApply,
   showRouteNodes, onRouteToggle, hasRoutes, routeHopDepth, onHopDepthChange,
+  activeBoundaries, onBoundaryChange,
   commits, activeCommit, onCommitChange,
   isFullscreen, onFullscreen,
   onReset,
 }: FilterBarProps) {
 
-  // ── Local draft state — toggling never triggers graph re-render ───────────
   const [draftNodes, setDraftNodes] = useState<NodeType[]>(activeNodeTypes);
   const [draftEdges, setDraftEdges] = useState<EdgeType[]>(activeEdgeTypes);
   const [draftScore, setDraftScore] = useState<number>(scoreThreshold);
 
-  // Sync draft when parent resets
   useEffect(() => { setDraftNodes([...activeNodeTypes]); }, [activeNodeTypes]);
   useEffect(() => { setDraftEdges([...activeEdgeTypes]); }, [activeEdgeTypes]);
   useEffect(() => { setDraftScore(scoreThreshold);       }, [scoreThreshold]);
 
-  // ── Dirty check ───────────────────────────────────────────────────────────
   const isDirty =
     draftScore !== scoreThreshold ||
     draftNodes.length !== activeNodeTypes.length ||
     draftNodes.some(t => !activeNodeTypes.includes(t)) ||
     draftEdges.length !== activeEdgeTypes.length ||
     draftEdges.some(t => !activeEdgeTypes.includes(t));
-
-  function handleApply() {
-    onApply(draftNodes, draftEdges, draftScore);
-  }
-
-  // ── Draft helpers ─────────────────────────────────────────────────────────
 
   function toggleDraftNode(type: NodeType) {
     setDraftNodes(prev =>
@@ -150,7 +135,7 @@ export default function FilterBar({
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
 
-      {/* ── Node type dropdown ───────────────────────────────────── */}
+      {/* ── Node type dropdown ────────────────────────────────── */}
       <MultiSelectDropdown
         label="Nodes"
         allTypes={NODE_TYPES}
@@ -161,7 +146,7 @@ export default function FilterBar({
         onSetAll={setDraftNodes}
       />
 
-      {/* ── Edge type dropdown ───────────────────────────────────── */}
+      {/* ── Edge type dropdown ────────────────────────────────── */}
       <MultiSelectDropdown
         label="Edges"
         allTypes={EDGE_TYPES}
@@ -172,31 +157,23 @@ export default function FilterBar({
         onSetAll={setDraftEdges}
       />
 
-      {/* ── Score slider ─────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-2 px-2.5 py-1 rounded-lg border"
-        style={{ background: C.elevated, borderColor: C.borderSub }}
-      >
-        <span className="text-xs whitespace-nowrap" style={{ color: C.textDim }}>
-          Score ≥
-        </span>
-        <input
-          type="range"
-          min={0} max={10} step={0.2}
-          value={draftScore}
-          onChange={e => setDraftScore(Number(e.target.value))}
-          className="w-32"
-          style={{ accentColor: C.teal }}
-        />
-        <span className="text-xs font-mono w-5 text-right" style={{ color: C.teal }}>
-          {draftScore === 0 ? "all" : draftScore.toFixed(1)}
-        </span>
-      </div>
+      {/* ── More filters (Score · Boundary · Entry Points) ────── */}
+      <MoreFilters
+        draftScore={draftScore}
+        onScoreChange={setDraftScore}
+        activeBoundaries={activeBoundaries}
+        onBoundaryChange={onBoundaryChange}
+        hasRoutes={hasRoutes}
+        showRouteNodes={showRouteNodes}
+        onRouteToggle={onRouteToggle}
+        routeHopDepth={routeHopDepth}
+        onHopDepthChange={onHopDepthChange}
+      />
 
-      {/* ── Apply button — visible only when draft differs from committed ─ */}
+      {/* ── Apply ─────────────────────────────────────────────── */}
       {isDirty && (
         <button
-          onClick={handleApply}
+          onClick={() => onApply(draftNodes, draftEdges, draftScore)}
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs
                      font-semibold transition-all shrink-0 animate-pulse"
           style={{
@@ -206,14 +183,14 @@ export default function FilterBar({
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background   = `${C.teal}30`;
-            el.style.borderColor  = C.teal;
-            el.style.animationName = "none"; // stop pulse on hover
+            el.style.background    = `${C.teal}30`;
+            el.style.borderColor   = C.teal;
+            el.style.animationName = "none";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background   = `${C.teal}20`;
-            el.style.borderColor  = `${C.teal}50`;
+            el.style.background    = `${C.teal}20`;
+            el.style.borderColor   = `${C.teal}50`;
             el.style.animationName = "";
           }}
         >
@@ -221,20 +198,9 @@ export default function FilterBar({
         </button>
       )}
 
-      {/* ── Entry Points — applies immediately ──────────────────── */}
-      {hasRoutes && (
-        <EntryPointsToggle
-          active={showRouteNodes}
-          onToggle={onRouteToggle}
-          hopDepth={routeHopDepth}
-          onHopDepthChange={onHopDepthChange}
-        />
-      )}
-
-      {/* ── Right side ───────────────────────────────────────────── */}
+      {/* ── Right side ────────────────────────────────────────── */}
       <div className="flex items-center gap-2 ml-auto shrink-0">
 
-        {/* Commit switcher — applies immediately */}
         {commits.length > 1 && (
           <select
             value={activeCommit}
@@ -259,12 +225,10 @@ export default function FilterBar({
           </select>
         )}
 
-        {/* Fullscreen */}
         <button
           onClick={onFullscreen}
           title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          className="w-7 h-7 flex items-center justify-center rounded-lg
-                     border transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded-lg border transition-colors"
           style={{ borderColor: C.borderSub, color: C.textDim, background: C.elevated }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
@@ -280,7 +244,6 @@ export default function FilterBar({
           {isFullscreen ? <MdFullscreenExit size={16} /> : <MdFullscreen size={16} />}
         </button>
 
-        {/* Reset */}
         <button
           onClick={onReset}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
@@ -306,6 +269,263 @@ export default function FilterBar({
   );
 }
 
+// ─── MoreFilters ──────────────────────────────────────────────────────────────
+
+function MoreFilters({
+  draftScore, onScoreChange,
+  activeBoundaries, onBoundaryChange,
+  hasRoutes, showRouteNodes, onRouteToggle, routeHopDepth, onHopDepthChange,
+}: {
+  draftScore:       number;
+  onScoreChange:    (v: number) => void;
+  activeBoundaries: Array<RenderingBoundary | "unset">;
+  onBoundaryChange: (v: Array<RenderingBoundary | "unset">) => void;
+  hasRoutes:        boolean;
+  showRouteNodes:   boolean;
+  onRouteToggle:    () => void;
+  routeHopDepth:    number;
+  onHopDepthChange: (depth: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref             = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const hasActive =
+    draftScore > 0 ||
+    activeBoundaries.length < 3 ||
+    showRouteNodes;
+
+  function toggleBoundary(value: RenderingBoundary | "unset") {
+    if (activeBoundaries.includes(value)) {
+      if (activeBoundaries.length === 1) return;
+      onBoundaryChange(activeBoundaries.filter(v => v !== value));
+    } else {
+      onBoundaryChange([...activeBoundaries, value]);
+    }
+  }
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10, fontWeight: 600, color: C.textDim,
+    marginBottom: 8, letterSpacing: "0.02em",
+  };
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all"
+        style={{
+          background:  open ? C.surface   : C.elevated,
+          borderColor: open ? C.teal+"60" : C.borderSub,
+          color:       open ? C.text      : C.textSub,
+        }}
+        onMouseEnter={e => {
+          if (open) return;
+          const el = e.currentTarget as HTMLElement;
+          el.style.color = C.text;
+          el.style.borderColor = C.teal + "40";
+        }}
+        onMouseLeave={e => {
+          if (open) return;
+          const el = e.currentTarget as HTMLElement;
+          el.style.color = C.textSub;
+          el.style.borderColor = C.borderSub;
+        }}
+      >
+        <HiOutlineAdjustmentsHorizontal size={12} />
+        Filters
+        {hasActive && (
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: C.teal }}
+          />
+        )}
+        <HiOutlineChevronDown
+          size={10}
+          style={{
+            transform:  open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 150ms",
+            color:      C.textGhost,
+          }}
+        />
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full left-0 mt-1.5 rounded-xl shadow-2xl z-50"
+          style={{
+            background: C.surface,
+            border:     `1px solid ${C.border}`,
+            width:      272,
+            boxShadow:  "0 16px 40px rgba(0,0,0,0.5)",
+          }}
+        >
+          {/* Score */}
+          <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${C.borderSub}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={sectionLabel}>Score</span>
+              <span style={{ fontSize: 11, fontFamily: "monospace", color: C.teal }}>
+                {draftScore === 0 ? "all" : `≥ ${draftScore.toFixed(1)}`}
+              </span>
+            </div>
+            <div style={{ position: "relative" }}>
+              <input
+                type="range"
+                min={0} max={10} step={0.2}
+                value={draftScore}
+                onChange={e => onScoreChange(Number(e.target.value))}
+                style={{ width: "100%", accentColor: C.teal, cursor: "pointer" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                <span style={{ fontSize: 9, fontFamily: "monospace", color: C.textGhost }}>0</span>
+                <span style={{ fontSize: 9, fontFamily: "monospace", color: C.textGhost }}>10</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Boundary */}
+          <div style={{ padding: "12px 16px", borderBottom: hasRoutes ? `1px solid ${C.borderSub}` : undefined }}>
+            <div style={sectionLabel}>Boundary</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {BOUNDARY_OPTIONS.map(({ value, label, color }) => {
+                const on = activeBoundaries.includes(value);
+                return (
+                  <button
+                    key={String(value)}
+                    onClick={() => toggleBoundary(value)}
+                    style={{
+                      flex:         1,
+                      padding:      "5px 0",
+                      borderRadius: 7,
+                      fontSize:     11,
+                      fontWeight:   500,
+                      cursor:       "pointer",
+                      transition:   "all 0.15s",
+                      background:   on ? `${color}18` : C.elevated,
+                      color:        on ? color        : C.textGhost,
+                      border:       `1px solid ${on ? `${color}45` : C.borderSub}`,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Entry Points */}
+          {hasRoutes && (
+            <div style={{ padding: "12px 16px" }}>
+              <div style={sectionLabel}>Entry Points</div>
+              <EntryPointsContent
+                active={showRouteNodes}
+                onToggle={onRouteToggle}
+                hopDepth={routeHopDepth}
+                onHopDepthChange={onHopDepthChange}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── EntryPointsContent ───────────────────────────────────────────────────────
+
+function EntryPointsContent({
+  active, onToggle, hopDepth, onHopDepthChange,
+}: {
+  active:           boolean;
+  onToggle:         () => void;
+  hopDepth:         number;
+  onHopDepthChange: (depth: number) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Toggle row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button
+          onClick={onToggle}
+          style={{
+            display:      "flex",
+            alignItems:   "center",
+            gap:          6,
+            padding:      "5px 10px",
+            borderRadius: 7,
+            fontSize:     11,
+            fontWeight:   500,
+            cursor:       "pointer",
+            transition:   "all 0.15s",
+            background:   active ? "#818cf818" : C.elevated,
+            borderColor:  active ? "#818cf860" : C.borderSub,
+            border:       `1px solid ${active ? "#818cf860" : C.borderSub}`,
+            color:        active ? "#818cf8"   : C.textSub,
+          }}
+        >
+          <HiOutlineGlobeAlt size={12} />
+          {active ? "On" : "Off"}
+        </button>
+        <span style={{ fontSize: 11, color: C.textDim, lineHeight: 1.4 }}>
+          Show route nodes and their connections
+        </span>
+      </div>
+
+      {/* Hop depth row — only when active */}
+      {active && (
+        <div>
+          <div style={{ fontSize: 10, color: C.textGhost, marginBottom: 6 }}>Hop depth</div>
+          <div
+            style={{
+              display:      "flex",
+              borderRadius: 7,
+              overflow:     "hidden",
+              border:       "1px solid #818cf830",
+              background:   "#818cf808",
+            }}
+          >
+            {HOP_OPTIONS.map(n => (
+              <button
+                key={n}
+                onClick={() => onHopDepthChange(n)}
+                style={{
+                  flex:        1,
+                  padding:     "5px 0",
+                  fontSize:    11,
+                  fontFamily:  "monospace",
+                  fontWeight:  500,
+                  cursor:      "pointer",
+                  transition:  "all 0.15s",
+                  background:  hopDepth === n ? "#818cf8"   : "transparent",
+                  color:       hopDepth === n ? C.bg        : "#818cf870",
+                  borderRight: n !== Infinity ? "1px solid #818cf820" : "none",
+                }}
+                onMouseEnter={e => {
+                  if (hopDepth === n) return;
+                  (e.currentTarget as HTMLElement).style.color = "#818cf8";
+                }}
+                onMouseLeave={e => {
+                  if (hopDepth === n) return;
+                  (e.currentTarget as HTMLElement).style.color = "#818cf870";
+                }}
+              >
+                {n === Infinity ? "∞" : n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MultiSelectDropdown ──────────────────────────────────────────────────────
 
 function MultiSelectDropdown<T extends string>({
@@ -325,9 +545,7 @@ function MultiSelectDropdown<T extends string>({
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -466,115 +684,6 @@ function MultiSelectDropdown<T extends string>({
               </button>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── EntryPointsToggle ────────────────────────────────────────────────────────
-
-function EntryPointsToggle({
-  active, onToggle, hopDepth, onHopDepthChange,
-}: {
-  active:           boolean;
-  onToggle:         () => void;
-  hopDepth:         number;
-  onHopDepthChange: (depth: number) => void;
-}) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
-                   text-xs font-medium transition-all"
-        style={{
-          background:  active ? "#818cf818" : C.elevated,
-          borderColor: active ? "#818cf860" : C.borderSub,
-          color:       active ? "#818cf8"   : C.textSub,
-        }}
-        onMouseEnter={e => {
-          if (active) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.text;
-          el.style.borderColor = "#818cf840";
-        }}
-        onMouseLeave={e => {
-          if (active) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.textSub;
-          el.style.borderColor = C.borderSub;
-        }}
-      >
-        <HiOutlineGlobeAlt size={12} />
-        Entry Points
-      </button>
-
-      <div className="relative" ref={tooltipRef}>
-        <button
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-          onFocus={() => setShowTooltip(true)}
-          onBlur={() => setShowTooltip(false)}
-          className="flex items-center justify-center w-5 h-5 rounded transition-colors"
-          style={{ color: C.textGhost }}
-        >
-          <HiOutlineInformationCircle size={13} />
-        </button>
-
-        {showTooltip && (
-          <div
-            className="absolute top-full left-1/2 mt-2 w-56 rounded-xl px-3
-                       py-2.5 text-xs leading-relaxed z-50 pointer-events-none"
-            style={{
-              background: C.surface,
-              border:     `1px solid ${C.border}`,
-              color:      C.textSub,
-              transform:  "translateX(-50%)",
-              boxShadow:  "0 8px 24px rgba(0,0,0,0.4)",
-            }}
-          >
-            <p className="font-semibold mb-1" style={{ color: C.text }}>
-              HTTP Route Entry Points
-            </p>
-            Shows all route nodes (API endpoints, pages) and their connected
-            nodes up to <strong style={{ color: "#818cf8" }}>N hops</strong> away —
-            regardless of your node type filters.
-          </div>
-        )}
-      </div>
-
-      {active && (
-        <div
-          className="flex items-center rounded-lg border overflow-hidden"
-          style={{ borderColor: "#818cf840", background: "#818cf810" }}
-        >
-          {HOP_OPTIONS.map(n => (
-            <button
-              key={n}
-              onClick={() => onHopDepthChange(n)}
-              className="px-2 py-1 text-xs font-mono font-medium transition-colors"
-              style={{
-                background:  hopDepth === n ? "#818cf8"  : "transparent",
-                color:       hopDepth === n ? C.bg       : "#818cf880",
-                borderRight: n !== Infinity ? `1px solid #818cf825` : "none",
-              }}
-              onMouseEnter={e => {
-                if (hopDepth === n) return;
-                (e.currentTarget as HTMLElement).style.color = "#818cf8";
-              }}
-              onMouseLeave={e => {
-                if (hopDepth === n) return;
-                (e.currentTarget as HTMLElement).style.color = "#818cf880";
-              }}
-            >
-              {n === Infinity ? "∞" : n}
-            </button>
-          ))}
         </div>
       )}
     </div>

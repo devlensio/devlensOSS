@@ -1,6 +1,7 @@
 //This file will extract the React Components from the files
 import { SourceFile, SyntaxKind, Node } from "ts-morph";
 import type { CodeNode } from "../../types";
+import { detectFunctionDirective, type RenderingBoundary } from "../directives";
 
 // Generates a unique id for a node
 function makeId(filePath: string, name: string): string {
@@ -84,7 +85,7 @@ function hasState(hooks: string[]): boolean {
   return hooks.includes("useState") || hooks.includes("useReducer");
 }
 
-export function extractComponents(file: SourceFile): CodeNode[] {
+export function extractComponents(file: SourceFile, fileDirective: RenderingBoundary = null): CodeNode[] {
   const nodes: CodeNode[] = [];
   const filePath = file.getFilePath();
 
@@ -104,6 +105,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
     const hooks = extractHooks(fn);
     const externalCalls = extractAllCalls(fn);
     const contextRefs = extractContextRefs(fn);
+    const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
 
     nodes.push({
       id: makeId(filePath, name),
@@ -119,6 +121,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
         uses: externalCalls,
         hasState: hasState(hooks),
         exportType: fn.isDefaultExport() ? "default" : "named",
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }
@@ -174,6 +177,11 @@ export function extractComponents(file: SourceFile): CodeNode[] {
     const hooks = extractHooks(nodeToAnalyze);
     const externalCalls = extractAllCalls(nodeToAnalyze);
     const contextRefs = extractContextRefs(nodeToAnalyze);
+    const renderingBoundary = detectFunctionDirective(
+      nodeToAnalyze.getKind() === SyntaxKind.ArrowFunction
+        ? (nodeToAnalyze as any).getBody()
+        : undefined
+    ) ?? fileDirective;
 
     const variableStatement = variable.getVariableStatement();
     const isExported = variableStatement
@@ -198,6 +206,7 @@ export function extractComponents(file: SourceFile): CodeNode[] {
         hasState: hasState(hooks),
         exportType: isDefault ? "default" : isExported ? "named" : "none",
         isMemoized: isMemoOrForwardRef,  // useful metadata for scoring later
+        ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
   }

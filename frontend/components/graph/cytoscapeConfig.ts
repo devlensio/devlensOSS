@@ -145,6 +145,24 @@ export function getCytoscapeStyles(
       } as any,
     })),
 
+    // ── Rendering boundary borders ────────────────────────────────────────────
+    {
+      selector: 'node[renderingBoundary="client"]',
+      style: {
+        "border-width": 3,
+        "border-color": "#06b6d4",
+        "border-opacity": 1,
+      } as any,
+    },
+    {
+      selector: 'node[renderingBoundary="server"]',
+      style: {
+        "border-width": 3,
+        "border-color": "#f59e0b",
+        "border-opacity": 1,
+      } as any,
+    },
+
     // ── GHOST ────────────────────────────────────────────────────────────────
     {
       selector: `node[type="GHOST"]`,

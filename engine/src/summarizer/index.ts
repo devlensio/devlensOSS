@@ -52,6 +52,7 @@ import {
 } from "./prompts";
 import { createLLMClient }       from "./providers";
 import { exceedsThreshold, mapreduceSummarize } from "./mapreduce";
+import { withRetry }              from "./retry";
 import { MAX_GROUP_SUMMARY_SIZE } from "./types";
  
 // ─── runSummarization ─────────────────────────────────────────────────────────
@@ -89,7 +90,8 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
   // ── Step 3: Copy summaries from previous commit where codeHash matches ────
   // Nodes whose code hasn't changed don't need re-summarization.
   // We identify them by codeHash — if it matches, copy the summary directly.
-  if (input.previousCommitHash) {
+  // Skipped when forceSummarize=true so every node gets a fresh LLM call.
+  if (input.previousCommitHash && !job.forceSummarize) {
     const prevResult = storage.getGraph(graphId, input.previousCommitHash);
     if (prevResult) {
       const prevById = new Map(prevResult.allNodes.map(n => [n.id, n]));
@@ -178,12 +180,16 @@ export async function runSummarization(input: SummarizationInput): Promise<void>
     } 
  
     console.log(` Starting summarization for node "${node.id}"`);
-    const output = exceedsThreshold(node)
-      ? await mapreduceSummarize(node, client, systemPrompt)
-      : await client.summarize({
-          messages: buildPrompt({ node, allNodes: allNodesMap, edgeIndex, routeIndex, systemPrompt }),
-          temperature: 0,
-        });
+    const output = await withRetry(
+      () => exceedsThreshold(node)
+        ? mapreduceSummarize(node, client, systemPrompt)
+        : client.summarize({
+            messages: buildPrompt({ node, allNodes: allNodesMap, edgeIndex, routeIndex, systemPrompt }),
+            temperature: 0,
+          }),
+      undefined,
+      node.id,
+    );
  
     // Write summary back onto node in memory
     node.technicalSummary = output.technicalSummary;

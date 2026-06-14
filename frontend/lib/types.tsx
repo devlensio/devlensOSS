@@ -1,5 +1,7 @@
 // Mirrors engine types — keep in sync with src/types.ts
 
+export type RenderingBoundary = "client" | "server" | null;
+
 export type NodeType =
   | "COMPONENT"
   | "HOOK"
@@ -85,6 +87,9 @@ export interface CodeNode {
   score?:           number;
   metadata:         Record<string, unknown>;
 }
+
+export const getRenderingBoundary = (node: CodeNode): RenderingBoundary =>
+  (node.metadata?.renderingBoundary as RenderingBoundary) ?? null;
 
 export interface CodeEdge {
   from:      string;
