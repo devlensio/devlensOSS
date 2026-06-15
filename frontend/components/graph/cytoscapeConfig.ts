@@ -28,6 +28,7 @@ export const NODE_TYPES: NodeType[] = [
   "ROUTE",
   "TEST",
   "STORY",
+  "THIRD_PARTY",
 ];
 
 export const DEFAULT_NODE_TYPES: NodeType[] = [
@@ -40,7 +41,6 @@ export const DEFAULT_NODE_TYPES: NodeType[] = [
   "ROUTE",
   "TEST",
   "STORY",
-  "ROUTE",
 ];
 
 export const DEFAULT_EDGE_TYPES: EdgeType[] = [
@@ -54,26 +54,28 @@ export const NODE_COLORS: Record<string, string> = {
   COMPONENT:   "#2dd4bf",
   HOOK:        "#c084fc",
   FUNCTION:    "#60a5fa",
-  STATE_STORE: "#fb923c",  
+  STATE_STORE: "#fb923c",
   UTILITY:     "#94a3b8",
-  FILE:        "#f472b6",  
+  FILE:        "#f472b6",
   GHOST:       "#6b7280",
   ROUTE:       "#818cf8",
   TEST:        "#f97316",
-  STORY:       "#a78bfa",  
+  STORY:       "#a78bfa",
+  THIRD_PARTY: "#e879f9",
 };
 
 export const NODE_SHAPES: Record<string, string> = {
-  COMPONENT: "roundrectangle",
-  HOOK: "ellipse",
-  FUNCTION: "hexagon",
+  COMPONENT:   "roundrectangle",
+  HOOK:        "ellipse",
+  FUNCTION:    "hexagon",
   STATE_STORE: "star",
-  UTILITY: "rectangle",
-  FILE: "tag",
-  GHOST: "diamond",
-  ROUTE: "pentagon",
-  TEST: "triangle",
-  STORY: "round-triangle",
+  UTILITY:     "rectangle",
+  FILE:        "tag",
+  GHOST:       "diamond",
+  ROUTE:       "pentagon",
+  TEST:        "triangle",
+  STORY:       "round-triangle",
+  THIRD_PARTY: "hexagon",
 };
 
 export const EDGE_COLORS: Record<string, string> = {

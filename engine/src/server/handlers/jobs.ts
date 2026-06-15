@@ -32,12 +32,13 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     );
   }
 
-  const { repoPath, isGithubRepo, skipSummarization, forceSummarize, thresholds } = body as {
+  const { repoPath, isGithubRepo, skipSummarization, forceSummarize, thresholds, includedThirdPartyLibs } = body as {
     repoPath: string;
     isGithubRepo?: boolean;
     skipSummarization?: boolean;
     forceSummarize?: boolean;
     thresholds?: Record<string, number>;
+    includedThirdPartyLibs?: string[];
   };
 
   // Validate repoPath
@@ -86,12 +87,13 @@ export async function handleAnalyze(req: Request): Promise<Response> {
   }
 
   const input: JobInput = {
-    repoPath: absolutePath,
-    isGithubRepo: isGithubRepo ?? false,
-    skipSummarization: skipSummarization ?? false,
-    forceSummarize: forceSummarize ?? false,
+    repoPath:                absolutePath,
+    isGithubRepo:            isGithubRepo ?? false,
+    skipSummarization:       skipSummarization ?? false,
+    forceSummarize:          forceSummarize ?? false,
     thresholds,
     config,
+    includedThirdPartyLibs:  includedThirdPartyLibs ?? [],
   };
 
   // enqueue() handles deduplication internally —

@@ -32,7 +32,8 @@ export async function runJob(job: Job, queue: JobQueue): Promise<void> {
       job.repoPath,
       job.isGithubRepo,
       {
-        thresholds: job.thresholds,
+        thresholds:              job.thresholds,
+        includedThirdPartyLibs:  job.includedThirdPartyLibs ?? [],
         onStep: (step) => {
           queue.emitEvent(job.jobId, {
             event: "analysis_progress",

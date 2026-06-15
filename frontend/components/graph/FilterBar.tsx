@@ -26,6 +26,7 @@ const NODE_TYPE_LABELS: Record<NodeType, string> = {
   ROUTE:       "Route",
   TEST:        "Test",
   STORY:       "Storybook",
+  THIRD_PARTY: "Library",
 };
 
 const EDGE_LABELS: Record<EdgeType, string> = {

@@ -81,13 +81,13 @@ Leave empty if severity is none.
 </security_summary>
 
 ## Formatting rules for content inside the XML tags
-Use HTML markup — the output is rendered in a browser. Follow these conventions:
+Use HTML markup — the output is rendered in a browser tooltip, sidebar panel, and detail panel. Follow these conventions:
 
 - Inline code, function names, variable names, parameter names, file paths:
     <code>functionName()</code>  or  <code>someVariable</code>
 - Multi-line code blocks (more than one line of code):
     <pre><code>const x = 1;\nreturn x;</code></pre>
-- Key points / bullet lists:
+- Key points / bullet lists (preferred for 3+ items):
     <ul><li>First point.</li><li>Second point.</li></ul>
 - Numbered steps (only when order matters):
     <ol><li>Step one.</li><li>Step two.</li></ol>
@@ -95,6 +95,16 @@ Use HTML markup — the output is rendered in a browser. Follow these convention
 - No <h1>/<h2> headings — use <strong> inline labels instead.
 - No inline styles. No <div> wrappers. No Markdown (no **, no backticks, no #).
 - Write in plain prose sentences; use lists only when there are three or more distinct items.
+- Keep paragraphs short — summaries are displayed in compact UI containers (200-300px wide).
+- Avoid long paragraphs; break complex ideas into <ul> lists for scanability.
+
+## Security summary guidelines
+The security_summary is displayed in a compact sidebar and a detail panel. Follow these rules:
+- Lead with the specific vulnerability type (e.g. "SQL injection", "XSS", "exposed secret").
+- Use <ul> lists when describing multiple risks or attack vectors.
+- Mention the affected data or resource (e.g. "user credentials", "database contents").
+- Keep it under 3 sentences for scanability.
+- Example: <ul><li><strong>SQL injection</strong>: User input in <code>query</code> is passed directly to <code>db.execute()</code> without parameterization.</li><li>Attackers can extract or modify database contents.</li></ul>
 
 ## Severity guide
   none   — no security concerns

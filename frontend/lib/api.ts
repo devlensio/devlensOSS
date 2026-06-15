@@ -8,6 +8,7 @@ import type {
   JobSummary,
   DevLensConfig,
   NodeDiff,
+  PreScanResult,
 } from "./types";
 
 const ENGINE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "http://localhost:3000";
@@ -97,11 +98,16 @@ export const api = {
   getNodeCode: (graphId: string, commitHash: string, nodeId: string) =>
     post<CodeNode>(`/api/graph/${graphId}/${commitHash}/node`, { nodeId }),
 
-  //  Jobs 
+  //  Pre-scan
+  preScan: (repoPath: string) =>
+    get<PreScanResult>(`/api/pre-scan?repoPath=${encodeURIComponent(repoPath)}`),
+
+  //  Jobs
   analyze: (body: {
-    repoPath:           string;
-    skipSummarization?: boolean;
-    forceSummarize?:    boolean;
+    repoPath:                string;
+    skipSummarization?:      boolean;
+    forceSummarize?:         boolean;
+    includedThirdPartyLibs?: string[];
   }) => post<Job>("/api/analyze", body),
 
   listJobs: () =>

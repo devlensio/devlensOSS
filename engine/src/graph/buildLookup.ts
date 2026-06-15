@@ -8,6 +8,8 @@ export interface LookupMaps {
     nodesByFile: Map<string, CodeNode[]>;
     fileNodesByPath: Map<string, CodeNode>; // filePath → FILE node
     storeNodes: CodeNode[];
+    thirdPartyNodesByName: Map<string, CodeNode>;           // packageName → THIRD_PARTY node
+    thirdPartyImportAliases: Map<string, Map<string, string>>; // filePath → (localAlias → thirdPartyNodeId)
 }
 
 export function buildLookupMaps(codeNodes: CodeNode[]): LookupMaps {
@@ -15,8 +17,15 @@ export function buildLookupMaps(codeNodes: CodeNode[]): LookupMaps {
     const nodesByFile = new Map<string, CodeNode[]>();
     const fileNodesByPath = new Map<string, CodeNode>();
     const storeNodes: CodeNode[] = [];
+    const thirdPartyNodesByName = new Map<string, CodeNode>();
+    const thirdPartyImportAliases = new Map<string, Map<string, string>>();
 
     for (const node of codeNodes) {
+        if (node.type === "THIRD_PARTY") {
+            thirdPartyNodesByName.set(node.name, node);
+            continue;
+        }
+
         // FILE nodes go into their own dedicated map — kept separate so other
         // detectors (guards, call edges, etc.) only see function/component nodes
         if (["FILE", "TEST", "STORY"].includes(node.type)) {
@@ -38,5 +47,5 @@ export function buildLookupMaps(codeNodes: CodeNode[]): LookupMaps {
             storeNodes.push(node);
         }
     }
-    return { nodesByName, nodesByFile, fileNodesByPath, storeNodes };
+    return { nodesByName, nodesByFile, fileNodesByPath, storeNodes, thirdPartyNodesByName, thirdPartyImportAliases };
 }

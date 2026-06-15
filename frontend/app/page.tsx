@@ -2,33 +2,95 @@
 
 import { useState } from "react";
 import { useGraphList, useAnalyze } from "@/lib/hooks";
-import type { GraphListItem } from "@/lib/types";
+import type { GraphListItem, PreScanResult } from "@/lib/types";
 import { RepoCard } from "@/components/RepoCard";
 import { toast } from "react-toastify";
+import { api } from "@/lib/api";
+import LibrarySelectionStep from "@/components/LibrarySelectionStep";
 
 export default function HomePage() {
   const { data: graphs, isLoading } = useGraphList();
   const analyze = useAnalyze();
   const [repoPath, setRepoPath] = useState("");
   const [skipSummarization, setSkipSummarization] = useState(false);
+  const [preScanResult, setPreScanResult] = useState<PreScanResult | null>(null);
+  const [preScanLoading, setPreScanLoading] = useState(false);
 
-  function handleAnalyze() {
-    if (!repoPath.trim()) return;
+  async function handleAnalyzeClick() {
+    const path = repoPath.trim();
+    if (!path) return;
+
+    setPreScanLoading(true);
+    try {
+      const result = await api.preScan(path);
+      // Only show library picker if there are runtime deps found
+      if (result.included.length > 0 || result.excluded.length > 0) {
+        setPreScanResult(result);
+      } else {
+        submitAnalyze(path, []);
+      }
+    } catch {
+      // If pre-scan fails (e.g. no package.json), run analyze without library nodes
+      submitAnalyze(path, []);
+    } finally {
+      setPreScanLoading(false);
+    }
+  }
+
+  function handleLibConfirm(includedLibs: string[]) {
+    setPreScanResult(null);
+    submitAnalyze(repoPath.trim(), includedLibs);
+  }
+
+  function handleLibSkip() {
+    setPreScanResult(null);
+    submitAnalyze(repoPath.trim(), []);
+  }
+
+  function handleLibCancel() {
+    setPreScanResult(null);
+  }
+
+  function submitAnalyze(path: string, includedThirdPartyLibs: string[]) {
     analyze.mutate(
-      { repoPath: repoPath.trim(), skipSummarization },
+      { repoPath: path, skipSummarization, includedThirdPartyLibs },
       {
         onSuccess: (job) => {
           toast.success(`Job with Id: ${job.jobId} submitted successfully!`);
-          // router.push(`/graph/${job.graphId ?? job.jobId}?jobId=${job.jobId}`);
         },
       },
     );
   }
 
-  // console.log(analyze.error);
+  function getSavedPrefs(): string[] | undefined {
+    try {
+      const raw = localStorage.getItem("devlens:includedLibs");
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  const isBusy = analyze.isPending || preScanLoading;
+
   return (
     <main className="min-h-screen bg-base text-primary">
       <div className="px-8 py-8">
+
+        {/* Library selection overlay */}
+        {preScanResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+            <LibrarySelectionStep
+              result={preScanResult}
+              savedPrefs={getSavedPrefs()}
+              onConfirm={handleLibConfirm}
+              onSkip={handleLibSkip}
+              onCancel={handleLibCancel}
+            />
+          </div>
+        )}
+
         {/* Analyze form — full width */}
         <div className="bg-surface border border-border rounded-xl p-6 mb-8">
           <div className="flex items-end gap-4">
@@ -40,7 +102,7 @@ export default function HomePage() {
                 type="text"
                 value={repoPath}
                 onChange={(e) => setRepoPath(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                onKeyDown={(e) => e.key === "Enter" && handleAnalyzeClick()}
                 placeholder="C:\Projects\my-app (should contain package.json)"
                 className="w-full bg-elevated border border-border rounded-lg px-4 py-3
                            text-sm font-mono text-primary placeholder:text-dim
@@ -50,13 +112,13 @@ export default function HomePage() {
             </div>
             <div className="flex flex-col gap-2 shrink-0">
               <button
-                onClick={handleAnalyze}
-                disabled={analyze.isPending || !repoPath.trim()}
+                onClick={handleAnalyzeClick}
+                disabled={isBusy || !repoPath.trim()}
                 className="px-8 py-3 bg-accent hover:bg-accent-dim disabled:opacity-40
                            disabled:cursor-not-allowed text-white text-sm font-semibold
                            rounded-lg transition-colors whitespace-nowrap"
               >
-                {analyze.isPending ? "Analyzing..." : "Analyze →"}
+                {preScanLoading ? "Scanning..." : analyze.isPending ? "Analyzing..." : "Analyze →"}
               </button>
             </div>
           </div>

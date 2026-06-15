@@ -8,6 +8,7 @@ import {
     handleCancelJob,
     handleSummarize,
 } from "./handlers/jobs";
+import { handlePreScan } from "./handlers/preScan";
 import {
     handleListGraphs,
     handleGetGraph,
@@ -65,6 +66,11 @@ const ROUTES: Route[] = [
         method: "GET",
         pattern: "/api/health",
         handler: () => Response.json({ success: true, data: { status: "ok" } }),
+    },
+    {
+        method: "GET",
+        pattern: "/api/pre-scan",
+        handler: (_params, req) => handlePreScan(req),
     },
     {
         method: "GET",

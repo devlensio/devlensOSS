@@ -43,7 +43,8 @@ const PROTECTED_NODE_TYPES = new Set([
   "GHOST",
   "ROUTE",
   "STORY",
-  "TEST"
+  "TEST",
+  "THIRD_PARTY",
 ]);
 
 export function filterNoise(

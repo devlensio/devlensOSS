@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import type { CodeEdge, CodeNode } from "../../types";
 import type { LookupMaps } from "../buildLookup";
+import { extractPackageName } from "../thirdPartyLibs";
 import { Project } from "ts-morph";
 
 // Aliases we consider as local imports
@@ -51,11 +52,20 @@ function addFilesRecursively(dir: string, project: Project): void {
     }
 }
 
+export interface ImportEdgeResult {
+    edges: CodeEdge[];
+    // Dynamically-created per-method THIRD_PARTY nodes (one per unique named import).
+    // Collected here so the pipeline can add them to allNodes before rendering.
+    thirdPartyMethodNodes: CodeNode[];
+}
 
-
-export function detectImportEdges(lookupMp: LookupMaps, repoPath: string): CodeEdge[] {
+export function detectImportEdges(lookupMp: LookupMaps, repoPath: string): ImportEdgeResult {
     const edges: CodeEdge[] = [];
     const createdEdges = new Set<string>();
+
+    // Dedup method nodes across all files — same named import in multiple files
+    // produces only ONE node (e.g. a single [npm]/react::useState node).
+    const methodNodesMap = new Map<string, CodeNode>();
 
     const configPath = getConfigPath(repoPath);
     const project = configPath
@@ -82,7 +92,105 @@ export function detectImportEdges(lookupMp: LookupMaps, repoPath: string): CodeE
 
         for (const importDecl of importDeclarations) {
             const moduleSpecifier = importDecl.getModuleSpecifierValue();
-            if (!isLocalImport(moduleSpecifier)) continue;
+
+            if (!isLocalImport(moduleSpecifier)) {
+                // ─── Third-party import ───────────────────────────────────
+                const pkgName        = extractPackageName(moduleSpecifier);
+                const thirdPartyNode = lookupMp.thirdPartyNodesByName.get(pkgName);
+
+                if (thirdPartyNode) {
+                    const fileAliasMap = lookupMp.thirdPartyImportAliases.get(sourceRelative) ?? new Map<string, string>();
+
+                    // ── Named imports → one method node per imported name ──────
+                    // e.g. import { useState, useEffect } from 'react'
+                    //   → nodes [npm]/react::useState, [npm]/react::useEffect
+                    //   → fileAliasMap: "useState" → "[npm]/react::useState"
+                    for (const specifier of importDecl.getNamedImports()) {
+                        const localAlias   = specifier.getAliasNode()?.getText() ?? specifier.getName();
+                        const importedName = specifier.getName();
+
+                        const methodNodeId = `[npm]/${pkgName}::${importedName}`;
+
+                        if (!methodNodesMap.has(methodNodeId)) {
+                            methodNodesMap.set(methodNodeId, {
+                                id:        methodNodeId,
+                                name:      `${pkgName}.${importedName}`,
+                                type:      "THIRD_PARTY",
+                                filePath:  `[npm]/${pkgName}`,
+                                startLine: 0,
+                                endLine:   0,
+                                rawCode:   undefined,
+                                codeHash:  undefined,
+                                metadata: {
+                                    isThirdParty:    true,
+                                    packageVersion:  thirdPartyNode.metadata.packageVersion,
+                                    category:        thirdPartyNode.metadata.category,
+                                    parentPackageId: thirdPartyNode.id,
+                                    methodName:      importedName,
+                                },
+                            });
+                        }
+
+                        // Map the local alias to the method node so callEdges can resolve it
+                        fileAliasMap.set(localAlias, methodNodeId);
+
+                        // IMPORTS edge: source file → method node
+                        const edgeKey = `${sourceFileNode.id}→${methodNodeId}:IMPORTS`;
+                        if (!createdEdges.has(edgeKey)) {
+                            createdEdges.add(edgeKey);
+                            edges.push({
+                                from: sourceFileNode.id,
+                                to:   methodNodeId,
+                                type: "IMPORTS",
+                                metadata: { importPath: moduleSpecifier, isThirdParty: true, importedName },
+                            });
+                        }
+                    }
+
+                    // ── Default import → package node ─────────────────────────
+                    // e.g. import axios from 'axios'
+                    //   → fileAliasMap: "axios" → "[npm]/axios"
+                    //   Method nodes for member-access calls (axios.get) are created
+                    //   lazily in callEdges.ts when the actual calls are encountered.
+                    const defaultImport = importDecl.getDefaultImport();
+                    if (defaultImport) {
+                        fileAliasMap.set(defaultImport.getText(), thirdPartyNode.id);
+
+                        const edgeKey = `${sourceFileNode.id}→${thirdPartyNode.id}:IMPORTS`;
+                        if (!createdEdges.has(edgeKey)) {
+                            createdEdges.add(edgeKey);
+                            edges.push({
+                                from: sourceFileNode.id,
+                                to:   thirdPartyNode.id,
+                                type: "IMPORTS",
+                                metadata: { importPath: moduleSpecifier, isThirdParty: true },
+                            });
+                        }
+                    }
+
+                    // ── Namespace import → package node ───────────────────────
+                    // e.g. import * as ReactQuery from '@tanstack/react-query'
+                    //   → fileAliasMap: "ReactQuery" → "[npm]/@tanstack/react-query"
+                    const namespaceImport = importDecl.getNamespaceImport();
+                    if (namespaceImport) {
+                        fileAliasMap.set(namespaceImport.getText(), thirdPartyNode.id);
+
+                        const edgeKey = `${sourceFileNode.id}→${thirdPartyNode.id}:IMPORTS`;
+                        if (!createdEdges.has(edgeKey)) {
+                            createdEdges.add(edgeKey);
+                            edges.push({
+                                from: sourceFileNode.id,
+                                to:   thirdPartyNode.id,
+                                type: "IMPORTS",
+                                metadata: { importPath: moduleSpecifier, isThirdParty: true },
+                            });
+                        }
+                    }
+
+                    lookupMp.thirdPartyImportAliases.set(sourceRelative, fileAliasMap);
+                }
+                continue; // always skip local-resolution path for non-local imports
+            }
 
             // ─── Resolve the imported file path ───────────────────────────
             let resolvedPath: string | undefined;
@@ -145,5 +253,5 @@ export function detectImportEdges(lookupMp: LookupMaps, repoPath: string): CodeE
         }
     }
 
-    return edges;
+    return { edges, thirdPartyMethodNodes: [...methodNodesMap.values()] };
 }

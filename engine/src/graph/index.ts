@@ -27,13 +27,19 @@ export function detectEdges(
     //building lookup maps
     const lookupMp = buildLookupMaps(nodes);
     console.log("Running edge detectors...");
-    const callEdges = detectCallEdges(nodes, lookupMp);
-    const importEdges = detectImportEdges(lookupMp, repoPath);
+    // importEdges MUST run before callEdges — it populates lookupMp.thirdPartyImportAliases
+    // as a side-effect, and callEdges reads that map to resolve third-party CALLS edges.
+    const importResult = detectImportEdges(lookupMp, repoPath);
+    const importEdges = importResult.edges;
+
+    const callResult = detectCallEdges(nodes, lookupMp);
+    const callEdges = callResult.edges;
+
     const stateEdges = detectStateEdges(nodes, lookupMp);
     const propEdges = detectPropEdges(nodes, lookupMp, repoPath);
     const hookEdges  = detectHookEdges(nodes, lookupMp);
     const eventResults = detectEventEdges(lookupMp, repoPath);
-     const routeEdges  = detectRouteEdges(nodes, lookupMp);
+    const routeEdges  = detectRouteEdges(nodes, lookupMp);
     // GUARDS — middleware to route protection
     const guardEdges = detectGuardEdges(
         nodes,
@@ -43,6 +49,14 @@ export function detectEdges(
         fingerprint
     );
     const testEdges = detectTestEdges(lookupMp, repoPath);  // This does not needs nodes, as it detect edges from the file
+
+    // Collect all dynamically-created third-party method nodes (dedup by id)
+    const newThirdPartyNodesMap = new Map<string, CodeNode>();
+    for (const n of [...importResult.thirdPartyMethodNodes, ...callResult.newThirdPartyNodes]) {
+        if (!newThirdPartyNodesMap.has(n.id)) newThirdPartyNodesMap.set(n.id, n);
+    }
+    const newThirdPartyNodes = [...newThirdPartyNodesMap.values()];
+
     console.log(`Running edge detectors...`);
     console.log(`  CALLS edges: ${callEdges.length}`);
     console.log(`  IMPORTS edges: ${importEdges.length}`);
@@ -54,6 +68,7 @@ export function detectEdges(
     console.log(`  GUARD edges: ${guardEdges.length}`);
     console.log(`  TEST edges: ${testEdges.length}`);
     console.log(`  Ghost nodes created: ${eventResults.ghostNodes.length}`);
+    console.log(`  Third-party method nodes: ${newThirdPartyNodes.length}`);
 
 
     const allEdges: CodeEdge[] = [
@@ -72,7 +87,7 @@ export function detectEdges(
 
     return {
         edges: allEdges,
-        ghostNodes: eventResults.ghostNodes,            //Ghost nodes passed back — ghost nodes need to be added to the main node list before the graph is stored. We return them separately so the pipeline can handle them correctly.
+        ghostNodes: [...eventResults.ghostNodes, ...newThirdPartyNodes],
     };
 
 }

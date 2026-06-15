@@ -75,7 +75,7 @@ describe("detectCallEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectCallEdges(nodes, lookup);
+    const { edges } = detectCallEdges(nodes, lookup);
 
     const callsValidate = edges.find(
       (e) =>
@@ -108,7 +108,7 @@ describe("detectCallEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectCallEdges(nodes, lookup);
+    const { edges } = detectCallEdges(nodes, lookup);
 
     // fetch and console.log are external — no edges expected
     const externalEdge = edges.find(
@@ -130,7 +130,7 @@ describe("detectCallEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectCallEdges(nodes, lookup);
+    const { edges } = detectCallEdges(nodes, lookup);
 
     const selfEdge = edges.find((e) => e.from === e.to);
     expect(selfEdge).toBeUndefined();
@@ -161,7 +161,7 @@ describe("detectImportEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectImportEdges(lookup, repoPath);
+    const { edges } = detectImportEdges(lookup, repoPath);
 
     const importEdge = edges.find(
       (e) =>
@@ -186,7 +186,7 @@ describe("detectImportEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectImportEdges(lookup, repoPath);
+    const { edges } = detectImportEdges(lookup, repoPath);
 
     const thirdPartyEdge = edges.find(
       (e) =>
@@ -215,7 +215,7 @@ describe("detectImportEdges", () => {
 
     const { nodes } = parseRepo(repoPath);
     const lookup = buildLookupMaps(nodes);
-    const edges = detectImportEdges(lookup, repoPath);
+    const { edges } = detectImportEdges(lookup, repoPath);
 
     // Count edges from Checkout to processPayment — should be exactly 1
     const duplicateEdges = edges.filter(

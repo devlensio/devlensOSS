@@ -46,7 +46,7 @@ DevLens solves this by turning any React, Next.js, or Node.js repository into a 
 
 Point DevLens at any repository and it:
 
-1. **Walks the AST** — extracts every component, hook, function, store, utility, and API route
+1. **Walks the AST** — extracts every component (with prop types), hook, function (with typed parameters and return type), store, utility, and API route; captures referenced TypeScript interfaces inline
 2. **Builds a dependency graph** — maps all relationships: calls, imports, state reads/writes, prop passing, events, and route handling
 3. **Scores every node** — ranks nodes by architectural importance using a multi-pass algorithm (no AI involved)
 4. **Summarizes with LLMs** — generates a business summary and a technical summary for every node
@@ -109,6 +109,9 @@ bun run dev
 
 - **Full AST analysis** via ts-morph — components, hooks, functions, stores, utilities, files, and API routes
 - **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`
+- **Third-party dependency nodes** — selected npm packages appear as fuchsia hexagon nodes in the graph, with `IMPORTS` edges from local files. A pre-analysis library selection step lets you choose which packages to include (defaults to detected runtime dependencies)
+- **Full TypeScript signatures** — function and hook parameters with their types, return type annotations, and referenced interface definitions are captured and displayed per node
+- **Component prop types** — each React component's declared Props interface is detected and shown in the detail panel
 - **State layer detection** — detects Redux, Zustand, Jotai, and custom hooks, then maps every component that reads or writes to each store
 - **Importance scoring** — multi-pass algorithm considering complexity, fan-in, fan-out, and type bonuses
 - **Route entry points** — detects Next.js app/pages router and Express/Fastify/Koa routes; BFS expansion from HTTP endpoints reveals full call chains

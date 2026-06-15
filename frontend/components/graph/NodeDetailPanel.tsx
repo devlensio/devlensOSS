@@ -60,26 +60,28 @@ const TYPE_COLORS: Record<NodeType, { bg: string; text: string; border: string }
   COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
   HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
   FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },  // ← orange
+  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },
   UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
   FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
   GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
   ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
   TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
-  STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },  // ← violet
+  STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },
+  THIRD_PARTY: { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
 };
 
 const TYPE_DOT: Record<string, string> = {
   COMPONENT:   "#2dd4bf",
   HOOK:        "#c084fc",
   FUNCTION:    "#60a5fa",
-  STATE_STORE: "#fb923c",  // ← orange
+  STATE_STORE: "#fb923c",
   UTILITY:     "#94a3b8",
   FILE:        "#f472b6",
   GHOST:       "#6b7280",
   ROUTE:       "#818cf8",
   TEST:        "#f97316",
-  STORY:       "#a78bfa",  // ← violet
+  STORY:       "#a78bfa",
+  THIRD_PARTY: "#e879f9",
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
@@ -91,8 +93,9 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   FILE:        <HiOutlineCodeBracket size={16} />,
   GHOST:       <HiOutlineBolt size={16} />,
   ROUTE:       <HiOutlineGlobeAlt size={16} />,
-  TEST:        <HiOutlineBeaker size={16} />,      // ← add
-  STORY:       <HiOutlineBookOpen size={16} />,    // ← add
+  TEST:        <HiOutlineBeaker size={16} />,
+  STORY:       <HiOutlineBookOpen size={16} />,
+  THIRD_PARTY: <HiOutlineArrowDownTray size={16} />,
 };
 
 const SEV_COLORS: Record<string, { bg: string; text: string; border: string }> =
@@ -294,6 +297,200 @@ function SummaryHtml({ html }: { html: string }) {
         >
           {expanded ? "↑ Show less" : "↓ Read more"}
         </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Third-party metadata section ────────────────────────────────────────────
+
+function ThirdPartyMetaSection({
+  node, score, scoreW, scoreGrad,
+}: { node: CodeNode; score: number; scoreW: string; scoreGrad: string }) {
+  const meta     = node.metadata;
+  const version  = meta.packageVersion as string | undefined;
+  const category = meta.category as string | undefined;
+
+  const catColors: Record<string, { bg: string; text: string; border: string }> = {
+    runtime: { bg: "#3fb95018", text: "#3fb950", border: "#3fb95040" },
+    ui:      { bg: "#818cf818", text: "#818cf8", border: "#818cf840" },
+    devtool: { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b840" },
+    unknown: { bg: "#6b728018", text: "#6b7280", border: "#6b728040" },
+  };
+  const catC = category ? (catColors[category] ?? catColors.unknown) : catColors.unknown;
+
+  return (
+    <div className="px-5 py-4" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+      {/* npm badge row */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        {version && (
+          <span className="text-sm font-mono px-2.5 py-0.5 rounded-lg border"
+            style={{ background: "#e879f918", color: "#e879f9", borderColor: "#e879f930" }}>
+            v{version.replace(/^[\^~]/, "")}
+          </span>
+        )}
+        {category && (
+          <span className="text-sm px-2.5 py-0.5 rounded-lg border font-medium"
+            style={{ background: catC.bg, color: catC.text, borderColor: catC.border }}>
+            {category}
+          </span>
+        )}
+        <a
+          href={`https://www.npmjs.com/package/${node.name.split(".")[0]}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm px-2.5 py-0.5 rounded-lg border font-medium transition-colors"
+          style={{ background: C.elevated, color: C.textSub, borderColor: C.borderSub }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.color = "#e879f9";
+            el.style.borderColor = "#e879f960";
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.color = C.textSub;
+            el.style.borderColor = C.borderSub;
+          }}
+        >
+          npm ↗
+        </a>
+      </div>
+
+      {/* Score */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-sm uppercase tracking-wider" style={{ color: C.textGhost }}>Score</div>
+          <span className="text-sm font-mono font-semibold" style={{ color: C.teal }}>
+            {score.toFixed(1)}<span style={{ color: C.textGhost }}> / 10</span>
+          </span>
+        </div>
+        <div className="h-1 rounded-full overflow-hidden" style={{ background: C.elevated }}>
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{ width: scoreW, background: scoreGrad }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Signature section (FUNCTION / HOOK / COMPONENT) ─────────────────────────
+
+function SignatureSection({ node }: { node: CodeNode }) {
+  const meta         = node.metadata;
+  const parameters   = meta.parameters  as { name: string; type?: string }[] | undefined;
+  const returnType   = meta.returnType   as string | undefined;
+  const propTypes    = meta.propTypes    as Record<string, string> | undefined;
+  const refTypes     = meta.referencedTypes as Record<string, Record<string, string>> | undefined;
+
+  const hasParams    = parameters && parameters.length > 0;
+  const hasReturn    = !!returnType;
+  const hasProps     = propTypes && Object.keys(propTypes).length > 0;
+  const hasRefTypes  = refTypes  && Object.keys(refTypes).length > 0;
+
+  if (!hasParams && !hasReturn && !hasProps && !hasRefTypes) return null;
+
+  const [refOpen, setRefOpen] = useState(false);
+
+  return (
+    <div className="px-5 py-4" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+      <Label icon={<HiOutlineCodeBracket size={16} />}>Signature</Label>
+
+      {/* Parameters */}
+      {hasParams && (
+        <div className="mb-3">
+          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+            Parameters
+          </div>
+          <div className="flex flex-col gap-1">
+            {parameters!.map((p, i) => (
+              <div key={i} className="flex items-center gap-2 font-mono text-sm px-3 py-1.5 rounded-lg"
+                style={{ background: C.elevated }}>
+                <span style={{ color: C.teal }}>{p.name}</span>
+                {p.type && (
+                  <>
+                    <span style={{ color: C.textGhost }}>:</span>
+                    <span style={{ color: C.textDim }}>{p.type}</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Return type */}
+      {hasReturn && (
+        <div className="mb-3">
+          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+            Returns
+          </div>
+          <span className="font-mono text-sm px-2.5 py-1 rounded-lg border"
+            style={{ background: "#818cf818", color: C.indigo, borderColor: "#818cf830" }}>
+            {returnType}
+          </span>
+        </div>
+      )}
+
+      {/* Prop types (COMPONENT only) */}
+      {hasProps && (
+        <div className="mb-3">
+          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+            Props
+          </div>
+          <div className="flex flex-col gap-1">
+            {Object.entries(propTypes!).map(([prop, type]) => (
+              <div key={prop} className="flex items-center gap-2 font-mono text-sm px-3 py-1.5 rounded-lg"
+                style={{ background: C.elevated }}>
+                <span style={{ color: "#2dd4bf" }}>{prop}</span>
+                <span style={{ color: C.textGhost }}>:</span>
+                <span style={{ color: C.textDim }}>{type}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Referenced interfaces (collapsible) */}
+      {hasRefTypes && (
+        <div>
+          <button
+            onClick={() => setRefOpen(o => !o)}
+            className="flex items-center gap-1.5 text-sm mb-2 transition-colors"
+            style={{ color: C.textDim }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = C.text)}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.textDim)}
+          >
+            <HiOutlineChevronDown
+              size={10}
+              style={{ transform: refOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}
+            />
+            <span className="uppercase tracking-wider text-sm" style={{ color: C.textGhost }}>
+              Types ({Object.keys(refTypes!).length})
+            </span>
+          </button>
+          {refOpen && (
+            <div className="flex flex-col gap-2">
+              {Object.entries(refTypes!).map(([typeName, props]) => (
+                <div key={typeName} className="rounded-xl overflow-hidden"
+                  style={{ border: `1px solid ${C.border}`, background: C.bg }}>
+                  <div className="px-3 py-1.5 font-mono text-sm font-semibold"
+                    style={{ background: C.elevated, color: C.indigo }}>
+                    {typeName}
+                  </div>
+                  <div className="p-2 flex flex-col gap-1">
+                    {Object.entries(props).map(([prop, type]) => (
+                      <div key={prop} className="flex items-center gap-2 font-mono text-sm px-2 py-1">
+                        <span style={{ color: C.teal }}>{prop}</span>
+                        <span style={{ color: C.textGhost }}>:</span>
+                        <span style={{ color: C.textDim }}>{type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -765,8 +962,9 @@ export default function NodeDetailPanel({
 
   const sev = node.security?.severity;
   const sevC = sev && sev !== "none" ? SEV_COLORS[sev] : null;
-  const typeC = TYPE_COLORS[node.type];
+  const typeC = TYPE_COLORS[node.type] ?? TYPE_COLORS["GHOST"];
   const isRoute = node.type === "ROUTE";
+  const isThirdParty = node.type === "THIRD_PARTY";
 
   // Diff status colors
   const diffC = diffInfo ? DIFF_STATUS_COLORS[diffInfo.status] : null;
@@ -936,8 +1134,10 @@ export default function NodeDetailPanel({
             scrollbarColor: `${C.elevated} ${C.bg}`,
           }}
         >
-          {/* Route metadata OR standard score block */}
-          {isRoute ? (
+          {/* Route metadata OR THIRD_PARTY info OR standard score block */}
+          {isThirdParty ? (
+            <ThirdPartyMetaSection node={node} score={score} scoreW={scoreW} scoreGrad={scoreGrad} />
+          ) : isRoute ? (
             <RouteMetaSection
               node={node}
               score={score}
@@ -1077,7 +1277,6 @@ export default function NodeDetailPanel({
               />
             </div>
           )}
-          {console.log("Summaries for the nodes are : ", node) as any}
           {/* Summaries */}
           {(node.businessSummary || node.technicalSummary) && (
             <div
@@ -1126,6 +1325,11 @@ export default function NodeDetailPanel({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Signature — parameters, return type, prop types, referenced interfaces */}
+          {(node.type === "FUNCTION" || node.type === "HOOK" || node.type === "COMPONENT") && (
+            <SignatureSection node={node} />
           )}
 
           {/* Test cases — shown for TEST and STORY nodes */}
@@ -1323,8 +1527,8 @@ export default function NodeDetailPanel({
             />
           </div>
 
-          {/* Source code — hidden for ROUTE nodes */}
-          {!isRoute && (
+          {/* Source code — hidden for ROUTE and THIRD_PARTY nodes */}
+          {!isRoute && !isThirdParty && (
             <div className="px-5 py-4 pb-8">
               <Label icon={<HiOutlineCodeBracket size={16} />}>
                 {diffFromHash ? "Code Comparison" : "Source Code"}

@@ -34,6 +34,7 @@ export class InMemoryQueue implements JobQueue {
             config: input.config,
             skipSummarization:  input.skipSummarization ?? false,
             forceSummarize: input.forceSummarize ?? false,
+            includedThirdPartyLibs: input.includedThirdPartyLibs ?? [],
             graphId: undefined,
             events: [],
             pauseRequested: false,

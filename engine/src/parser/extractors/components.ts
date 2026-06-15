@@ -2,6 +2,10 @@
 import { SourceFile, SyntaxKind, Node } from "ts-morph";
 import type { CodeNode } from "../../types";
 import { detectFunctionDirective, type RenderingBoundary } from "../directives";
+import {
+  extractReturnTypeAnnotation,
+  extractReferencedInterfaces,
+} from "../typeUtils";
 
 // Generates a unique id for a node
 function makeId(filePath: string, name: string): string {
@@ -68,14 +72,17 @@ function extractAllCalls(node: Node): string[] {
   const externalCalls = new Set<string>();
 
   for(const call of calls) {
-    const expr = call.getExpression();
-    const rootName = expr.getText().split(".")[0]; 
+    const expr     = call.getExpression();
+    const fullExpr = expr.getText();
+    const rootName = fullExpr.split(".")[0];
 
     if(rootName.startsWith("use")) continue; // skip hooks
-    if(rootName.startsWith("React")) continue; // even if we dont skip this and it gets added in the external call, the edge will never be made because there is no node with the name starting with React in our graph, but still I am skipping it here to avoid confusion and noise in the metadata (same is the case with the hooks and other inbuilt functions as well, e.g. console.log, Math.round etc.)
+    if(rootName.startsWith("React")) continue;
     if(innerFunctionNames.has(rootName)) continue; // skip calls to inner functions
 
-    externalCalls.add(rootName);
+    // Capture the full expression (e.g. "axios.get" not just "axios") so
+    // callEdges.ts can create a per-method third-party node when needed.
+    externalCalls.add(fullExpr);
   }
   return [...externalCalls];
 }
@@ -83,6 +90,50 @@ function extractAllCalls(node: Node): string[] {
 // Checks if a component has any state (useState or useReducer)
 function hasState(hooks: string[]): boolean {
   return hooks.includes("useState") || hooks.includes("useReducer");
+}
+
+// Extracts prop types from the first parameter of a component function.
+// Handles three patterns:
+//   1. function Button({ color }: ButtonProps) — named ref → look up interface
+//   2. function Button({ color }: { color: string }) — inline object type literal
+//   3. const Button: React.FC<ButtonProps> = ... — generic type argument (regex)
+function extractPropTypes(
+  fn: any,
+  sourceFile: SourceFile
+): Record<string, string> | undefined {
+  const params = fn.getParameters ? fn.getParameters() : [];
+  if (!params.length) return undefined;
+
+  const firstParam = params[0];
+  const typeNode = firstParam.getTypeNode();
+  if (!typeNode) return undefined;
+
+  const typeText = typeNode.getText();
+
+  // Pattern 2: inline object literal `{ color: string; onClick: () => void }`
+  if (typeText.startsWith("{")) {
+    try {
+      const typeLiteral = typeNode.asKind(SyntaxKind.TypeLiteral);
+      if (typeLiteral) {
+        const props: Record<string, string> = {};
+        for (const member of typeLiteral.getProperties()) {
+          props[member.getName()] = member.getTypeNode()?.getText() ?? "unknown";
+        }
+        return Object.keys(props).length ? props : undefined;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  // Pattern 1: named type reference like `ButtonProps`
+  const trimmed = typeText.trim();
+  if (/^[A-Z][A-Za-z0-9_]*$/.test(trimmed)) {
+    const result = extractReferencedInterfaces(sourceFile, [trimmed]);
+    return result[trimmed] ?? undefined;
+  }
+
+  return undefined;
 }
 
 export function extractComponents(file: SourceFile, fileDirective: RenderingBoundary = null): CodeNode[] {
@@ -106,6 +157,8 @@ export function extractComponents(file: SourceFile, fileDirective: RenderingBoun
     const externalCalls = extractAllCalls(fn);
     const contextRefs = extractContextRefs(fn);
     const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
+    const propTypes = extractPropTypes(fn, file);
+    const returnType = extractReturnTypeAnnotation(fn) ?? "JSX.Element";
 
     nodes.push({
       id: makeId(filePath, name),
@@ -121,6 +174,8 @@ export function extractComponents(file: SourceFile, fileDirective: RenderingBoun
         uses: externalCalls,
         hasState: hasState(hooks),
         exportType: fn.isDefaultExport() ? "default" : "named",
+        propTypes,
+        returnType,
         ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });
@@ -182,6 +237,8 @@ export function extractComponents(file: SourceFile, fileDirective: RenderingBoun
         ? (nodeToAnalyze as any).getBody()
         : undefined
     ) ?? fileDirective;
+    const propTypes = extractPropTypes(nodeToAnalyze, file);
+    const returnType = extractReturnTypeAnnotation(nodeToAnalyze) ?? "JSX.Element";
 
     const variableStatement = variable.getVariableStatement();
     const isExported = variableStatement
@@ -205,7 +262,9 @@ export function extractComponents(file: SourceFile, fileDirective: RenderingBoun
         uses: externalCalls,
         hasState: hasState(hooks),
         exportType: isDefault ? "default" : isExported ? "named" : "none",
-        isMemoized: isMemoOrForwardRef,  // useful metadata for scoring later
+        isMemoized: isMemoOrForwardRef,
+        propTypes,
+        returnType,
         ...(renderingBoundary !== null && { renderingBoundary }),
       },
     });

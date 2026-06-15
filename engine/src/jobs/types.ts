@@ -77,15 +77,17 @@ export interface Job {
   error?: string;
 
   forceSummarize?: boolean;
+  includedThirdPartyLibs?: string[];
 }
 
 export interface JobInput {
-  repoPath:      string;
-  isGithubRepo?: boolean;
-  skipSummarization:  boolean;
-  thresholds?:   FilterThresholds;
-  config:        DevLensConfig;
-  forceSummarize?: boolean;
+  repoPath:                string;
+  isGithubRepo?:           boolean;
+  skipSummarization:       boolean;
+  thresholds?:             FilterThresholds;
+  config:                  DevLensConfig;
+  forceSummarize?:         boolean;
+  includedThirdPartyLibs?: string[];
 }
 
 export interface JobSummary {

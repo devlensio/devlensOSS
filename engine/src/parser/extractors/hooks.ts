@@ -1,6 +1,12 @@
 import { SourceFile, SyntaxKind, Node } from "ts-morph";
 import type { CodeNode } from "../../types";
 import { detectFunctionDirective, type RenderingBoundary } from "../directives";
+import {
+  extractParams,
+  extractBareTypeNames,
+  extractReferencedInterfaces,
+  type ParamInfo,
+} from "../typeUtils";
 
 function makeId(filePath: string, name: string): string {
   return `${filePath}::${name}`;
@@ -29,11 +35,13 @@ function extractContextRefs(node: Node): string[] {
   return [...new Set(refs)];
 }
 
+// Try explicit annotation first; fall back to shape heuristic.
 function extractReturnType(node: any): string {
+  const explicit = node.getReturnTypeNode?.()?.getText();
+  if (explicit) return explicit;
+
   const returnStatements = node.getDescendantsOfKind(SyntaxKind.ReturnStatement);
   if (returnStatements.length === 0) return "void";
-  
-  // Check if it returns an array (like useState pattern)
   for (const ret of returnStatements) {
     const expr = ret.getExpression();
     if (!expr) continue;
@@ -62,6 +70,9 @@ export function extractHooks(file: SourceFile, fileDirective: RenderingBoundary 
     const isAsync = fn.isAsync();
     const contextRefs = extractContextRefs(fn);
     const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
+    const typedParams = extractParams(fn);
+    const bareTypeNames = extractBareTypeNames([...typedParams.map((p: ParamInfo) => p.type), returnType]);
+    const referencedTypes = extractReferencedInterfaces(file, bareTypeNames);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -75,6 +86,8 @@ export function extractHooks(file: SourceFile, fileDirective: RenderingBoundary 
         dependencies,
         contextRefs,
         returnType,
+        parameters: typedParams,
+        referencedTypes,
         isAsync,
         ...(renderingBoundary !== null && { renderingBoundary }),
       },
@@ -101,6 +114,9 @@ export function extractHooks(file: SourceFile, fileDirective: RenderingBoundary 
     const isAsync = initializer.asKind(SyntaxKind.ArrowFunction)?.isAsync() ?? false;
     const contextRefs = extractContextRefs(initializer);
     const renderingBoundary = detectFunctionDirective((initializer as any).getBody?.()) ?? fileDirective;
+    const typedParams = extractParams(initializer);
+    const bareTypeNames = extractBareTypeNames([...typedParams.map((p: ParamInfo) => p.type), returnType]);
+    const referencedTypes = extractReferencedInterfaces(file, bareTypeNames);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -114,6 +130,8 @@ export function extractHooks(file: SourceFile, fileDirective: RenderingBoundary 
         dependencies,
         contextRefs,
         returnType,
+        parameters: typedParams,
+        referencedTypes,
         isAsync,
         ...(renderingBoundary !== null && { renderingBoundary }),
       },

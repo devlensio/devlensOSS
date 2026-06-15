@@ -138,6 +138,12 @@ export function scoreNode(
   if (node.type === "GHOST") return 5.0;
   if (node.type === "FILE") return 0;
 
+  if (node.type === "THIRD_PARTY") {
+    // Score by how many local files import it (fan-in), +0.5 flat bonus.
+    const connectionScore = calcConnections(node, profile, maxima);
+    return Math.min(10, connectionScore + 0.5);
+  }
+
   const base        = 1.0;
   const complexity  = calcComplexity(node, profile);
   const connections = calcConnections(node, profile, maxima);

@@ -16,6 +16,7 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
+import { sanitizeSummary } from "@/lib/sanitize";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1225,6 +1226,30 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
 
   return (
     <div style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+      <style>{`
+        .summary-html code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.8em;
+          background: rgba(255,255,255,0.08);
+          border-radius: 4px;
+          padding: 0.1em 0.4em;
+        }
+        .summary-html pre {
+          background: rgba(0,0,0,0.4);
+          border-radius: 6px;
+          padding: 0.5em 0.75em;
+          overflow-x: auto;
+          margin: 0.4em 0;
+          font-size: 0.8em;
+        }
+        .summary-html pre code { background: none; padding: 0; font-size: 1em; }
+        .summary-html ul, .summary-html ol { padding-left: 1.1em; margin: 0.25em 0; }
+        .summary-html li { margin: 0.15em 0; }
+        .summary-html strong { font-weight: 600; }
+        .summary-html p { margin: 0.25em 0; }
+        .summary-html p:first-child { margin-top: 0; }
+        .summary-html p:last-child  { margin-bottom: 0; }
+      `}</style>
       <div
         onClick={onFocus}
         className="w-full flex items-start gap-2.5 px-4 py-3 text-left transition-colors"
@@ -1249,13 +1274,21 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
           </p>
           {node.security?.summary && (
             <div>
-              <p className="text-xs leading-relaxed" style={{ color: C.textSub }}>
-                {expanded || node.security.summary.length <= 100
-                  ? node.security.summary
-                  : `${node.security.summary.slice(0, 100).trimEnd()}…`
-                }
-              </p>
-              {node.security.summary.length > 100 && (
+              {expanded ? (
+                <div
+                  className="summary-html text-xs leading-relaxed"
+                  style={{ color: C.textSub }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSummary(node.security.summary) }}
+                />
+              ) : (
+                <p className="text-xs leading-relaxed" style={{ color: C.textSub }}>
+                  {node.security.summary.replace(/<[^>]*>/g, "").length <= 100
+                    ? node.security.summary.replace(/<[^>]*>/g, "")
+                    : `${node.security.summary.replace(/<[^>]*>/g, "").slice(0, 100).trimEnd()}…`
+                  }
+                </p>
+              )}
+              {node.security.summary.replace(/<[^>]*>/g, "").length > 100 && (
                 <button
                   onClick={e => { e.stopPropagation(); setExpanded(o => !o); }}
                   className="text-xs mt-0.5 transition-colors"

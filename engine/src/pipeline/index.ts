@@ -5,6 +5,7 @@ import { analyzeFingerprint } from "../fingerprint";
 import { analyzeFilesystem } from "../filesystem";
 import { parseRepo } from "../parser";
 import { detectEdges } from "../graph";
+import { buildThirdPartyNodes } from "../graph/thirdPartyLibs";
 import { scoreAndFilter } from "../scoring";
 import type { FilterThresholds } from "../scoring/noiseFilter";
 import type {
@@ -29,7 +30,7 @@ export interface GitInfo {
 export interface PipelineOptions {
   thresholds?: FilterThresholds;
   onStep?: (step: "fingerprint" | "filesystem" | "parse" | "edges" | "scoring") => void;
-
+  includedThirdPartyLibs?: string[];
 }
 
 export interface PipelineStats {
@@ -284,10 +285,18 @@ export async function analyzePipeline(
     `  Files: ${parserResult.stats.totalFiles}  |  Nodes: ${parserResult.stats.totalNodes}  |  Skipped: ${parserResult.stats.skippedFiles}`
   );
 
+  // ── Step 3.5: Build third-party nodes ────────────────────────
+  const thirdPartyNodes: CodeNode[] = options?.includedThirdPartyLibs?.length
+    ? buildThirdPartyNodes(absoluteRepoPath, options.includedThirdPartyLibs)
+    : [];
+  if (thirdPartyNodes.length) {
+    console.log(`  Third-party nodes: ${thirdPartyNodes.length}`);
+  }
+
   // ── Step 4: Detect edges ──────────────────────────────────────
   console.log("\n[4/5] Detecting edges...");
   const edgeResult = detectEdges(
-    [...parserResult.nodes, ...routeNodes],
+    [...parserResult.nodes, ...routeNodes, ...thirdPartyNodes],
     routes,
     absoluteRepoPath,
     fingerprint
@@ -302,7 +311,7 @@ export async function analyzePipeline(
     return true;
   })
 
-  const allNodes: CodeNode[] = [...parserResult.nodes, ...routeNodes, ...edgeResult.ghostNodes];
+  const allNodes: CodeNode[] = [...parserResult.nodes, ...routeNodes, ...thirdPartyNodes, ...edgeResult.ghostNodes];
   const allEdges: CodeEdge[] = edgeResult.edges;
 
   // ── Step 5: Score and filter ──────────────────────────────────

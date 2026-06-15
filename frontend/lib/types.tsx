@@ -12,7 +12,19 @@ export type NodeType =
   | "GHOST"
   | "ROUTE"
   | "TEST"
-  | "STORY";
+  | "STORY"
+  | "THIRD_PARTY";
+
+export interface ThirdPartyLibEntry {
+  name:     string;
+  version:  string;
+  category: "runtime" | "ui" | "devtool" | "unknown";
+}
+
+export interface PreScanResult {
+  included: ThirdPartyLibEntry[];
+  excluded: ThirdPartyLibEntry[];
+}
 
 export type EdgeType =
   | "CALLS"

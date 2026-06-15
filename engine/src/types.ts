@@ -110,7 +110,8 @@ export type NodeType =
   | "GHOST"
   | "ROUTE"
   | "TEST"
-  | "STORY";
+  | "STORY"
+  | "THIRD_PARTY";
 
 export interface CodeNode {
   id: string;

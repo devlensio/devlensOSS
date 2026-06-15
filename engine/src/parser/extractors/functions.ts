@@ -2,6 +2,13 @@ import { SourceFile, SyntaxKind } from "ts-morph";
 import type { CodeNode } from "../../types";
 import { returnsJSX } from "./components";
 import { detectFunctionDirective, type RenderingBoundary } from "../directives";
+import {
+  extractParams,
+  extractReturnTypeAnnotation,
+  extractBareTypeNames,
+  extractReferencedInterfaces,
+  type ParamInfo,
+} from "../typeUtils";
 
 // these are used to detect the routes in the Nextjs
 const HTTP_METHOD_EXPORTS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);
@@ -9,11 +16,6 @@ const HTTP_METHOD_EXPORTS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "H
 
 function makeId(filePath: string, name: string): string {
   return `${filePath}::${name}`;
-}
-
-function extractParams(node: any): string[] {
-  const params = node.getParameters ? node.getParameters() : [];
-  return params.map((p: any) => p.getName());
 }
 
 function extractFunctionCalls(node: any): string[] {
@@ -118,7 +120,7 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
     // Skip hooks - handled by hooks extractor
     if (/^use[A-Z]/.test(name)) continue;
 
-    const params = extractParams(fn);
+    const typedParams = extractParams(fn);
     const calls = extractFunctionCalls(fn);
     const hookCalls = extractHookCalls(fn);
     const apiCalls = extractApiCalls(fn);
@@ -126,6 +128,9 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
     const hasErrors = hasErrorHandling(fn);
     const throws = extractThrowStatements(fn);
     const renderingBoundary = detectFunctionDirective(fn.getBody()) ?? fileDirective;
+    const returnType = extractReturnTypeAnnotation(fn);
+    const bareTypeNames = extractBareTypeNames([...typedParams.map((p: ParamInfo) => p.type), returnType]);
+    const referencedTypes = extractReferencedInterfaces(file, bareTypeNames);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -136,7 +141,10 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
       endLine: fn.getEndLineNumber(),
       rawCode: fn.getText(),
       metadata: {
-        params,
+        params:       typedParams.map((p: ParamInfo) => p.name),
+        parameters:   typedParams,
+        returnType,
+        referencedTypes,
         calls,
         hookCalls,
         apiCalls,
@@ -168,7 +176,7 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
     const isArrow = initializer.getKind() === SyntaxKind.ArrowFunction;
     if (!isArrow) continue;
 
-    const params = extractParams(initializer);
+    const typedParams = extractParams(initializer);
     const calls = extractFunctionCalls(initializer);
     const hookCalls = extractHookCalls(initializer);
     const apiCalls = extractApiCalls(initializer);
@@ -176,6 +184,9 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
     const hasErrors = hasErrorHandling(initializer);
     const throws = extractThrowStatements(initializer);
     const renderingBoundary = detectFunctionDirective((initializer as any).getBody?.()) ?? fileDirective;
+    const returnType = extractReturnTypeAnnotation(initializer);
+    const bareTypeNames = extractBareTypeNames([...typedParams.map((p: ParamInfo) => p.type), returnType]);
+    const referencedTypes = extractReferencedInterfaces(file, bareTypeNames);
 
     nodes.push({
       id: makeId(filePath, name),
@@ -186,7 +197,10 @@ export function extractFunctions(file: SourceFile, fileDirective: RenderingBound
       endLine: variable.getEndLineNumber(),
       rawCode: variable.getText(),
       metadata: {
-        params,
+        params:       typedParams.map((p: ParamInfo) => p.name),
+        parameters:   typedParams,
+        returnType,
+        referencedTypes,
         calls,
         hookCalls,
         apiCalls,
