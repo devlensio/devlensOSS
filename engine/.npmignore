@@ -1,6 +1,0 @@
-src/server/
-src/debug/
-*.test.ts
-*.spec.ts
-.env
-.env.*
