@@ -34,4 +34,13 @@ main.optionalDependencies = main.optionalDependencies ?? {};
 for (const p of PLATFORMS) main.optionalDependencies[`@devlensio/cli-${p}`] = version; // exact pin
 writeJson(mainFile, main);
 
-console.log(`Set version ${version} across main + ${PLATFORMS.length} platform packages.`);
+// MCP registry manifest — keep its server + npm-package version in lockstep too.
+const serverFile = path.join(root, "server.json");
+if (fs.existsSync(serverFile)) {
+  const srv = JSON.parse(fs.readFileSync(serverFile, "utf8"));
+  srv.version = version;
+  for (const pkg of srv.packages ?? []) pkg.version = version;
+  writeJson(serverFile, srv);
+}
+
+console.log(`Set version ${version} across main + ${PLATFORMS.length} platform packages + server.json.`);

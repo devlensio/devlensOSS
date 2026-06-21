@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.devlensio/devlens",
+  "description": "MCP access to a precomputed code graph (nodes, typed edges, summaries) for TS/JS/React/Next.js/Node repos.",
+  "title": "DevLens",
+  "repository": {
+    "url": "https://github.com/devlensio/devlensOSS",
+    "source": "github"
+  },
+  "version": "0.2.4",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@devlensio/cli",
+      "version": "0.2.4",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

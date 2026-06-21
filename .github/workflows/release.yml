@@ -63,3 +63,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/bin/*
+
+      # Publish server metadata to the official MCP Registry (tokenless via GitHub OIDC).
+      # Last, so a registry hiccup (e.g. npm propagation lag) can't block the npm/GitHub
+      # release. set-version.mjs already synced server.json to this release's version.
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry (OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
