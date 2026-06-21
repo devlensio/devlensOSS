@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write # needed to upload binaries to the GitHub Release
+  id-token: write # needed for npm Trusted Publishing (OIDC) — no NPM_TOKEN required
 
 jobs:
   release:
@@ -25,6 +26,10 @@ jobs:
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
+
+      # Trusted Publishing (OIDC) needs npm >= 11.5; setup-node's Node 20 ships npm 10.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
 
       - name: Derive version from tag
         id: ver
@@ -49,13 +54,9 @@ jobs:
             echo "publishing $dir"
             (cd "$dir" && npm publish --access public)
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish main package
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Also attach the raw binaries to the GitHub Release (for the install-script channel).
       - name: Upload binaries to GitHub Release
