@@ -1,0 +1,64 @@
+name: release
+
+# Tag a release to publish:  git tag v0.3.0 && git push origin v0.3.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # needed to upload binaries to the GitHub Release
+
+jobs:
+  release:
+    # bun cross-compiles every target from one Linux runner — no per-OS matrix.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Node is used to publish to npm and to run the helper scripts.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Derive version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Sync version across all packages
+        run: node scripts/set-version.mjs "${{ steps.ver.outputs.version }}"
+
+      - name: Build all platform binaries
+        run: bun run build:binaries
+
+      - name: Stage binaries into platform packages
+        run: bun run stage:binaries
+
+      # Publish platform packages FIRST so the main package's optionalDependencies resolve.
+      - name: Publish platform packages
+        run: |
+          for dir in npm/*/; do
+            echo "publishing $dir"
+            (cd "$dir" && npm publish --access public)
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish main package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Also attach the raw binaries to the GitHub Release (for the install-script channel).
+      - name: Upload binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/bin/*

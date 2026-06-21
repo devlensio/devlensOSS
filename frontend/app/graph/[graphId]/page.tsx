@@ -64,7 +64,7 @@ export default function GraphPage({ params }: Props) {
     setSummaryDismissed(false);
   }, [jobId]);
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  //  State 
   const [reanalyzing, setReanalyzing] = useState(false);
   const [reloadPending, setReloadPending] = useState(false);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export default function GraphPage({ params }: Props) {
 
   const scoreThreshold = userThreshold !== null ? userThreshold : autoThreshold;
 
-  // ── Highlight helpers ─────────────────────────────────────────────────────
+  //  Highlight helpers 
 
   function highlight(ids: string[]) {
     setHighlightedIds(ids);
@@ -112,7 +112,7 @@ export default function GraphPage({ params }: Props) {
     canvasRef.current?.clearHighlight();
   }
 
-  // ── Reload — clear pending when refetch completes ─────────────────────────
+  //  Reload — clear pending when refetch completes 
 
   useEffect(() => {
     if (!graphFetching && reloadPending) {
@@ -120,7 +120,7 @@ export default function GraphPage({ params }: Props) {
     }
   }, [graphFetching, reloadPending]);
 
-  // ── Diff handlers ─────────────────────────────────────────────────────────
+  //  Diff handlers 
 
   function handleDiffActivate(
     diff: NodeDiff,
@@ -141,7 +141,7 @@ export default function GraphPage({ params }: Props) {
     canvasRef.current?.clearDiffColors();
   }
 
-  // ── Diff node lookup maps ─────────────────────────────────────────────────
+  //  Diff node lookup maps 
 
   const diffNodeMap = useMemo(() => {
     if (!diffData) return null;
@@ -157,7 +157,7 @@ export default function GraphPage({ params }: Props) {
     return { added, removed, scoreChanged, moved, codeChanged };
   }, [diffData]);
 
-  // ── Diff color overrides ──────────────────────────────────────────────────
+  //  Diff color overrides 
 
   const diffColorOverrides = useMemo((): Record<string, string> => {
     if (!diffNodeMap) return {};
@@ -180,7 +180,7 @@ export default function GraphPage({ params }: Props) {
     return () => clearTimeout(timer);
   }, [diffMode, diffColorOverrides]);
 
-  // ── Route reachable set ───────────────────────────────────────────────────
+  //  Route reachable set 
 
   const routeReachableIds = useMemo(() => {
     if (!showRouteNodes || !graph) return new Set<string>();
@@ -206,7 +206,7 @@ export default function GraphPage({ params }: Props) {
     return () => clearTimeout(timer);
   }, [showRouteNodes, routeReachableIds]);
 
-  // ── Visible nodes ─────────────────────────────────────────────────────────
+  //  Visible nodes 
 
   const visibleNodes = useMemo(() => {
     if (!graph) return [];
@@ -255,7 +255,7 @@ export default function GraphPage({ params }: Props) {
     diffNodeMap,
   ]);
 
-  // ── Visible edges ─────────────────────────────────────────────────────────
+  //  Visible edges 
 
   const visibleEdges = useMemo(() => {
     if (!graph) return [];
@@ -268,14 +268,14 @@ export default function GraphPage({ params }: Props) {
     );
   }, [graph, visibleNodes, activeEdgeTypes]);
 
-  // ── Update canvas when filters change ────────────────────────────────────
+  //  Update canvas when filters change 
 
   useEffect(() => {
     if (!graph) return;
     canvasRef.current?.updateElements(visibleNodes, visibleEdges);
   }, [visibleNodes, visibleEdges]);
 
-  // ── Diff info for focused node ────────────────────────────────────────────
+  //  Diff info for focused node 
 
   const focusedNodeDiffInfo = useMemo((): DiffInfo | undefined => {
     if (!diffMode || !diffNodeMap || !focusedNodeId) return undefined;
@@ -307,7 +307,7 @@ export default function GraphPage({ params }: Props) {
     return undefined;
   }, [diffMode, diffNodeMap, focusedNodeId]);
 
-  // ── Fullscreen ────────────────────────────────────────────────────────────
+  //  Fullscreen 
 
   useEffect(() => {
     function onFsChange() {
@@ -333,7 +333,7 @@ export default function GraphPage({ params }: Props) {
     activeEdgeTypesRef.current = activeEdgeTypes;
   }, [activeEdgeTypes]);
 
-  // ── Route toggle ──────────────────────────────────────────────────────────
+  //  Route toggle 
 
   function handleRouteToggle() {
     if (showRouteNodes) {
@@ -342,7 +342,7 @@ export default function GraphPage({ params }: Props) {
     } else setShowRouteNodes(true);
   }
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
+  //  Reset 
 
   function handleReset() {
     setActiveNodeTypes(DEFAULT_NODE_TYPES);
@@ -354,7 +354,7 @@ export default function GraphPage({ params }: Props) {
     clearHighlight();
   }
 
-  // ── Reload ────────────────────────────────────────────────────────────────
+  //  Reload 
 
   function handleReload() {
     setReloadPending(true);
@@ -364,7 +364,7 @@ export default function GraphPage({ params }: Props) {
     });
   }
 
-  // ── Re-analyze ────────────────────────────────────────────────────────────
+  //  Re-analyze 
 
   async function handleReanalyze(skipSummarization = false) {
     const repoPath = graph?.repoPath ?? meta?.repoPath;
@@ -381,7 +381,7 @@ export default function GraphPage({ params }: Props) {
     }
   }
 
-  // ── Node focus ────────────────────────────────────────────────────────────
+  //  Node focus 
 
   function handleNodeFocus(id: string) {
     setFocusedNodeId(id);
@@ -417,7 +417,7 @@ export default function GraphPage({ params }: Props) {
 
   return (
     <div className="h-screen flex flex-col bg-base text-primary overflow-hidden">
-      {/* ── Navbar ──────────────────────────────────────────────────────── */}
+      {/*  Navbar  */}
       <nav
         className="border-b border-border px-5 py-2 flex items-center gap-3
                       shrink-0 bg-base/95 backdrop-blur-sm z-10"
@@ -487,7 +487,7 @@ export default function GraphPage({ params }: Props) {
         )}
       </nav>
 
-      {/* ── Banners ─────────────────────────────────────────────────────── */}
+      {/*  Banners  */}
 
       {/* Submitting re-analysis */}
       {reanalyzing && (
@@ -578,7 +578,7 @@ export default function GraphPage({ params }: Props) {
         </div>
       )}
 
-      {/* ── Canvas area ─────────────────────────────────────────────────── */}
+      {/*  Canvas area  */}
       <div className="flex-1 relative overflow-hidden">
         {isAnalyzing && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -682,7 +682,7 @@ export default function GraphPage({ params }: Props) {
   );
 }
 
-// ─── ReanalyzeButton ──────────────────────────────────────────────────────────
+//  ReanalyzeButton 
 
 function ReanalyzeButton({
   repoPath,

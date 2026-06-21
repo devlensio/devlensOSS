@@ -14,8 +14,12 @@ out/
 
 dist/
 build/
-bin/
 obj/
+
+# Staged platform binaries — CI builds + stages these; only the npm/*/package.json
+# manifests and bin/devlens.cjs launcher are committed.
+npm/*/devlens
+npm/*/devlens.exe
 
 .env
 .env.*

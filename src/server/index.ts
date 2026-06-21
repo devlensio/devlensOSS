@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { initConfig } from "devlensio";
 import { router } from "./router.js";
 
@@ -8,10 +9,8 @@ export const CORS_HEADERS: Record<string, string> = {
     "Access-Control-Max-Age": "86400",
 };
 
-const port = parseInt(process.env.PORT ?? "3000", 10);
-
-
-async function start(): Promise<void> {
+export async function startServer(opts: { port?: number; repoPath?: string } = {}): Promise<void> {
+    const port = opts.port ?? parseInt(process.env.PORT ?? "3000", 10);
     console.log("DevLens starting Up...");
     await initConfig();
 
@@ -42,8 +41,11 @@ async function start(): Promise<void> {
     console.log(`   Health check: http://localhost:${port}/api/health\n`);
 }
 
-start().catch((err) => {
-    console.error("❌ DevLens failed to start:", err);
-    process.exit(1);
-});
+// Allow `bun src/server/index.ts` to keep working standalone.
+if (import.meta.main) {
+    startServer().catch((err) => {
+        console.error("❌ DevLens failed to start:", err);
+        process.exit(1);
+    });
+}
 

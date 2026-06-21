@@ -1,0 +1,15 @@
+{
+  "name": "@devlensio/cli-windows-x64",
+  "version": "0.2.1",
+  "description": "Prebuilt DevLens CLI binary for Windows x64",
+  "license": "AGPL-3.0",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "devlens.exe"
+  ]
+}
