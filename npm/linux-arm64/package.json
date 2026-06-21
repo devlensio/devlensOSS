@@ -1,8 +1,13 @@
 {
   "name": "@devlensio/cli-linux-arm64",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Prebuilt DevLens CLI binary for Linux arm64",
   "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devlensio/devlensOSS.git",
+    "directory": "npm/linux-arm64"
+  },
   "os": [
     "linux"
   ],

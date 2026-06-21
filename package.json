@@ -1,9 +1,13 @@
 {
   "name": "@devlensio/cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devlensio/devlensOSS.git"
   },
   "bin": {
     "devlens": "bin/devlens.cjs"
@@ -22,11 +26,11 @@
     "stage:binaries": "node scripts/stage-binaries.mjs"
   },
   "optionalDependencies": {
-    "@devlensio/cli-darwin-arm64": "0.2.2",
-    "@devlensio/cli-darwin-x64": "0.2.2",
-    "@devlensio/cli-linux-x64": "0.2.2",
-    "@devlensio/cli-linux-arm64": "0.2.2",
-    "@devlensio/cli-windows-x64": "0.2.2"
+    "@devlensio/cli-darwin-arm64": "0.2.3",
+    "@devlensio/cli-darwin-x64": "0.2.3",
+    "@devlensio/cli-linux-x64": "0.2.3",
+    "@devlensio/cli-linux-arm64": "0.2.3",
+    "@devlensio/cli-windows-x64": "0.2.3"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
