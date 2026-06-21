@@ -43,4 +43,13 @@ if (fs.existsSync(serverFile)) {
   writeJson(serverFile, srv);
 }
 
-console.log(`Set version ${version} across main + ${PLATFORMS.length} platform packages + server.json.`);
+// CLI's hardcoded `.version("x.y.z")` — what `devlens --version` reports. The
+// binary bundles this string at build time, so it must be patched BEFORE build.
+const cliFile = path.join(root, "src", "cli", "index.ts");
+if (fs.existsSync(cliFile)) {
+  const src = fs.readFileSync(cliFile, "utf8");
+  const patched = src.replace(/\.version\("[^"]*"\)/, `.version("${version}")`);
+  if (patched !== src) fs.writeFileSync(cliFile, patched);
+}
+
+console.log(`Set version ${version} across main + ${PLATFORMS.length} platform packages + server.json + CLI.`);
