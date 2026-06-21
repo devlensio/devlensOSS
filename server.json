@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.devlensio/devlens",
-  "description": "MCP access to a precomputed code graph (nodes, typed edges, summaries) for TS/JS/React/Next.js/Node repos.",
+  "description": "Query a precomputed code graph (nodes, edges, summaries) of TS/JS/React/Next.js/Node repos via MCP.",
   "title": "DevLens",
   "repository": {
     "url": "https://github.com/devlensio/devlensOSS",
