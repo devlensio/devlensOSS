@@ -48,3 +48,6 @@ engine/bun.lock
 engine/package-lock.json
 frontend/bun.lock
 frontend/package-lock.json
+
+# Generated at prepack from plugins/devlens/skills/devlens (single source of truth)
+packages/skill-installer/skill/

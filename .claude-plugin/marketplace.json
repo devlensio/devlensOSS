@@ -1,0 +1,23 @@
+{
+  "name": "devlensio",
+  "owner": {
+    "name": "DevLens"
+  },
+  "description": "DevLens plugins — codebase intelligence for AI agents.",
+  "plugins": [
+    {
+      "name": "devlens",
+      "source": "./plugins/devlens",
+      "description": "The /devlens skill: query a precomputed code graph via the DevLens CLI for architecture, diagrams, security analysis, impact, and summaries.",
+      "category": "productivity",
+      "keywords": [
+        "codebase",
+        "code-graph",
+        "code-intelligence",
+        "typescript",
+        "react",
+        "nextjs"
+      ]
+    }
+  ]
+}

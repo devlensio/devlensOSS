@@ -1,0 +1,32 @@
+{
+  "name": "@devlensio/skill",
+  "version": "0.1.0",
+  "description": "Installer for the DevLens Agent Skill — adds the /devlens skill (architecture, diagrams, security analysis, impact, summaries) to Claude Code, Cursor, and other AI coding tools.",
+  "type": "module",
+  "bin": {
+    "skill": "bin/skill.mjs"
+  },
+  "files": [
+    "bin/",
+    "skill/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devlensio/devlensOSS.git",
+    "directory": "packages/skill-installer"
+  },
+  "scripts": {
+    "prepack": "node scripts/bundle-skill.mjs"
+  },
+  "keywords": [
+    "devlens",
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "code-intelligence"
+  ],
+  "license": "AGPL-3.0"
+}
