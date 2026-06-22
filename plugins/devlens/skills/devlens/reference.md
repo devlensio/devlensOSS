@@ -33,9 +33,14 @@ DevLens exists to keep context small. A node **summary is ~50 tokens**; the **fi
 - **`devlens overview`** — repo fingerprint (language, projectType, framework, router, stateManagement, dataFetching, databases, rawDependencies), stats, and the most-central nodes. **Start here.**
 - **`devlens top-nodes -l <n>`** — highest-scoring (most central) nodes; the modules that matter most.
 
+## Node & edge types
+- **Node types (`-t`):** COMPONENT, HOOK, FUNCTION, STATE_STORE, UTILITY, ROUTE, FILE, TEST, STORY, THIRD_PARTY (GHOST = internal placeholder).
+- **Edge types (`-e`, and the `viaEdge` field):** CALLS, IMPORTS, READS_FROM, WRITES_TO, PROP_PASS, EMITS, LISTENS, WRAPPED_BY, GUARDS, HANDLES, TESTS, USES.
+- Compact node refs carry `severity` (none|low|medium|high) and a short `summary`; connection results (`get-node` callers/callees, `blast-radius`/`khop` nodes) carry **`viaEdge`** (the edge type) and `hop`. Use these to encode meaning + risk, not just structure.
+
 ## Find code (locate nodes — compact refs, not source)
 - **`devlens find-nodes [name]`** — substring search on node name.
-  - `-t, --type <types...>` — COMPONENT, HOOK, FUNCTION, ROUTE, STORE, …
+  - `-t, --type <types...>` — node types (see list above).
   - `-f, --file <path>` — nodes in exactly this file.
   - `-d, --dir <path>` — nodes under this folder (prefix).
   - `--node-ids <ids...>` — fetch exact ids.
@@ -53,7 +58,7 @@ DevLens exists to keep context small. A node **summary is ~50 tokens**; the **fi
 ## Structure & impact
 - **`devlens blast-radius <nodeId>`** — **upstream** dependents ("what breaks if I change this"). `-r, --radius <n>` (default 2, capped on huge fan-out; an explicit value is uncapped). `-e, --edge-types`.
 - **`devlens khop <nodeId>`** — **downstream** dependencies ("what this needs"). Same `-r`/`-e`.
-- **`devlens subgraph <seedNodeId>`** — the cohesive cluster around a node.
+- **`devlens subgraph <seedNodeId>`** — the cohesive cluster around a node. ⚠️ `--json` is currently not honored (it prints a text cluster listing); for parseable structure use `khop`/`blast-radius`/`get-node` (which carry `viaEdge`).
 - **`devlens cycles`** — cyclic dependency groups (`{total, cycles}`).
 - **`devlens diff <from> <to>`** — changed nodes between two commits + blast radius of the changes. `-r, --radius <n>` (default 1).
 

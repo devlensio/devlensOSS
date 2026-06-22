@@ -18,7 +18,7 @@ const program = new Command();
 program
   .name("devlens")
   .description("DevLens — codebase intelligence for TS/JS/React/Next.js/Node repositories")
-  .version("0.2.5");
+  .version("0.2.6");
 
 //  Command groups 
 // Core lifecycle

@@ -1,7 +1,7 @@
 ---
 name: devlens
 description: Understand a TS/JS/React/Next.js/Node codebase with the DevLens CLI — query a precomputed graph of nodes (components, hooks, functions, routes) and typed edges, each carrying technical/business/security summaries, instead of grepping and reading whole files. Use when exploring an unfamiliar repo, before editing code, or for requests like "where does X live", "what breaks if I change Y", "explain this codebase", "draw the architecture", "is this secure", "find circular dependencies", or impact/security/architecture review.
-argument-hint: "[init|architecture|diagram|summary|security-analysis|explain|tech-debt|impact|find]"
+argument-hint: "[init|architecture|diagram|summary|security-analysis|explain|tech-debt|impact|find|changes|guard]"
 allowed-tools: Bash(devlens *), Bash(git *), Bash(npm *), Bash(npx *)
 ---
 
@@ -10,6 +10,8 @@ allowed-tools: Bash(devlens *), Bash(git *), Bash(npm *), Bash(npx *)
 DevLens precomputes a structural graph of a repo: nodes (components, hooks, functions, routes, stores) joined by typed edges (CALLS, IMPORTS, READS_FROM, …), each carrying a **technical** summary, a **business/functional** summary, and a **security** assessment. Query it with the `devlens` CLI **before** opening files.
 
 **Why this saves tokens:** a node summary is ~50 tokens; the underlying file is ~2000. Querying summaries, and using `blast-radius`/`khop` to fetch only the relevant slice, costs a fraction of reading files. Always pass `--json`. Reach for raw source (`node-code`) only as a last resort.
+
+**Standing rule — prefer summaries when available:** whenever a node has a technical or functional (business) summary, read it (`get-node` / `get-summaries -i technical|business`) to understand the code **instead of opening the file** — it is far cheaper and usually enough. Only fall back to `node-code` or reading the file when no summary exists (structure-only graph) or the summary is genuinely insufficient to act. This applies to every subcommand below.
 
 ## Step 1 — Ensure the CLI exists
 Run `devlens --version`. If it is missing: `npm install -g @devlensio/cli` (corporate proxy? see the install note — set `NODE_EXTRA_CA_CERTS`).
@@ -47,6 +49,8 @@ You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the sub
 | `tech-debt` | `${CLAUDE_SKILL_DIR}/commands/tech-debt.md` |
 | `impact` | `${CLAUDE_SKILL_DIR}/commands/impact.md` |
 | `find` | `${CLAUDE_SKILL_DIR}/commands/find.md` |
+| `changes` | `${CLAUDE_SKILL_DIR}/commands/changes.md` |
+| `guard` | `${CLAUDE_SKILL_DIR}/commands/guard.md` |
 
 - **No argument** (bare `/devlens`): briefly list the subcommands above with one line each, and point to `${CLAUDE_SKILL_DIR}/reference.md` for the full CLI catalog and when to use each command. Do not run analysis.
 - **Unknown argument**: say so and show the subcommand list.

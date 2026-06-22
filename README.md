@@ -272,6 +272,46 @@ devlens/
 
 ---
 
+## Releasing
+
+The repo ships three independently-versioned artifacts:
+
+| Artifact | Package | Version source | Channel |
+| :-- | :-- | :-- | :-- |
+| Engine | `devlensio` | `engine/package.json` (or the `devlens-engine` repo) | npm |
+| CLI + MCP | `@devlensio/cli` (+ 5 platform pkgs) | `scripts/set-version.mjs` | npm (Trusted Publishing / OIDC) on `v*` tag |
+| Agent skill | `@devlensio/skill` + Claude plugin | `scripts/set-skill-version.mjs` | see [packages/skill-installer/README.md](packages/skill-installer/README.md) |
+
+### Release the CLI (`@devlensio/cli`)
+
+`scripts/set-version.mjs <ver>` stamps **every** manifest in lockstep — the main package, all 5 `npm/<platform>/package.json`, the pinned `optionalDependencies`, `server.json` (MCP registry), and the CLI's hardcoded `--version`. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which builds the binaries and publishes to npm (via OIDC, no token), the MCP registry, and the GitHub release.
+
+```bash
+# 0. (only if the engine changed) publish devlensio first, then bump its pin:
+#    in devlens-engine: npm version patch && npm publish
+#    here: set "devlensio" in package.json to the new ^x.y.z and `bun install`
+
+# 1. bump all manifests in lockstep
+node scripts/set-version.mjs 0.2.6
+
+# 2. commit
+git add -A
+git commit -m "release: @devlensio/cli 0.2.6"
+
+# 3. tag + push (the tag push is what triggers the release workflow)
+git push
+git tag v0.2.6
+git push origin v0.2.6
+```
+
+> The binaries bundle whatever `devlensio` resolves to **at build time**. CI installs the published `devlensio` from the dependency pin — so an engine fix only reaches users after `devlensio` is republished **and** the pin here is bumped. (Locally, `bun link devlensio` points at the working copy; re-run it if a `bun install` clobbers the link.)
+
+### Release the Agent skill
+
+Versioned separately from the CLI — see [packages/skill-installer/README.md](packages/skill-installer/README.md). In short: `node scripts/set-skill-version.mjs <ver>`, then `npm publish` the installer and push the plugin.
+
+---
+
 ## Contributing
 
 DevLens is actively under development. The core engine and frontend are functional, with a lot more planned.

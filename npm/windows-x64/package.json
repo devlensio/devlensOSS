@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/cli-windows-x64",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Prebuilt DevLens CLI binary for Windows x64",
   "license": "AGPL-3.0",
   "repository": {

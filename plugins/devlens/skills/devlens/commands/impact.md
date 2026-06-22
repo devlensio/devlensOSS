@@ -11,6 +11,8 @@ Answer "what breaks if I change X" and "what does X depend on". **Argument:** `<
 1. **Upstream impact** (dependents — what breaks): `devlens blast-radius <id> --json`. Default radius 2 (capped on huge fan-out); pass `-r <n>` for deeper/uncapped. `-e <edge-types>` to focus (e.g. CALLS).
 2. **Downstream deps** (what it relies on): `devlens khop <id> --json` (same `-r`/`-e`).
 
+When summaries are available, describe the target and its impacted nodes from their `summary` fields (blast-radius/khop results already include `summary`) instead of reading files — cheaper and clearer. Fall back to files only if summaries are missing.
+
 ## Output
 - **If you change `<target>`, these may break** — the upstream dependents grouped by file/area, nearest first; call out tests and routes.
 - **`<target>` depends on** — the downstream nodes it needs.
