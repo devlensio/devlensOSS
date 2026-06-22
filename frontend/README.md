@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# `frontend` — the DevLens Web UI
 
-## Getting Started
+An interactive codebase-graph visualizer built with **Next.js 15** and **Cytoscape**. It talks to the DevLens backend API (`src/server`, started by `devlens serve` or `bun run dev`) and renders the analyzed graph: a force-directed canvas with per-node detail, search/filter, commit-diff overlay, and a security panel.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 15** (App Router) + **React 19**
+- **Cytoscape** + `cytoscape-fcose` — graph canvas & force-directed layout
+- **@tanstack/react-query** — server state / data fetching
+- **highlight.js** + `html-react-parser` + `dompurify` — safe rendered source & summaries
+- **react-toastify**, **react-icons** — UI chrome
+
+## Layout
+
+```
+frontend/
+├── app/            # App Router pages (home, graph view) + layout
+├── components/     # UI — graph canvas, sidebar panels, node detail, filters
+├── lib/            # API client, hooks, types, client-side graph algorithms
+├── public/         # static assets
+└── next.config.ts  # Next config
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What it shows
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Interactive canvas** — force-directed layout, focus, zoom, pan; nodes colored/shaped by type.
+- **Node detail panel** — technical + business summaries, security assessment, callers/callees, raw source, k-hop and blast-radius tools.
+- **Sidebar panels** — project info, nodes, search, highlighted, files, commit diff, security issues.
+- **Commit-diff overlay** — added / removed / moved / re-scored nodes across commits.
+- **Live job streaming** — SSE-powered real-time progress while a repo is analyzed/summarized.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Run
 
-## Learn More
+From the repo root (recommended — starts the backend **and** the frontend together):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun install
+bun run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Or run just the frontend (expects the backend already running):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cd frontend
+bun run dev        # next dev
+```
 
-## Deploy on Vercel
+Open the printed URL, paste the **absolute path** to a repo (it must have a root `package.json`), and click **Analyze**.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | Does |
+| :-- | :-- |
+| `bun run dev` | `next dev` — hot-reloading dev server |
+| `bun run build` | `next build` — production build |
+| `bun run start` | `next start` — serve the production build |
+| `bun run lint` | `eslint` |
+
+## Backend
+
+The UI is a client of the backend API in [`../src/server`](../src/server), which runs the [`devlensio`](https://www.npmjs.com/package/devlensio) analysis pipeline and streams job progress over SSE. Graphs are persisted under `~/.devlens` and shared with the CLI and MCP server.

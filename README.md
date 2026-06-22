@@ -4,12 +4,12 @@
 
 <h1>DevLens</h1>
 
-<p><strong>Codebase intelligent Graph Visualizer for TypeScript & JavaScript projects.</strong><br/>
-Turn any repo into an interactive dependency graph — with AI summaries, importance scoring, and commit diffs. Runs entirely on your machine.</p>
+<p><strong>Codebase intelligence for TypeScript / JavaScript / React / Next.js / Node.js.</strong><br/>
+Turn any repo into a queryable graph of nodes and typed edges — each with AI technical, business, and security summaries — and use it from your <strong>CLI</strong>, your <strong>AI agent (MCP + Skill)</strong>, or an <strong>interactive web UI</strong>. Runs entirely on your machine.</p>
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![npm: @devlensio/cli](https://img.shields.io/badge/npm-%40devlensio%2Fcli-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
 [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f9f1e1?logo=bun)](https://bun.sh)
-[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-black?logo=next.js)](https://nextjs.org)
 
 **[Join the Cloud Waitlist →](https://devlens.io)**
 
@@ -25,14 +25,19 @@ Turn any repo into an interactive dependency graph — with AI summaries, import
 ## Table of Contents
 
 - [What is DevLens?](#what-is-devlens)
-- [Getting Started](#getting-started)
-- [Key Features](#key-features)
-- [How It Works](#how-it-works)
-- [Performance](#performance)
-- [Use Cases](#use-cases)
+- [Why it helps](#why-it-helps)
+- [The four surfaces](#the-four-surfaces)
+- [Quick start](#quick-start)
+- [1 · CLI (`@devlensio/cli`)](#1--cli-devlensiocli)
+  - [CLI command reference](#cli-command-reference)
+- [2 · MCP server](#2--mcp-server)
+- [3 · Agent Skill (`/devlens`)](#3--agent-skill-devlens)
+- [4 · Web UI](#4--web-ui)
 - [Configuration](#configuration)
+- [What DevLens understands](#what-devlens-understands)
+- [Architecture & repo layout](#architecture--repo-layout)
 - [DevLens Cloud](#devlens-cloud)
-- [Project Structure](#project-structure)
+- [Releasing](#releasing)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -40,285 +45,315 @@ Turn any repo into an interactive dependency graph — with AI summaries, import
 
 ## What is DevLens?
 
-AI coding tools like Cursor and Claude Code let you ship faster than ever — but that speed creates a new problem. **Codebases grow faster than anyone can understand them.** Developers merge code they didn't fully read. New hires drown in unfamiliar structure. Even authors forget why things are wired the way they are.
+AI coding tools let you ship faster than ever — but that speed creates a new problem: **codebases grow faster than anyone (human or AI) can understand them.** Developers merge code they didn't fully read; new hires drown in unfamiliar structure; agents burn tokens re-reading files they've seen before.
 
-DevLens solves this by turning any React, Next.js, or Node.js repository into a **living, queryable map** of your codebase — so your team always knows what was built, how it connects, and why.
+DevLens turns any React / Next.js / Node.js / TypeScript repo into a **living, queryable map**:
 
-Point DevLens at any repository and it:
+1. **Walks the AST** — extracts every component (with prop types), hook, function (typed params + return), store, utility, route, and file.
+2. **Builds a typed dependency graph** — `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`.
+3. **Scores every node** by architectural importance (multi-pass, no AI).
+4. **Summarizes each node** with an LLM — a **technical** summary (what it does), a **business** summary (what it means for the product), and a **security** assessment (severity + notes).
+5. **Serves that graph** to you through a CLI, an MCP server, an agent skill, and an interactive web UI.
 
-1. **Walks the AST** — extracts every component (with prop types), hook, function (with typed parameters and return type), store, utility, and API route; captures referenced TypeScript interfaces inline
-2. **Builds a dependency graph** — maps all relationships: calls, imports, state reads/writes, prop passing, events, and route handling
-3. **Scores every node** — ranks nodes by architectural importance using a multi-pass algorithm (no AI involved)
-4. **Summarizes with LLMs** — generates a business summary and a technical summary for every node
-5. **Renders an interactive graph** — explore, filter, search, and diff your codebase visually
-
-Everything runs on your machine. Your code never leaves.
+The analysis engine is the separate [`devlensio`](https://www.npmjs.com/package/devlensio) package; **DevLens OSS** is everything you interact with on top of it. Everything runs locally — your code never leaves your machine.
 
 ---
 
-## Getting Started
+## Why it helps
 
-### Prerequisites
+- **Understand AI-generated code** — a visual + queryable map of what was built and how it connects, in plain English.
+- **Onboard in hours, not weeks** — explore the graph and read per-node summaries instead of spelunking files.
+- **Blast-radius & impact analysis** — before you change something, see exactly what depends on it.
+- **Architecture audits** — surface central nodes, circular dependencies, and bottlenecks.
+- **Security review** — every node carries a severity + explanation; list and prioritize them.
+- **Living documentation** — summaries regenerate as code changes; unchanged nodes are reused (90%+ free on re-runs).
+- **Token-efficient agents** — a node summary is ~50 tokens vs ~2000 for the file. Agents query the graph instead of reading files, and target work with blast-radius/k-hop instead of scanning directories.
 
-- [Bun](https://bun.sh) v1.0+
-- Node.js 18+
-- An LLM provider API key (optional, only if you want summaries)(see [Configuration](#configuration))
+---
 
-### Installation
+## The four surfaces
+
+| Surface | What it is | Install | Best for |
+| :-- | :-- | :-- | :-- |
+| **CLI** | `devlens` command — analyze + query from the terminal, JSON-friendly | `npm i -g @devlensio/cli` | scripts, terminals, CI |
+| **MCP server** | `devlens mcp` — 14 tools over the Model Context Protocol | bundled in the CLI | Claude, Cursor, any MCP client |
+| **Agent Skill** | `/devlens` — teaches an agent how to drive the CLI | `npx @devlensio/skill install` | Claude Code, Cursor, Kilo, opencode, pi |
+| **Web UI** | interactive graph visualizer (Next.js) | `bun run dev` (from source) | visual exploration |
+
+All four read the same graph stored in `~/.devlens`.
+
+---
+
+## Quick start
 
 ```bash
-# 1. Clone the repo
+# Install the CLI (gives you the `devlens` command + the MCP server)
+npm install -g @devlensio/cli
+
+# One-time: pick an LLM provider for summaries (or skip for structure-only)
+devlens init
+
+# Analyze a repo (run inside it) — add --summarize for AI summaries
+devlens analyze . --summarize
+
+# Explore
+devlens overview
+devlens find-nodes Button
+devlens blast-radius "src/auth/login.ts::login"
+```
+
+> **Behind a corporate proxy?** If `npm install` fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, point Node at your org's root CA: `export NODE_EXTRA_CA_CERTS=/path/to/corp-ca.pem`.
+
+---
+
+## 1 · CLI (`@devlensio/cli`)
+
+The `devlens` command analyzes a repo and lets you query the resulting graph. Every query command supports `--json` (machine-readable) and `-g <graphId>` / `-c <commit>` to target a specific graph/commit (default: the graph for the current directory).
+
+**Typical flow:** `devlens init` → `devlens analyze . --summarize` → query commands (`overview`, `find-nodes`, `get-node`, `blast-radius`, …).
+
+### CLI command reference
+
+Global options available on every command: `--json` (machine-readable output), `-v, --verbose` (diagnostics), `-h, --help`.
+
+#### Setup & environment
+
+| Command | Description |
+| :-- | :-- |
+| `devlens init` | First-time setup — interactively configure your LLM provider for summarization. |
+| `devlens doctor` | Check environment health (git, storage, LLM provider). Run this when something fails. |
+| `devlens config [options]` | Show or update config in `~/.devlens/config.json`. |
+| `devlens status` | Show analyzed + summarized graphs (per graph: commits, `latestCommit`, `summarizedCommits`). |
+| `devlens repos` | List repositories DevLens has already analyzed. |
+| `devlens graphs list` / `devlens graphs delete <graphId>` | List or delete stored graphs. |
+
+`devlens config` options: `--set` (interactive), `--provider <anthropic\|openai\|openrouter\|gemini\|ollama>`, `--model <m>`, `--api-key <k>`, `--base-url <u>` (e.g. `http://localhost:11434` for Ollama), `--batch-size <n>`.
+
+#### Analyze & summarize
+
+**`devlens analyze [path] [commitHash]`** — analyze a repo into a graph.
+- `path` (default `.`) — repository path.
+- `commitHash` — informational; the engine analyzes the working tree.
+- `--summarize` — also generate technical/business/security summaries (costs LLM calls).
+- `--force-summarize` — re-summarize every node from scratch.
+- `--latest` — analyze the working tree including uncommitted changes (current default).
+- _Example:_ `devlens analyze . --summarize`
+
+**`devlens summarize [target] [commit]`** — run analysis then summarization.
+- `target` (default `.`) — repo path or an existing `graphId`.
+- `--force-summarize` — ignore prior summaries.
+- `--model <model>` / `--provider <anthropic|openai|openrouter|gemini|ollama>` — override for this run.
+
+#### Orient & find
+
+**`devlens overview`** — repo fingerprint (framework, router, state, data, db), stats (`totalNodes`/`totalEdges`), `routeCount`, and the most-central nodes/files. Start here. _(opts: `-g`, `-c`)_
+
+**`devlens top-nodes`** — highest-scoring (most central) nodes. `-l, --limit <n>` (default 25). _(opts: `-g`, `-c`)_
+
+**`devlens find-nodes [name]`** — search/filter nodes (compact refs, not source).
+- `name` — substring match on node name.
+- `-t, --type <types...>` — COMPONENT, HOOK, FUNCTION, STATE_STORE, UTILITY, ROUTE, FILE, TEST, STORY, THIRD_PARTY.
+- `-f, --file <path>` — nodes in exactly this file. `-d, --dir <path>` — nodes under this folder.
+- `--node-ids <ids...>` — fetch exact ids. `--min-score <n>`. `--severity <low|medium|high>` — min security severity.
+- `-l, --limit <n>` (default 25). _(opts: `-g`, `-c`)_
+- _Example:_ `devlens find-nodes -t ROUTE -l 500 --json`
+
+**`devlens nodes-in-path <path>`** — every node in a file or folder. `-t, --type <types...>` to filter. _(opts: `-g`, `-c`)_
+
+#### Understand (summaries & detail)
+
+**`devlens get-node <nodeId>`** — full detail for one node: summaries + callers + callees (each connection carries `viaEdge`). Your main inspection tool.
+- `-i, --include <sections...>` — `metadata|callers|callees|technical|business|security` (narrow the payload).
+- `-e, --edge-types <types...>` — filter caller/callee edges. _(opts: `-g`, `-c`)_
+
+**`devlens get-summaries <nodeIds...>`** — batch summaries for many ids. `-i, --include <kinds...>` — `technical|business|security` (business = functional). _(opts: `-g`, `-c`)_
+
+**`devlens node-code <nodeId>`** — raw source for a node. **Expensive — prefer `get-node`.** _(opts: `-g`, `-c`)_
+
+#### Structure & impact
+
+**`devlens blast-radius <nodeId>`** — **upstream** dependents ("what breaks if I change this"). `-r, --radius <n>` (default 2, capped on huge fan-out; an explicit value is uncapped). `-e, --edge-types <types...>`. _(opts: `-g`, `-c`)_
+
+**`devlens khop <nodeId>`** — **downstream** dependencies ("what this needs"). Same `-r` / `-e`. _(opts: `-g`, `-c`)_
+
+**`devlens subgraph <seedNodeId>`** — the cohesive cluster around a node (returns `clusterId`, nodes, edges). _(opts: `-g`, `-c`)_
+
+**`devlens cycles`** — circular-dependency groups. _(opts: `-g`, `-c`)_
+
+**`devlens diff <from> <to>`** — changed nodes between two commits + blast radius of the changes. `-r, --radius <n>` (default 1). _Both commits must already be analyzed into the graph._ _(opts: `-g`)_
+
+#### Security
+
+**`devlens security`** — nodes flagged with security concerns (severity + per-node explanation). `--min-severity <low|medium|high>` (default low). `-l, --limit <n>` (default 50). _(opts: `-g`, `-c`)_
+
+#### Serve & integrate
+
+**`devlens serve [path]`** — start the backend API server (used by the web UI). `-p, --port <port>` (default 3000).
+
+**`devlens mcp`** — run the MCP server. Subcommands: `stdio` (default — for editors/agents) and `http [-p, --port <port>]` (Streamable HTTP, default port 7000). See [§2](#2--mcp-server).
+
+---
+
+## 2 · MCP server
+
+The CLI binary embeds a Model Context Protocol server exposing **14 tools** over the same graph (`list_analyzed_repos`, `get_repo_overview`, `find_nodes`, `get_node`, `get_blast_radius`, `get_khop`, `get_subgraph`, `list_cycles`, `get_security_issues`, `analyze_changes`, `get_summaries`, `get_nodes_in_path`, `get_node_code`, and more).
+
+```bash
+devlens mcp            # stdio (what an editor/agent spawns)
+devlens mcp http -p 7000   # Streamable HTTP at http://localhost:7000/mcp
+```
+
+Register it in a client (Claude Code shown):
+
+```bash
+claude mcp add devlens -- devlens mcp
+```
+
+Or add to any MCP client config:
+
+```json
+{ "mcpServers": { "devlens": { "command": "devlens", "args": ["mcp"] } } }
+```
+
+> **Windows + Claude Desktop:** if the server won't start, wrap it: `{ "command": "cmd", "args": ["/c", "devlens", "mcp"] }`.
+
+Registered in the official MCP registry as **`io.github.devlensio/devlens`**.
+
+---
+
+## 3 · Agent Skill (`/devlens`)
+
+The DevLens **Agent Skill** teaches your AI coding agent *how* to drive the CLI — when to query the graph, how to keep output token-cheap, and how to produce thorough architecture/security/impact reports. It's one `/devlens` command with subcommands.
+
+```bash
+# Install into whatever AI tools it detects (Claude Code, Cursor, Kilo, opencode, pi)
+npx @devlensio/skill install
+```
+
+Or, for Claude Code, install the plugin:
+
+```text
+/plugin marketplace add devlensio/devlensOSS
+/plugin install devlens@devlensio
+```
+
+Subcommands: `/devlens init`, `architecture`, `diagram`, `summary`, `security-analysis`, `explain`, `tech-debt`, `impact`, `find`, `changes`, `guard`. See [plugins/devlens/README.md](plugins/devlens/README.md) and [packages/skill-installer/README.md](packages/skill-installer/README.md).
+
+---
+
+## 4 · Web UI
+
+An interactive graph visualizer (Next.js + Cytoscape) — force-directed canvas, node detail panels, search/filter, commit-diff overlay, and a security panel. Runs from source against the local backend:
+
+```bash
 git clone https://github.com/devlensio/devlensOSS.git
 cd devlensOSS
-
-# 2. Install all dependencies (engine + frontend + shared)
 bun install
-
-# 3. Configure environment (optional — can also be set in the UI)
-cp .env.example .env
-# Edit .env with your LLM provider settings
-
-# 4. Start both servers
-bun run dev
+bun run dev          # starts the backend (src/server) + the frontend
 ```
 
-The engine starts at `http://localhost:3000` and the frontend at `http://localhost:3001`. Make sure both ports are available before starting.
-
-Open `http://localhost:3001`, paste the absolute path to any React/Next.js/Node.js/Express repo (it must have a `package.json` in the root), and click **Analyze**.
-
-### Quick start with Ollama (free, local)
-
-```bash
-# Install Ollama from https://ollama.ai
-ollama pull qwen2.5-coder:7b
-
-# In your .env:
-LLM_PROVIDER=ollama
-LLM_MODEL=qwen2.5-coder:7b
-
-bun run dev
-```
-
-> **Note:** Local Ollama models are functional but slow — expect hours for large repos. For best results, use a fast hosted model like `grok-4.1-fast` via OpenRouter. Avoid free-tier OpenRouter models as they have rate limits too low for full summarization runs (free models don't work most of the times).
+Open the printed URL, paste the absolute path to a repo (must have a root `package.json`), and click **Analyze**.
 
 ---
-
-## Key Features
-
-### Graph Engine
-
-- **Full AST analysis** via ts-morph — components, hooks, functions, stores, utilities, files, and API routes
-- **10 edge types** — `CALLS`, `IMPORTS`, `PROP_PASS`, `READS_FROM`, `WRITES_TO`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`
-- **Third-party dependency nodes** — selected npm packages appear as fuchsia hexagon nodes in the graph, with `IMPORTS` edges from local files. A pre-analysis library selection step lets you choose which packages to include (defaults to detected runtime dependencies)
-- **Full TypeScript signatures** — function and hook parameters with their types, return type annotations, and referenced interface definitions are captured and displayed per node
-- **Component prop types** — each React component's declared Props interface is detected and shown in the detail panel
-- **State layer detection** — detects Redux, Zustand, Jotai, and custom hooks, then maps every component that reads or writes to each store
-- **Importance scoring** — multi-pass algorithm considering complexity, fan-in, fan-out, and type bonuses
-- **Route entry points** — detects Next.js app/pages router and Express/Fastify/Koa routes; BFS expansion from HTTP endpoints reveals full call chains
-- **Commit-aware** — tracks multiple commits, smart summary reuse across branches via git history
-
-### Summarization
-
-- **Two summaries per node** — a business summary explaining what it does in product terms, and a technical summary explaining how it's implemented
-- **Topological ordering** — leaf nodes are summarized first so each node's prompt includes its dependencies' summaries, producing richer and more accurate output
-- **Checkpoint & resume** — pause, resume, or recover from crashes mid-summarization with zero data loss
-- **MapReduce for large files** — files over 1,200 tokens are automatically split, mapped in parallel, and reduced to a final summary
-- **Security analysis** — flags high/medium/low risk patterns per node
-- **Smart reuse** — unchanged nodes between commits are never re-summarized; 90%+ of nodes are free on typical re-runs
-
-### Frontend
-
-- **Interactive Cytoscape canvas** — force-directed layout, node focus, zoom, pan
-- **7 sidebar panels** — Project info, Nodes, Search, Highlighted, Files, Commit diff, Security issues
-- **Node detail panel** — summaries, connections, source code, K-hops, and blast radius tools
-- **Commit diff overlay** — visualize added, removed, moved, and re-scored nodes across commits
-- **Deferred filter apply** — filter changes batch until you click Apply, preventing re-renders on large repos
-- **Live job streaming** — SSE-powered real-time progress for analysis and summarization
-
----
-
-## How It Works
-
-```
-Your Repo
-    │
-    ▼
-[1] Fingerprint         Detect framework, language, router, state manager, databases
-[2] Filesystem scan     Extract routes (Next.js app/pages, Express, Fastify, Koa)
-[3] AST parse           ts-morph walks every .ts/.tsx/.js/.jsx file
-[4] Edge detection      10 detectors run in parallel → dependency graph
-[5] Scoring             Multi-pass importance scoring, noise filtering
-[6] Save graph          Written to ~/.devlens/ — instant on re-open
-[7] Summarize           Topologically ordered LLM calls with checkpoint/resume
-    │
-    ▼
-Interactive Graph UI
-```
-
----
-
-## Performance
-
-Real numbers from production repos:
-
-| Metric | Value |
-|--------|-------|
-| Graph generation (499 nodes) | ~6–7 seconds |
-| Graph generation (2,500 nodes) | ~20 seconds |
-| Summarization (499 nodes) | ~5–6 minutes |
-| Summarization (2,500 nodes) | ~20 minutes |
-| Token usage — 499 node repo | < 1M tokens |
-| Token usage — 2,500 node repo | ~2M tokens |
-| Re-analysis (unchanged nodes reused) | 90%+ nodes free |
-| Cost — 400 node repo with grok-4.1-fast | ~$0.30 |
-
----
-
-## Use Cases
-
-### Understanding AI-generated codebases
-
-AI tools write code fast — but fast code becomes a black box. DevLens gives you a visual map of every component, how they connect, and what they do in plain English. You spend far fewer tokens understanding the codebase because the graph and summaries do the heavy lifting upfront.
-
-### Onboarding new engineers
-
-Drop a new hire into any codebase. They can explore the graph, read AI summaries of every module, and understand the architecture in hours instead of weeks. Knowledge transfer becomes a link, not a meeting.
-
-### Blast radius & impact analysis
-
-Before merging a PR, use blast radius analysis to see every node that could be affected by a change. Diff commits visually to see exactly what moved, what changed in importance score, and what was added or removed.
-
-### Architecture audits
-
-Surface high-importance nodes, identify security risks, find circular dependencies, and understand which files are true architectural bottlenecks — all in one view.
-
-### Living documentation
-
-Every node gets a business summary and a technical summary, generated automatically. Your codebase documents itself and stays up to date as your code changes.
-
-### Security review
-
-The security panel surfaces all high/medium/low risk nodes in one place with severity explanations. Filter by severity, search by file, click to inspect the source.
-
-### Refactoring with confidence
-
-Use K-hops to understand the neighbourhood of any node — what it calls and what calls it. Use blast radius to understand what breaks if you change it. Move fast without breaking things.
-
----
-
-
 
 ## Configuration
 
-If you prefer not to set environment variables, open the Config panel in the navbar and enter your settings directly in the UI.
+Config lives in `~/.devlens/config.json` and is set via `devlens init` / `devlens config` (or the Web UI's Config panel). Summaries need an LLM provider; structural analysis does not.
 
 ### Supported providers
 
 | Provider | Recommended model | Notes |
-|----------|------------------|-------|
-| Ollama (local) | `qwen2.5-coder:7b` | Free, local, requires 8GB+ RAM. Slow on large repos. |
+| :-- | :-- | :-- |
+| Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8GB+ RAM. Slow on large repos. |
 | OpenAI | `gpt-4o-mini` | Fast, cost-effective |
-| Anthropic | `claude-haiku-4-5-20251001` | Excellent code understanding |
-| OpenRouter | `grok-4.1-fast` | Access to 100+ models. Recommended for cost/quality balance. |
+| Anthropic | `claude-haiku-4-5` | Excellent code understanding |
+| OpenRouter | `grok-4.1-fast` | 100+ models; best cost/quality balance |
+| Gemini | `gemini-2.0-flash` | Fast, large context |
 
-### Environment variables
-
-```env
-LLM_PROVIDER=openrouter       # ollama | openai | anthropic | openrouter
-LLM_MODEL=grok-4.1-fast       # model name for the chosen provider
-LLM_API_KEY=your_api_key      # not needed for ollama
-LLM_BASE_URL=                 # optional custom base URL
+```bash
+devlens config --provider openrouter --model grok-4.1-fast --api-key <key>
+# Ollama (local, no key): devlens config --provider ollama --model qwen2.5-coder:7b --base-url http://localhost:11434
 ```
+
+> Avoid free-tier OpenRouter models — their rate limits are too low for a full summarization run.
+
+---
+
+## What DevLens understands
+
+**Node types:** `COMPONENT`, `HOOK`, `FUNCTION`, `STATE_STORE`, `UTILITY`, `FILE`, `ROUTE`, `TEST`, `STORY`, `THIRD_PARTY` (plus an internal `GHOST` placeholder).
+
+**Edge types:** `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`.
+
+**Per node:** an importance score, a technical summary, a business/functional summary, and a security assessment (`none|low|medium|high` + notes). Connection results carry the edge type via a `viaEdge` field.
+
+---
+
+## Architecture & repo layout
+
+DevLens OSS is the set of interfaces built on top of the [`devlensio`](https://www.npmjs.com/package/devlensio) analysis engine (a separate package).
+
+```
+devlensOSS/
+├── src/
+│   ├── cli/                 # the `devlens` CLI (commander program + commands)
+│   ├── core/                # shared query core (used by CLI + MCP — never drift)
+│   ├── mcp/                 # MCP server (stdio + Streamable HTTP), 14 tools
+│   └── server/              # backend API for the Web UI (SSE job streaming)
+├── frontend/                # Next.js 15 graph visualizer (Cytoscape)
+├── bin/devlens.cjs          # npm launcher → execs the per-platform native binary
+├── npm/<platform>/          # 5 prebuilt-binary packages (@devlensio/cli-<os>-<arch>)
+├── plugins/devlens/         # the /devlens Agent Skill (Claude plugin)
+├── packages/skill-installer/# @devlensio/skill — the npx skill installer
+├── scripts/                 # set-version.mjs, set-skill-version.mjs, stage-binaries.mjs
+├── .claude-plugin/          # marketplace.json (Claude plugin catalog)
+└── server.json              # MCP registry manifest
+```
+
+The analysis pipeline (AST parsing, edge detection, scoring, summarization) lives in `devlensio`, not here.
 
 ---
 
 ## DevLens Cloud
 
-A hosted cloud version is currently in development. It will include:
-
-- **GitHub integration** — connect repos directly, no local clone needed
-- **Shareable graphs** — share your graph with your team or make it public via a link
-- **Team collaboration** — leave annotations on any node, track changes as a team
-- **LLM interface** — ask anything about your codebase in plain English, answered using your graph and summaries
-- **Semantic search** — vector search across all node summaries
-- **PR review summaries** — automatic AI diff summaries on every pull request
-- **Persistent storage** — graphs saved to the cloud, accessible from any device
+A hosted version is in development: GitHub integration (no local clone), shareable graphs, team annotations, a natural-language interface over your graph, semantic search across summaries, automatic PR review summaries, and persistent cloud storage.
 
 **[Join the waitlist →](https://devlens.io)**
 
 ---
 
-## Project Structure
-
-```
-devlens/
-├── engine/                     # Bun server + analysis pipeline
-│   └── src/
-│       ├── server/             # HTTP handlers, SSE streaming, routing
-│       ├── pipeline/           # Main analysis orchestration
-│       ├── parser/             # ts-morph AST extraction
-│       ├── graph/              # Edge detection (10 detectors)
-│       ├── scoring/            # Importance scoring + noise filtering
-│       ├── summarizer/         # LLM summarization, checkpoint system
-│       ├── filesystem/         # Route detection (Next.js, Express, etc.)
-│       ├── storage/            # File-based graph persistence
-│       └── jobs/               # Job queue, concurrency, SSE events
-└── frontend/                   # Next.js 15 UI
-    └── src/
-        ├── app/                # Pages (home, graph view)
-        ├── components/graph/   # Canvas, sidebar, panels, filters
-        └── lib/                # API client, hooks, types, algorithms
-```
-
----
-
 ## Releasing
 
-The repo ships three independently-versioned artifacts:
+The repo ships independently-versioned artifacts:
 
 | Artifact | Package | Version source | Channel |
 | :-- | :-- | :-- | :-- |
-| Engine | `devlensio` | `engine/package.json` (or the `devlens-engine` repo) | npm |
 | CLI + MCP | `@devlensio/cli` (+ 5 platform pkgs) | `scripts/set-version.mjs` | npm (Trusted Publishing / OIDC) on `v*` tag |
-| Agent skill | `@devlensio/skill` + Claude plugin | `scripts/set-skill-version.mjs` | see [packages/skill-installer/README.md](packages/skill-installer/README.md) |
+| Agent skill | `@devlensio/skill` + Claude plugin | `scripts/set-skill-version.mjs` | npm + git (see [packages/skill-installer/README.md](packages/skill-installer/README.md)) |
+| Engine | `devlensio` | the separate `devlens-engine` repo | npm |
 
-### Release the CLI (`@devlensio/cli`)
+### Release the CLI
 
-`scripts/set-version.mjs <ver>` stamps **every** manifest in lockstep — the main package, all 5 `npm/<platform>/package.json`, the pinned `optionalDependencies`, `server.json` (MCP registry), and the CLI's hardcoded `--version`. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which builds the binaries and publishes to npm (via OIDC, no token), the MCP registry, and the GitHub release.
+`scripts/set-version.mjs <ver>` stamps every manifest in lockstep — the main package, all 5 `npm/<platform>/package.json`, the pinned `optionalDependencies`, `server.json` (MCP registry), and the CLI's hardcoded `--version`. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which builds the binaries and publishes to npm (via OIDC), the MCP registry, and the GitHub release.
 
 ```bash
-# 0. (only if the engine changed) publish devlensio first, then bump its pin:
-#    in devlens-engine: npm version patch && npm publish
-#    here: set "devlensio" in package.json to the new ^x.y.z and `bun install`
-
-# 1. bump all manifests in lockstep
-node scripts/set-version.mjs 0.2.6
-
-# 2. commit
-git add -A
-git commit -m "release: @devlensio/cli 0.2.6"
-
-# 3. tag + push (the tag push is what triggers the release workflow)
-git push
-git tag v0.2.6
-git push origin v0.2.6
+# 0. (if the engine changed) publish devlensio first, then bump the "devlensio" pin here + `bun install`
+node scripts/set-version.mjs 0.2.6        # 1. bump all manifests
+git add -A && git commit -m "release: @devlensio/cli 0.2.6"   # 2. commit (include bun.lock)
+git push && git tag v0.2.6 && git push origin v0.2.6          # 3. tag → triggers CI
 ```
 
-> The binaries bundle whatever `devlensio` resolves to **at build time**. CI installs the published `devlensio` from the dependency pin — so an engine fix only reaches users after `devlensio` is republished **and** the pin here is bumped. (Locally, `bun link devlensio` points at the working copy; re-run it if a `bun install` clobbers the link.)
+> The binaries bundle whatever `devlensio` resolves to **at build time**; CI installs the published version from the pin, so an engine fix reaches users only after `devlensio` is republished **and** the pin is bumped. After bumping deps, run `bun install` so `bun.lock` matches (CI uses `--frozen-lockfile`).
 
 ### Release the Agent skill
 
-Versioned separately from the CLI — see [packages/skill-installer/README.md](packages/skill-installer/README.md). In short: `node scripts/set-skill-version.mjs <ver>`, then `npm publish` the installer and push the plugin.
+Versioned separately from the CLI. `node scripts/set-skill-version.mjs <ver>` stamps the installer + plugin together; then `npm publish` the installer and push the plugin. See [packages/skill-installer/README.md](packages/skill-installer/README.md).
 
 ---
 
 ## Contributing
 
-DevLens is actively under development. The core engine and frontend are functional, with a lot more planned.
-
-If you find bugs, have feature ideas, or want to contribute — open an issue or PR. All contributions to this repo remain open source under AGPL v3.
-
-I am working on detailed `CONTRIBUTING.md` and contribution guide will be added as the project matures. In the meantime, all contributions are welcome.
+DevLens is actively under development. Bugs, ideas, and PRs welcome — open an issue or PR. All contributions remain open source under AGPL v3. A detailed `CONTRIBUTING.md` will follow as the project matures.
 
 ---
 
