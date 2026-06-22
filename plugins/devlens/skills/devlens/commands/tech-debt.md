@@ -1,16 +1,17 @@
 # /devlens tech-debt — dependency health & coupling hotspots
 
-Find structural debt. **Argument:** none. Works on **structure alone** (summaries optional), so no summarize permission needed.
+Produce a thorough tech-debt report: **all** circular dependencies, the real coupling hotspots, and oversized modules. Arguments: none. Works on structure alone (richer with summaries — no summarize permission needed for structure).
 
-## Commands used
-1. `devlens cycles --json` — circular dependency groups (`{total, cycles}`). Each cycle is a chain that should usually be broken.
-2. `devlens top-nodes -l 20 --json` — candidate hubs.
-3. For the top hubs, measure coupling: `devlens blast-radius <id> -r 2 --json` (how many nodes depend on it) and optionally `devlens khop <id> -r 2 --json` (how much it depends on). High upstream fan-in = a change-risk hotspot.
+## MANDATORY data collection — run all before writing
+1. `devlens cycles --json` → `{ total, cycles }` — **every** circular-dependency group.
+2. `devlens top-nodes -l 30 --json` → hub candidates.
+3. For each top hub: `devlens blast-radius <id> -r 2 --json` → `count` of dependents (fan-in). High count = change-risk hotspot. (Optionally `devlens khop <id> -r 2 --json` for fan-out.)
+4. `devlens find-nodes -l 5000 --json` → group by `filePath` to find **god files** (files with the most nodes) and by directory for oversized modules.
+5. **Meaning (when summaries exist):** `devlens get-summaries <ids...> -i technical --json` for the worst offenders, to explain *why* each is a problem concretely (don't read files).
 
-When summaries are available, use each node's `summary` (and `get-summaries -i technical` for the worst offenders) to explain *why* a cycle or hub is a problem in concrete terms, rather than reading the files.
-
-## Output
-- **Cycles** — list each group with the nodes/files involved and a suggested break point.
-- **Hotspots** — nodes with the largest blast radius (most dependents), ranked; flag any that are also large/central as refactor candidates.
-- **Quick wins** — 3–5 concrete suggestions (break cycle X, split hub Y).
-If `cycles.total` is 0, say so — that's a good sign.
+## OUTPUT TEMPLATE — fill every section
+1. **Health summary** — cycle count, number of high-fan-in hubs, number of god files.
+2. **Circular dependencies** — list **every** cycle group: the nodes/files in the loop, and a suggested break point for each. (If `cycles.total` is 0, say so — that's a good sign.)
+3. **Coupling hotspots** — nodes ranked by blast-radius `count` (most dependents first); for each: name, `filePath`, dependent count, and one line (from its summary) on what it does + why changing it is risky.
+4. **Oversized files/modules** — files with the most nodes and directories with the largest footprint — candidates for splitting.
+5. **Prioritized quick wins** — 3–5 concrete actions (break cycle X between A↔B, split god file Y, decouple hub Z), ordered by payoff.

@@ -1,6 +1,6 @@
 # /devlens summary — technical / functional / security overview
 
-Pull the right summary lens for a target without reading raw source. **Arguments:** `[technical|functional|security] <node|file|folder>`. Default kind: `technical`. Target optional (defaults to the repo's central nodes).
+Pull the right summary lens for a target without reading raw source, covering **all** the relevant nodes. **Arguments:** `[technical|functional|security] <node|file|folder>`. Default kind: `technical`. Target optional (defaults to the repo's central nodes).
 
 **Needs summaries** — follow the freshness/summarize-permission policy in SKILL.md first.
 
@@ -11,16 +11,20 @@ Pull the right summary lens for a target without reading raw source. **Arguments
 | functional | `business` |
 | security | `security` |
 
-## Resolve the target → node id(s)
-- A **node id** (e.g. `src/x.ts::fn`) → use directly.
-- A **name** → `devlens find-nodes <name> --json` and pick the match(es).
-- A **file** → `devlens nodes-in-path <file> --json`.
-- A **folder** → `devlens nodes-in-path <folder> --json` (optionally `-t` to filter types).
-- **No target** → `devlens top-nodes -l 15 --json`, then summarize those.
+## MANDATORY — resolve the target to node id(s), covering everything in scope
+- **node id** (`src/x.ts::fn`) → use directly.
+- **name** → `devlens find-nodes <name> --json`; cover all clear matches (ask if ambiguous).
+- **file** → `devlens nodes-in-path <file> --json` → **all** its nodes.
+- **folder** → `devlens nodes-in-path <folder> --json` (optionally `-t`) → **all** nodes under it; if very many, cover the highest-`score` ones and note the count.
+- **no target** → `devlens top-nodes -l 20 --json` → summarize those.
 
-## Fetch summaries
-- One node: `devlens get-node <id> -i <kind> --json` (kind = technical|business|security).
-- Many nodes (batch — preferred): `devlens get-summaries <id1> <id2> … -i <kind> --json`.
+## Fetch the summaries
+- Batch (preferred): `devlens get-summaries <id1> <id2> … -i <kind> --json`.
+- Single deep-dive: `devlens get-node <id> -i technical|business|security --json`.
 
-## Output
-For each node: name + file:line + the requested summary, ordered by centrality (score) or severity (for security). Keep it tight — this is the cheap path; only suggest `node-code` if a summary is genuinely insufficient.
+## OUTPUT TEMPLATE
+1. **Scope** — what was summarized (the target + how many nodes).
+2. **Per-node summaries** — for each node (ordered by `score`, or by `severity` for the security kind): **`name`** — `filePath:lines` — the requested summary. Cover all in-scope nodes; for a large folder, group by sub-area and show the most important, noting the remainder count.
+3. **Takeaway** — 2–3 sentences synthesizing what this code does / means / risks (matching the kind).
+
+This is the cheap path — don't read files; only suggest `node-code` if a summary is genuinely insufficient for the user's goal.
