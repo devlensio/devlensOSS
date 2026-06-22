@@ -36,7 +36,14 @@ Then apply, in order:
 **Golden rule:** structural `analyze` may run automatically; **`--summarize` requires explicit user permission every time** — it costs LLM calls. Never summarize silently.
 
 ## Step 3 — Route to the subcommand
-You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the subcommand and read the matching recipe, then follow it exactly:
+You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the subcommand and **read the matching recipe file in full, then follow it exactly.**
+
+**Execution discipline (applies to every subcommand):**
+- **Read the recipe before answering.** The recipe files below contain the real instructions; the routing table is not enough on its own.
+- **Run every command the recipe marks mandatory** before you write any output — do not stop after one or two calls. These graphs routinely have **hundreds of nodes**; your output must reflect that scale (enumerate routes/stores/hooks/modules; give exact counts; don't generalize from the top 10).
+- **Produce every section of the recipe's output template, fully.** Do not abbreviate or skip sections. A two-line answer for a 600-node repo is wrong.
+
+Routing table:
 
 | Subcommand | Recipe |
 | :-- | :-- |
