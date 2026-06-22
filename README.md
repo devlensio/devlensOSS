@@ -86,10 +86,30 @@ All four read the same graph stored in `~/.devlens`.
 
 ## Quick start
 
-```bash
-# Install the CLI (gives you the `devlens` command + the MCP server)
-npm install -g @devlensio/cli
+### Install
 
+**Standalone binary — one command, no Node or Bun required** (downloads a prebuilt native binary from GitHub Releases into `~/.devlens/bin`):
+
+macOS / Linux:
+```sh
+curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
+```
+
+Windows (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
+```
+
+Override the location with `DEVLENS_INSTALL_DIR`, or pin a version with `DEVLENS_VERSION=v0.2.6` (`$env:DEVLENS_VERSION` on Windows). The Windows script also adds the install dir to your `PATH`.
+
+**Or via npm** (cross-platform, requires Node) — also bundles the MCP server:
+```bash
+npm install -g @devlensio/cli
+```
+
+### Use
+
+```bash
 # One-time: pick an LLM provider for summaries (or skip for structure-only)
 devlens init
 
