@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/skill",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Installer for the DevLens Agent Skill — adds the /devlens skill (architecture, diagrams, security analysis, impact, summaries) to Claude Code, Cursor, and other AI coding tools.",
   "type": "module",
   "bin": {

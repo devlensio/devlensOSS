@@ -2,38 +2,46 @@
 
 Render the graph visually. **Argument:** `[architecture|cluster|flow|deps]` (default `architecture`). For `cluster`/`flow`, an optional second arg is a seed node id/name.
 
-A trivial 5-node diagram is a FAILURE. The diagram must represent the real structure of a large graph: all modules, all routes, all stores, key hooks/components, with typed edges. Build the data from `find-nodes`, `get-node`, `khop`, `blast-radius` (each carries `viaEdge` = edge type). Do **NOT** use `devlens subgraph --json` (older CLIs print a text cluster listing, not JSON).
+The whole point is a diagram that exploits the precomputed graph — real modules, real typed edges, summary-derived labels, security and cycle overlays — i.e. something a raw LLM staring at files cannot produce. A vague 5-box diagram is the failure mode to avoid. Build structure from `get_subgraph` (clusters) and connections from `get_khop`/`get_blast_radius` (each result carries `viaEdge` = the edge type). Use hierarchy and a *set of diagrams* (not one dense mega-graph) to stay legible at scale — never a flat dump.
 
-## architecture (default) — module/layer diagram
+## architecture (default) — a layered diagram SET
 
-### MANDATORY data collection (run all, parse all)
-1. `devlens overview --json` → stack + `topNodes`/`topFiles` + counts.
-2. `devlens find-nodes -l 5000 --json` → all nodes; group by top-level/second-level directory into **modules**; tally per-type counts.
-3. `devlens find-nodes -t ROUTE -l 500 --json` → **all routes** (these are entry points — include them all).
-4. `devlens find-nodes -t STATE_STORE -l 200 --json` → **all stores**.
-5. `devlens find-nodes -t HOOK -l 200 --json` → **all hooks**.
-6. `devlens top-nodes -l 25 --json` → central nodes to feature per module.
-7. For the central nodes + each store: `devlens khop <id> -r 2 --json` and `devlens get-node <id> --json` → cross-module edges with `viaEdge`.
+Don't cram everything into one canvas. Produce a C4-style set, each readable on its own (this is how you include everything the architecture brief lists — routes, stores, hooks, route→function flow — without an unreadable hairball):
 
-### Build the diagram (`flowchart LR`)
-- One Mermaid **`subgraph` block per module** (top-level directory), titled with the module name + node count.
-- **HARD REQUIREMENT — include these in full, no exceptions:**
-  - **EVERY ROUTE node** (all of them — the count must equal `routeCount` from overview). Group them in a `Routes` subgraph (or within their module subgraphs), split PAGE vs API_ROUTE. These are the app's entry points; a diagram missing routes is wrong.
-  - **EVERY STATE_STORE node** — place all of them in a `State` subgraph.
-  - **EVERY HOOK node** — include all custom hooks.
-- For the high-volume types (FUNCTION, COMPONENT, FILE, UTILITY): include the highest-`score` ones per module and add a `+N more` note so nothing is silently hidden. Important components (high score, or those connected to routes/stores) must appear.
-- Draw **edges between nodes** using the `viaEdge` data from step 7 (label every edge with its type). Show how routes reach handlers/components, how components read stores (READS_FROM), how data flows — not just within one module.
-- Apply the node-type and edge styling below, plus the severity encoding and legend.
-- **Mandatory coverage check before you output (do this explicitly):** count the ROUTE nodes in your diagram and confirm it equals `routeCount`; confirm the number of STATE_STORE nodes equals the count from `find-nodes -t STATE_STORE`; confirm all HOOK nodes are present. If any are missing, add them before finishing. State the tallies in the companion key (e.g. "Routes: 43/43, Stores: 7/7, Hooks: 5/5").
-- **Scale without dropping anything:** if the full diagram is too dense to read, keep ALL routes/stores/hooks and represent the high-volume FUNCTION/COMPONENT/FILE long tail as a `+N more` node per module, then offer `/devlens diagram cluster <module>` for zoom-in. Never omit a route, store, or hook for readability.
+- **(L1) System context** — the app as one box with its external dependencies around it: databases, third-party services (THIRD_PARTY nodes), auth providers, caches. Shows the system's boundary and what it talks to.
+- **(L2) Module map** — one `subgraph` per cluster-derived module, with the typed inter-module edges. The main structural view.
+- **(L3) Request-flow sequences** — for the top 2–4 routes/user journeys, a Mermaid `sequenceDiagram` tracing route → handler → service → store/db, built from each route's `get_khop` call graph. This is usually the most illuminating diagram and the one a raw LLM gets wrong.
+
+### Build the model (work the graph, in order)
+1. `get_repo_overview` → stack + the exact counts (`routeCount`, totals) + top central nodes. These anchor coverage.
+2. **Modules from clusters:** `get_subgraph` on each top central node → merge into a deduped set of **modules**. Each module becomes one Mermaid `subgraph` block. (This is what makes the diagram reflect the real architecture, not folder names.)
+3. **Backbone in full:** `find_nodes` for **every** `ROUTE` (limit ≥ `routeCount`), **every** `STATE_STORE`, **every** `HOOK` → map each onto its module. These bounded sets are never sampled or dropped.
+4. **Route call graph:** for **each route**, `get_khop` → the functions/handlers it calls. Drives both the L2 route→handler edges and the L3 sequence diagrams.
+5. **Module edges:** `get_khop`/`get_blast_radius` on each module's central node → cross-module connections with `viaEdge` types; also surface THIRD_PARTY/db dependencies for L1.
+6. **Labels & patterns:** `get_summaries -i business` for module centers + key routes/stores → label nodes by what they do; reflect the architectural/system-design patterns the `/devlens architecture` brief detects (layers, provider/context, guard chains, repository, etc.) as the subgraph grouping and edge semantics.
+7. **Overlays:** `list_cycles` (mark tangled members) and `get_security_issues` (badge risky nodes).
+
+### Draw L2 (`flowchart LR`)
+- **One `subgraph` block per module** (from step 2), titled with the module name + a one-line purpose from its summary + node count.
+- **Include the whole backbone:** **every** route (split PAGE vs API where known), **every** store, and **every** custom hook, each inside its module subgraph — plus the **functions each route calls** (from step 4) on the important paths. Cite exact counts in the companion key (e.g. "Routes: 43/43, Stores: 7/7, Hooks: 5/5"). Only the *incidental* tail (low-score components, utilities, files) may collapse into a `+N more` node per module — never a route, store, hook, or a function on a route's path. Offer `/devlens diagram cluster <module>` to zoom in.
+- **Draw edges from the real `viaEdge` data** (steps 4–5): how routes reach handlers/components, how components read stores (READS_FROM), how modules depend on each other. Label each edge with its type. To control clutter, **aggregate** many parallel node-to-node edges between two modules into one module-to-module edge annotated with a count/the dominant type, while keeping individual edges for the key request paths.
+- Apply the node-type/edge styling, the severity overlay, and the legend below.
+
+### Draw L3 (`sequenceDiagram`) — per key route
+Participants = the route, its handler(s), services/utilities, and the store/db it touches (from the route's step-4 call graph, in call order). Arrows = the actual CALLS/READS_FROM/WRITES_TO edges. One short sequence per top route makes the request flow concrete.
+
+### Mermaid correctness (do this so it actually renders)
+- **Sanitize node IDs:** use a safe slug derived from the node id (replace every char outside `[A-Za-z0-9_]` with `_`); keep a map back to the real id for the key. Never put raw paths/`::`/`/`/`.` in an id.
+- **Escape labels:** wrap every label in quotes (`id["..."]`); replace `"`/newlines inside labels; keep labels short (name + maybe a 2–3 word role) — put full descriptions in the companion key, not on the node.
+- **Keep it valid:** declare each node once; assign classes after nodes exist; don't emit empty subgraphs. After saving, if a renderer is available, render and **read the error**; on a syntax failure, fix and re-render before delivering.
 
 ## Other views
-- **cluster** `[seed]` — resolve name→id via `find-nodes`, then `devlens khop <id> -r 2 --json` + `devlens blast-radius <id> -r 2 --json`; render the seed and all neighbors, edges labeled by `viaEdge`.
-- **flow** `[seed]` — `devlens get-node <id> --json` (callers/callees) + `devlens khop <id> -r 2 --json`; render call/data flow around the node.
-- **deps** — `devlens top-nodes -l 25 --json`, then `devlens get-node <id> --json` on each to read `callees` (`viaEdge`); render the dependency graph among the top nodes.
+- **cluster** `[seed]` — resolve name→id via `find_nodes`, then `get_subgraph <id>` → render the cluster's nodes and its internal edges (the tool returns them directly); enrich with `get_khop`/`get_blast_radius` for edges leaving the cluster.
+- **flow** `[seed]` — `get_node <id>` (callers/callees) + `get_khop <id>` → render the genuine call/data path through the node, end to end.
+- **deps** — top central nodes from `get_repo_overview`, then `get_node` on each to read `callees`/`viaEdge` (or `get_khop` r=1) → render the dependency graph among the hubs; overlay `list_cycles`.
 
 ## Visual encoding (pin this — keep output consistent)
-Map each **node type** (the node's `type`) to a fixed shape + `classDef`:
+Map each **node type** to a fixed shape + `classDef`:
 | Node type | Mermaid shape | classDef style |
 | :-- | :-- | :-- |
 | COMPONENT | `id["name"]` (rect) | `fill:#dbeafe,stroke:#3b82f6` |
@@ -54,12 +62,15 @@ Map each **edge type** (`viaEdge`); always label the edge with the exact type, l
 | events / props | EMITS, LISTENS, PROP_PASS | `--o|EMITS|` (circle-end) |
 | tests | TESTS | `-.->|TESTS|` (dotted) |
 
-Define classes via `classDef` and assign `class id1,id2 component;`. **Security severity:** append a badge to risky node labels (`⚠high`/`⚠med`) and layer an overlay class `classDef sevHigh stroke:#dc2626,stroke-width:4px;` / `sevMed stroke:#f59e0b,stroke-width:3px;` via a second `class <id> sevHigh;` line. Add a **Legend** `subgraph` showing one example of each node shape, each edge category, and the severity badges present.
+Define classes via `classDef` and assign `class id1,id2 component;`. **Security severity:** append a badge to risky node labels (`⚠high`/`⚠med`) and layer an overlay class `classDef sevHigh stroke:#dc2626,stroke-width:4px;` / `sevMed stroke:#f59e0b,stroke-width:3px;` via a second `class <id> sevHigh;` line. **Cycles:** if `list_cycles` returns groups, add a note or a dashed grouping so tangled members are visible. Add a **Legend** `subgraph` showing one example of each node shape, each edge category, and any severity badges present.
 
-## Delivery (do all three)
-1. **Inline** — print the Mermaid in a ```mermaid code block.
-2. **Save** — write it to `devlens-<view>.md` (wrapped in a ```mermaid block) so it renders in GitHub/IDE preview (also accept `.mmd`). Accompany with a **key**: each shown node id → one-line role from its functional summary.
+## Delivery
+For the architecture view this is a **set** (L1 context, L2 module map, L3 sequences) — deliver each diagram; for the other views it's a single diagram.
+1. **Inline** — print each Mermaid in its own ```mermaid code block, labeled (e.g. "L1 — System context").
+2. **Save** — write to `devlens-<view>.md` (each diagram in its own ```mermaid block) so it renders in GitHub/IDE preview (also accept `.mmd`). Accompany with a **key**: each shown node id (use the sanitized→real id map) → one-line role from its business summary, plus the coverage counts (routes/stores/hooks/modules).
 3. **Render an image (best effort)** — if a Mermaid renderer is available, make a PNG/SVG:
    - Detect: `mmdc --version` or `npx --no-install @mermaid-js/mermaid-cli --version`.
    - If present: `mmdc -i devlens-<view>.mmd -o devlens-<view>.png`.
    - If absent: skip and tell the user `npm i -g @mermaid-js/mermaid-cli` enables it. **Never install it automatically.**
+
+If a step's tool isn't available (e.g. no renderer), skip it gracefully and note what was skipped — don't fail the whole diagram.
