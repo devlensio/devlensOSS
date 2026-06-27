@@ -38,21 +38,156 @@ A rich traversal is wasted if the write-up is rushed, garbled, or truncated. Hol
 - **Match a top-tier hand-written design doc** for clarity and structure, and add the graph-only insight (edges, centrality, security) on top.
 
 ## Output template
-Build a layered brief. Be comprehensive through structure and exact counts — represent long tails as "+N more (see `/devlens diagram cluster <module>`)" rather than pasting raw node lists.
 
-1. **What it is** — 2–4 sentences on the product/domain (from business summaries) + the stack (framework, router, state, data, db).
-2. **By the numbers** — total nodes, total edges, route count, per-type counts (from `find_nodes` by type), and the security severity distribution. Cite the figures from `get_repo_overview`.
-3. **Architectural & system-design patterns** — the patterns named above (both levels), each with a sentence on how it's used here and the evidence for it.
-4. **Modules / bounded contexts** — the heart of the brief. For **each module from step 2**: its purpose (from business summaries), the directories it spans, its key nodes (central members, plus the routes/stores/hooks mapped to it), and its rough size (node count, "+N more" for the *incidental* tail only). Cover every module; don't stop at the top few.
-5. **Routes / entry points (complete)** — **every** route, grouped PAGE vs API and by module, each with a one-line purpose and the **functions/handlers it calls** (from the step-4 call graph). This is the request-flow backbone — list all routes; collapse only deep repetitive call tails.
-6. **State stores (complete)** — **every** store, what state each owns (from summaries), and which modules read/write it (READS_FROM/WRITES_TO edges).
-7. **Hooks (complete)** — **every** custom hook and its job (one line each).
-8. **How it connects** — the dominant edge types and the main data/control-flow paths *between modules* (from step 4): how routes reach handlers, how components read stores, how modules depend on each other.
-9. **Key flows (end to end)** — the 2–4 journeys from step 6, each as a **numbered, prose walkthrough**: every step is `name` (`filePath`) → what it does (from its summary), in call order from entry to data and back. Name the store/db/external each flow touches and any guard it passes. This is the text companion to the L3 sequence diagrams in `/devlens diagram architecture`.
-10. **Core nodes** — the most central nodes (from `get_repo_overview`/centrality), each with its role from its summary.
-11. **Security posture** — the medium/high-severity nodes, summarized from their security assessments, mapped to modules.
-12. **Risks & tech debt** — cycles (from `list_cycles`) and high-fan-in hubs (large blast radius).
-13. **Where to start reading** — a ranked path of ~8–12 nodes that a newcomer should read in order to follow the main flow.
-14. **Next** — suggest `/devlens diagram architecture` for the visual and `/devlens onboard` (or `/devlens explain`) for a guided walkthrough.
+**Write in this order — it is the reader's mental journey, not the tool's query order.**
 
-If summaries are missing (structure-only graph), still produce the structural sections (2, 4 membership, 5 routes + call graph, 6–7 lists, 8, 9 flow skeletons, 10, 12, 13) from clusters + edges, and note which parts (1, 3, 11) need summarization.
+> **Format discipline:** Each section below specifies its visual format. Use it exactly. Markdown tables for structured data, numbered prose for flows, bullet lists for discoveries and inventories. Never use hand-drawn ASCII boxes or arrows — they break and truncate. If budget runs short, write fewer sections cleanly rather than all sections with truncated text.
+
+> **No-summary fallback:** Every node carries `filePath`, `startLine`, and `endLine`. When a summary is missing, read those exact lines (`Read filePath startLine–endLine`) to fill the description rather than leaving a vague placeholder. A 20-line source read beats an empty bullet. Use this especially in §3 (key flows) and §7 (core nodes).
+
+---
+
+**Header line (always first):**
+`Graph: <totalNodes> nodes · <totalEdges> edges · <routeCount> routes · analyzed <YYYY-MM-DD> · commit <short-sha>` (append `· working tree` if dirty)
+
+---
+
+**§1 — Overview**
+*Format: 2–4 sentence prose paragraph, then one Markdown table.*
+- Prose: what the product does and who uses it (from business summaries of the top central nodes).
+- Table:
+
+| Layer | Technology |
+|---|---|
+| Framework | … |
+| Router | … |
+| State | … |
+| Auth | … |
+| Database | … |
+| Cache | … |
+| HTTP / data fetching | … |
+| Notable libs | … |
+
+---
+
+**§2 — Module map** *(the structural skeleton)*
+*Format: one Markdown table — every module, no exceptions.*
+
+| Module | Purpose (from summaries) | Directories | Key nodes | ~Count |
+|---|---|---|---|---|
+| … | … | … | NodeA, NodeB | N (+M more) |
+
+One row per cluster from method step 2. Purpose comes from the business summary of the cluster's central node. "+N more" for the incidental long tail only — never for routes, stores, or hooks.
+
+Also name the **architectural and system-design patterns** here (from the "Detect the patterns" section above) — one sentence each with the graph evidence (e.g. "State managed via 3 Zustand stores; `useUserStore` is the hub — blast-radius of 42 nodes").
+
+---
+
+**§3 — Key flows** *(the heart — write this section before §4–§9)*
+*Format: for each flow, a bold title then a numbered step list.*
+
+The 2–4 most important end-to-end journeys that define the product. Choose the flows that a new engineer must understand to work on this codebase (e.g. the primary user action, the data-fetch/render cycle, the auth gate, a background job).
+
+For **each flow**:
+
+**Flow title (e.g. "Watching an episode")**
+1. `RouteName` (`filePath`) — what it does [→ CALLS HandlerName]
+2. `HandlerName` (`filePath`) — what it does [→ READS_FROM StoreName]
+3. `StoreName` (`filePath`) — what state it holds [→ WRITES_TO DB]
+…
+
+Every step names the node, its file, what it does (from its summary or a source read if no summary), and the edge type to the next step. Name every guard or middleware the flow passes. End with the response shape or side effect.
+
+---
+
+**§4 — Non-obvious discoveries** *(the DevLens exclusive)*
+*Format: 4–8 bullet points. Each bullet names the specific node(s) and what the graph reveals — not generic observations.*
+
+This is the section a plain LLM cannot write. Draw findings from summaries, edge patterns, centrality scores, and blast-radius data:
+- Dual-purpose nodes (e.g. a store functioning as both a cache and a cross-platform ID registry — cite the READS_FROM/WRITES_TO edges that prove it)
+- Companion libraries or vendored code invisible from the directory structure
+- Unexpectedly high-fan-in nodes (blast-radius >> what the name implies — cite the radius)
+- Cross-provider shared adapters hidden inside a single module
+- Anything in `topNodes` surprising given the app's domain (e.g. a crypto/WASM utility ranking above business logic)
+- Architectural constraints that only emerge from the edge graph (e.g. a one-way data flow that breaks if a certain node is modified)
+
+---
+
+**§5 — Complete inventories** *(reference — enumerate fully, format compactly)*
+*Format: three compact grouped lists. Never prose.*
+
+**Routes** (grouped PAGE vs API, then by module):
+- `GET /path/to/route` — one-line purpose — → calls: HandlerA, HandlerB
+
+**State stores**:
+- `StoreName` (`filePath`) — what state it owns — read by: X, Y — written by: A, B
+
+**Custom hooks**:
+- `useHookName` (`filePath`) — one-line job
+
+Every route, every store, every hook — no sampling. Count them and confirm they match the totals from `get_repo_overview`.
+
+---
+
+**§6 — How modules connect**
+*Format: one Markdown table.*
+
+| From | To | Edge type | What it means |
+|---|---|---|---|
+| … | … | CALLS / READS_FROM / … | … |
+
+Cover all significant cross-module connections from `get_blast_radius` / `get_khop` aggregation. Only cite edges the graph returned — never invent connections.
+
+---
+
+**§7 — Core nodes**
+*Format: one entry per node, consistent structure.*
+
+Top ~8 most central nodes (from `get_repo_overview` centrality). For each:
+
+`NodeName` (`filePath:startLine–endLine`) — role from summary
+← called by: X, Y | → calls: A, B
+
+---
+
+**§8 — Health**
+*Format: one table for security, bullet list for tech debt.*
+
+**Security** (medium + high severity only):
+
+| Node | File | Severity | Issue |
+|---|---|---|---|
+| … | … | high / medium | … |
+
+If no medium/high issues exist, say so explicitly — a clean bill is signal too.
+
+**Tech debt**:
+- Cycles: list each circular group from `list_cycles` (e.g. `ModuleA → ModuleB → ModuleA`)
+- High fan-in hubs: nodes where blast-radius > 10 direct dependents — name them and their radius
+
+---
+
+**§9 — Stats + where to start**
+*Format: one stats table, then a numbered reading path.*
+
+| Stat | Count |
+|---|---|
+| Total nodes | N |
+| Total edges | N |
+| Routes (PAGE / API) | N / N |
+| Components | N |
+| Hooks | N |
+| Stores | N |
+| Functions | N |
+| Security flags (high / med / low) | N / N / N |
+
+**Reading path** — 8–12 nodes a newcomer should read in order to follow the main flow:
+1. `NodeName` (`filePath`) — why read this first
+
+---
+
+**→ Next:** suggest `/devlens diagram architecture` for the visual and `/devlens onboard` (or `/devlens explain`) for a guided walkthrough.
+
+---
+
+*Structure-only graph (no summaries):* produce all sections from clusters + edges. Use `filePath:startLine–endLine` source reads for §3 flow steps and §4 discoveries where description would otherwise be vague. Note in those sections that findings came from source reads rather than summaries.
