@@ -10,7 +10,7 @@
         "@types/node": "^26.0.0",
         "commander": "^15.0.0",
         "concurrently": "^9.0.0",
-        "devlensio": "^0.4.3",
+        "devlensio": "^0.4.4",
         "dotenv": "^17.3.1",
         "lru-cache": "^11.5.1",
         "zod": "^4.4.3",
@@ -529,7 +529,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "devlensio": ["devlensio@0.4.3", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-NvWaTkTR3/tt0PfmhXOPzzUJi3oMtq2f/CnFJHw9NTtAoTlzaIFHwhqjwXyZK0hbc0Zk6krdLjgwbUTG0S2GFw=="],
+    "devlensio": ["devlensio@0.4.4", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-BQ/kPcJ1XQzTBQEMu4RDdXK8Ty3Qi1DU4FGZNh/yhDY2ACtThIINGDOySP7ZsEfysbb1BeNw+cLtkLtR0o6lqw=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
 

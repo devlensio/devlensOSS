@@ -43,6 +43,7 @@ const EDGE_LABELS: Record<EdgeType, string> = {
   TESTS:      "Tests",
   USES:       "Uses",
   NEXTJS_API_CALL: "NEXTJS API Call",
+  NAVIGATES_TO: "Navigates To",
 };
 
 const HOP_OPTIONS = [1, 2, 3, 4, 5, Infinity];

@@ -15,7 +15,8 @@ export const EDGE_TYPES: EdgeType[] = [
   "HANDLES",
   "TESTS",
   "USES",
-  "NEXTJS_API_CALL"
+  "NEXTJS_API_CALL",
+  "NAVIGATES_TO"
 ];
 
 export const NODE_TYPES: NodeType[] = [
@@ -46,7 +47,7 @@ export const DEFAULT_NODE_TYPES: NodeType[] = [
 
 export const DEFAULT_EDGE_TYPES: EdgeType[] = [
   "CALLS", "PROP_PASS", "READS_FROM", "WRITES_TO",
-  "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS", "TESTS", "USES", "HANDLES", "NEXTJS_API_CALL"
+  "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS", "TESTS", "USES", "HANDLES", "NEXTJS_API_CALL", "NAVIGATES_TO"
 ];
 
 // ─── Node colors ──────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export const EDGE_COLORS: Record<string, string> = {
   TESTS:      "#f97316",
   USES:      "#a78bfa",
   NEXTJS_API_CALL: "#ec4899",
+  NAVIGATES_TO: "#22d3ee",
 };
 
 // ─── Layout config ────────────────────────────────────────────────────────────

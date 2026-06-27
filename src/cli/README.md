@@ -57,3 +57,61 @@ bun run build:binaries
 2. For a **query**, add it to `query.ts` and back it with a pure function in `src/core` (so the MCP tool can reuse it).
 3. Wrap the command with `withGlobalFlags(...)` and emit results with `emit()`.
 4. Register it in `index.ts`.
+
+## Release / publish the CLI
+
+The CLI release is **tag-driven and fully automated** — pushing a `v*` git tag triggers [`.github/workflows/release.yml`](../../.github/workflows/release.yml), which builds and publishes everything. You do **not** build or `npm publish` by hand.
+
+> This is the **CLI + MCP** channel (`@devlensio/cli`, the 5 platform packages, `server.json` → MCP registry). It is **separate** from the `/devlens` **skill** channel (`@devlensio/skill` + the plugin), which is versioned by `scripts/set-skill-version.mjs`. A CLI release does not bump the skill, and vice-versa. Use this section for changes under `src/**`.
+
+### Steps to cut a release
+
+```bash
+# 1. Be on a clean, green main.
+git checkout main && git pull
+
+# 2. Sync the version everywhere, then commit (keeps the repo honest).
+#    set-version.mjs updates: package.json + the 5 npm/<platform>/package.json,
+#    the main package's pinned optionalDependencies, server.json (+ its packages),
+#    and the hardcoded .version("x.y.z") in src/cli/index.ts.
+node scripts/set-version.mjs 0.3.0
+git commit -am "cli 0.3.0"
+git push origin main
+
+# 3. Tag with the SAME version (prefixed with v) and push the tag — this fires the release.
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+The git tag is what actually triggers publishing; the CI job re-derives the version from the tag name and re-runs `set-version.mjs` itself, so step 2 is for repo consistency (committed files matching what ships). Tag-only would still publish correctly.
+
+### What the GitHub Action does automatically (in order)
+
+1. Installs deps (`bun install --frozen-lockfile`) and derives the version from the tag (`v0.3.0` → `0.3.0`).
+2. `node scripts/set-version.mjs <version>` — syncs every package + `server.json` + the CLI version string.
+3. `bun run build:binaries` — cross-compiles all 5 native targets from one Linux runner (darwin arm64/x64, linux x64/arm64, windows x64).
+4. `bun run stage:binaries` — copies each binary into its `npm/<platform>/` package.
+5. **Publishes platform packages first**, then the **main package** (so the main package's pinned `optionalDependencies` resolve). npm **Trusted Publishing via OIDC** — no `NPM_TOKEN` needed.
+6. Uploads the raw binaries to the **GitHub Release** (for the install-script channel).
+7. Publishes `server.json` to the **MCP Registry** (`mcp-publisher`, tokenless via GitHub OIDC) — last, so a registry hiccup can't block the npm release.
+
+### Before you tag — local sanity (optional)
+
+```bash
+bun install
+bun run build:binaries
+./dist/bin/devlens-windows-x64.exe --version   # smoke-test your platform's binary
+```
+
+### After the action finishes — verify
+
+```bash
+npm view @devlensio/cli version                 # the registry shows the new version
+npx -y @devlensio/cli@latest --version          # end users get it
+npx -y @devlensio/cli@latest mcp --help         # the `mcp` subcommand the plugin depends on works
+```
+
+### Prerequisites
+
+- Push access to the repo (to push tags) and maintainer rights on the npm `@devlensio` org / the MCP-registry namespace.
+- Trusted Publishing must be configured for each npm package (already set up; OIDC means no secrets in the repo).

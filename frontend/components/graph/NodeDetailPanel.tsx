@@ -119,6 +119,7 @@ const EDGE_COLORS: Record<string, string> = {
   TESTS: "#f97316",
   USES: "#a78bfa",
   NEXTJS_API_CALL: "#ec4899",
+  NAVIGATES_TO: "#22d3ee",
 };
 
 const METHOD_COLORS: Record<
@@ -222,6 +223,8 @@ function EdgeIcon({ type, color }: { type: string; color: string }) {
       return <HiOutlineCommandLine size={size} color={color} />;
     case "NEXTJS_API_CALL":
       return <HiOutlineArrowsRightLeft size={size} color={color} />;
+    case "NAVIGATES_TO":
+      return <HiOutlineArrowRight size={size} color={color} />;
     default:
       return <HiOutlineBolt size={size} color={color} />;
   }
@@ -523,6 +526,9 @@ function RouteMetaSection({
   const params = meta.params as string[] | undefined;
   const routeType = meta.routeNodeType as string | undefined;
   const framework = meta.framework as string;
+  const rendersComponent = meta.rendersComponent as string | undefined;
+  const isUnresolved = meta.isUnresolved as boolean | undefined;
+  const isExternal = meta.isExternal as boolean | undefined;
 
   return (
     <div
@@ -604,6 +610,30 @@ function RouteMetaSection({
             catch-all
           </span>
         )}
+        {isUnresolved && (
+          <span
+            className="text-sm px-2 py-0.5 rounded-lg border font-medium"
+            style={{
+              background: "#6b728010",
+              color: C.textSub,
+              borderColor: "#6b728030",
+            }}
+          >
+            unresolved
+          </span>
+        )}
+        {isExternal && (
+          <span
+            className="text-sm px-2 py-0.5 rounded-lg border font-medium"
+            style={{
+              background: "#22d3ee10",
+              color: "#22d3ee",
+              borderColor: "#22d3ee30",
+            }}
+          >
+            external
+          </span>
+        )}
       </div>
 
       {/* Params */}
@@ -630,6 +660,28 @@ function RouteMetaSection({
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Renders — React Router routes link to a component */}
+      {rendersComponent && (
+        <div className="mb-3">
+          <div
+            className="text-sm uppercase tracking-wider mb-1.5"
+            style={{ color: C.textGhost }}
+          >
+            Renders
+          </div>
+          <span
+            className="text-sm font-mono px-2 py-0.5 rounded-lg border"
+            style={{
+              background: "#2dd4bf10",
+              color: C.teal,
+              borderColor: "#2dd4bf30",
+            }}
+          >
+            {rendersComponent}
+          </span>
         </div>
       )}
 

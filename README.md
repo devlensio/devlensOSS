@@ -50,7 +50,7 @@ AI coding tools let you ship faster than ever — but that speed creates a new p
 DevLens turns any React / Next.js / Node.js / TypeScript repo into a **living, queryable map**:
 
 1. **Walks the AST** — extracts every component (with prop types), hook, function (typed params + return), store, utility, route, and file.
-2. **Builds a typed dependency graph** — `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`.
+2. **Builds a typed dependency graph** — `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`.
 3. **Scores every node** by architectural importance (multi-pass, no AI).
 4. **Summarizes each node** with an LLM — a **technical** summary (what it does), a **business** summary (what it means for the product), and a **security** assessment (severity + notes).
 5. **Serves that graph** to you through a CLI, an MCP server, an agent skill, and an interactive web UI.
@@ -303,7 +303,9 @@ devlens config --provider openrouter --model grok-4.1-fast --api-key <key>
 
 **Node types:** `COMPONENT`, `HOOK`, `FUNCTION`, `STATE_STORE`, `UTILITY`, `FILE`, `ROUTE`, `TEST`, `STORY`, `THIRD_PARTY` (plus an internal `GHOST` placeholder).
 
-**Edge types:** `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`.
+**Routes:** Next.js (app & pages), Express / Fastify / Koa, and **React Router / TanStack Router / wouter** (routes defined in code via `<Route>`, `createBrowserRouter`, `useRoutes`, etc.). `ROUTE` nodes carry a `routeNodeType` — `PAGE`, `LAYOUT`, `API_ROUTE`, `LOADING`, `ERROR`, `MIDDLEWARE`, `NOT_FOUND`, or `REACT_ROUTER_ROUTE` — and React Router routes link to the component they render via a `HANDLES` edge.
+
+**Edge types:** `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL` (frontend data-fetch call site → Next.js API route), `NAVIGATES_TO` (client-side navigation → the ROUTE it targets).
 
 **Per node:** an importance score, a technical summary, a business/functional summary, and a security assessment (`none|low|medium|high` + notes). Connection results carry the edge type via a `viaEdge` field.
 

@@ -68,25 +68,61 @@ So `bin/skill.mjs` runs on the **user's** machine; `scripts/bundle-skill.mjs` ru
 
 ### Releasing a new version
 
-The skill product is versioned **independently of the `@devlensio/cli`**. The version lives in two files that must stay identical:
+The skill product is versioned **independently of the `@devlensio/cli`**, and ships on **two channels** that must carry the **same** version:
 
-- `packages/skill-installer/package.json` → drives `npx @devlensio/skill update`
-- `plugins/devlens/.claude-plugin/plugin.json` → gates Claude `/plugin update`
+- `packages/skill-installer/package.json` → the npm package `@devlensio/skill` (drives `npx @devlensio/skill update`).
+- `plugins/devlens/.claude-plugin/plugin.json` → the Claude plugin (served from the git repo via the root `.claude-plugin/marketplace.json`; this version gates `/plugin update`).
 
-Stamp both at once from the repo root:
+> This is the **skill** channel. It is **separate** from the **CLI + MCP** channel (`@devlensio/cli`, platform packages, `server.json`/MCP registry), which is tag-driven via `scripts/set-version.mjs` + `.github/workflows/release.yml` (see [`src/cli/README.md`](../../src/cli/README.md#release--publish-the-cli)). A skill release never bumps the CLI, and vice-versa. Use this section for changes under `plugins/devlens/**`.
 
-```bash
-node scripts/set-skill-version.mjs 0.2.0
-```
+#### 0. Pick the version (mind the drift)
 
-Then publish each channel:
+Both files must match, and npm won't accept a version **≤** what's already published. Check both before choosing:
 
 ```bash
-# npx installer
-cd packages/skill-installer && npm publish        # prepack rebundles skill/; first publish: --access public + 2FA
-
-# Claude plugin
-git commit -am "skill 0.2.0" && git push           # users update via /plugin update
+npm view @devlensio/skill version                                  # installer's published version
+node -e "console.log(require('./plugins/devlens/.claude-plugin/plugin.json').version)"   # plugin's version
 ```
 
-> Do **not** add these versions to the CLI's `scripts/set-version.mjs` — keeping them separate ensures a CLI release never bumps the skill.
+Pick a version **greater than both**. (Bump minor for a behavior change like the MCP-transport switch or a new subcommand; patch for fixes.)
+
+#### Steps
+
+```bash
+# 1. Be on a clean, green main.
+git checkout main && git pull
+
+# 2. Stamp BOTH channels to the same version (installer package.json + plugin.json).
+node scripts/set-skill-version.mjs 0.4.0
+
+# 3. Plugin channel = the git repo. Commit + push to main; users get it via /plugin update.
+git commit -am "skill 0.4.0" && git push origin main
+
+# 4. npx-installer channel. Preview the tarball FIRST, then publish.
+cd packages/skill-installer
+npm publish --dry-run      # confirm skill/commands/*.md (incl. onboard.md) and SKILL.md are in the file list
+npm publish                # prepack re-runs bundle-skill.mjs to rebundle skill/ from the source of truth
+cd ../..
+```
+
+#### What `npm publish` does here
+
+`packages/skill-installer/skill/` is **gitignored and generated** — the authored skill lives only at [`plugins/devlens/skills/devlens/`](../../plugins/devlens/skills/devlens). The `prepack` hook runs `scripts/bundle-skill.mjs`, which wipes and re-copies that source into `skill/` so the tarball always ships the latest authored recipes (that's how a freshly added recipe like `onboard.md` gets in). The `--dry-run` above is your check that it actually did.
+
+#### After publishing — verify
+
+```bash
+npm view @devlensio/skill version            # registry shows the new version
+npx -y @devlensio/skill@latest check         # an end-user install reports up to date
+# In Claude Code: /plugin update   → the plugin moves to the new version
+```
+
+#### Cross-dependency to check (don't skip)
+
+The skill/plugin now auto-registers the DevLens **MCP** via `npx -y @devlensio/cli mcp`. That only works if the **published** CLI already has the `mcp` subcommand:
+
+```bash
+npx -y @devlensio/cli@latest mcp --help      # must work; if not, release the CLI first (see src/cli/README.md)
+```
+
+> Do **not** add these versions to the CLI's `scripts/set-version.mjs` — keeping the two version systems separate ensures a CLI release never bumps the skill.

@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/cli-linux-x64",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Prebuilt DevLens CLI binary for Linux x64",
   "license": "AGPL-3.0",
   "repository": {

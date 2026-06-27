@@ -39,7 +39,8 @@ export type EdgeType =
   | "HANDLES"
   | "TESTS"
   | "USES"
-  | "NEXTJS_API_CALL";
+  | "NEXTJS_API_CALL"
+  | "NAVIGATES_TO";
 
   export type RouteNodeType =
   | "PAGE"
@@ -48,7 +49,8 @@ export type EdgeType =
   | "LOADING"
   | "ERROR"
   | "MIDDLEWARE"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "REACT_ROUTER_ROUTE";
 
   export type BackendFramework = "express" | "fastify" | "koa";
 
@@ -63,6 +65,7 @@ export type EdgeType =
   layoutPath?: string;
   params?: string[];
   httpMethods?: string[];
+  rendersComponent?: string;  // React Router: component this route renders
 }
 
 export interface BackendRouteNode {

@@ -15,6 +15,19 @@ DevLens precomputes a structural graph of a repo: nodes (components, hooks, func
 
 **Standing rule — prefer summaries when available:** whenever a node has a technical or business summary, read it (`get_node` / `get_summaries`) to understand the code **instead of opening the file** — it is far cheaper and usually enough. Fall back to `get_node_code` or reading the file only when no summary exists (structure-only graph) or the summary is genuinely insufficient to act. This applies to every subcommand below.
 
+## Pre-flight check — the `list_analyzed_repos` reflex
+
+**Before calling `Read`, `Grep`, or `Glob` on a javascrip/Typescript based TS/JS/React/Next.js/Node repo to *understand* something**, check whether DevLens has the repo analyzed. This check takes ~1 second and ~100 tokens, and it saves you from fan-out file reads that cost 10–40× more.
+
+**When you should fire this check** — if the user wants to understand the repo, or if you need to read the Repository to understand the structure, architecture, impact radius, connectivity, functionality, or technicality of the Repo, use devlens for this task first.
+
+**The check itself (one call, cached for the session):**
+1. Call `list_analyzed_repos`. If this repo appears → use DevLens tools. If not → fall back to file tools, and note that `/devlens init` can analyze the repo.
+
+Treat `list_analyzed_repos` the way you treat `git log` — a reflex, not a deliberate choice. Call it once per session, cache the `graphId`, and reuse it for every subsequent query. **Do not ask the user's permission to run this check**; it's automatic.
+
+---
+
 ## When to reach for DevLens vs. plain file tools (routing policy)
 On a TS/JS/React/Next.js/Node repo, **DevLens is the default way to understand code** — querying the graph is cheaper and more accurate than grepping. Reach for DevLens (don't `Grep`/`Glob`/`Read` first) whenever you need to:
 - **Locate** — "where is X", which file/component/route/hook/store handles something → `find_nodes` / `get_nodes_in_path`.
