@@ -46,6 +46,8 @@ Determine state:
 - Dirty? `git status --porcelain` (any output = uncommitted/untracked changes)
 - Existing graphs: `list_analyzed_repos` → find the entry whose repo path is this repo; note its graphId and latest analyzed commit. `get_repo_overview` on that graphId reports its commit coverage.
 
+**Resolve `graphId` and freshness ONCE per session, then reuse.** `list_analyzed_repos` returns every analyzed repo (a large payload) — call it once, cache the graphId and `latestAnalyzedAt`, and pass that graphId to every subsequent tool. Do **not** re-call `list_analyzed_repos` (or re-run the freshness guard) before each query; that re-reads the full repo list for no new information. Re-resolve only if the user switches repos or you re-`analyze`.
+
 Then apply, in order:
 
 1. **Worktree is dirty** → re-analyze the working tree so structure matches disk: call `analyze` with this repo's path. This refreshes the **structure only** — existing summaries are inherited for unchanged nodes; new/changed nodes simply have none yet. Then proceed.
@@ -65,6 +67,8 @@ You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the sub
 - **Describe by meaning** using `get_summaries` (business + technical) — label things by what they *do*, not by their names.
 - **Overlay health** with `list_cycles` and `get_security_issues`.
 - **Be comprehensive through hierarchy, not omission.** On a large repo, give a clean module-level answer that accounts for every route/store/module and represents long tails explicitly (e.g. "+N more"), with drill-down offered — rather than enumerating raw node lists you never synthesized. Cite the exact counts from `get_repo_overview`. A thorough, well-structured answer is the goal; a brute-force node dump is not.
+- **Scope to the question.** A scoped ask ("how does *streaming* work", a path) is not a whole-repo tour — seed from the named subsystem's cluster (`get_subgraph`) and stay there. Reserve the full sweep for genuinely whole-repo requests; over-traversing a scoped question drains the budget the write-up needs.
+- **Output discipline — the data is wasted if the write-up is garbled.** (1) **Lead with the exclusives** a raw LLM can't produce: in-scope **security severity flags are a mandatory call-out**, describe relationships by their **edge type**, and rank by **centrality**. (2) **No hand-drawn ASCII diagrams** — they break and truncate; use Markdown tables or Mermaid blocks, or defer to `/devlens diagram`. (3) **Protect the synthesis budget**: collect efficiently (batch `get_summaries`, don't over-traverse), then write deliberately — a few sections written cleanly beats every section truncated.
 
 Routing table:
 

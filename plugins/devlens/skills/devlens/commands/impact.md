@@ -13,8 +13,11 @@ Answer "what breaks if I change X" and "what does X depend on". **Argument:** `<
 
 When summaries are available, describe the target and its impacted nodes from their `summary` fields (blast-radius/khop results already include `summary`) instead of reading files — cheaper and clearer. Fall back to files only if summaries are missing.
 
+When the target is (or reaches) an **API `ROUTE`**, look one hop past the calling component: the `NEXTJS_API_CALL` edge composes with `HANDLES`, so the blast radius surfaces the **page route(s)** that ultimately depend on the endpoint. Report that page→API coupling explicitly — "changing this endpoint affects the `/watch/:id` page" is exactly the cross-boundary impact users want.
+
 ## Output
-- **If you change `<target>`, these may break** — the upstream dependents grouped by file/area, nearest first; call out tests and routes.
+- **If you change `<target>`, these may break** — the upstream dependents grouped by file/area, nearest first; call out tests, API routes, and the **page routes** reached via `NEXTJS_API_CALL`.
 - **`<target>` depends on** — the downstream nodes it needs.
 - A risk read: low/medium/high based on the size and centrality of the blast radius.
+- **Empty/thin result caveat:** an empty or surprisingly small blast radius means "no callers *in the graph*," not "safe to change." The real caller may be an un-extracted call site (a `fetch`/`axios` inside an object-literal method or config registry, or a URL used as `src`/`href`). Say "no graph-visible callers" and confirm with a targeted `Grep` before asserting safety.
 - Offer `/devlens diagram flow <target>` to visualize it.

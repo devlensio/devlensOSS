@@ -22,8 +22,10 @@ The order that produces good architecture/diagram/explain output:
 
 ## Node & edge types
 - **Node types:** COMPONENT, HOOK, FUNCTION, STATE_STORE, UTILITY, ROUTE, FILE, TEST, STORY, THIRD_PARTY (GHOST = internal placeholder).
-- **Edge types (the `viaEdge` field on traversal results):** CALLS, IMPORTS, READS_FROM, WRITES_TO, PROP_PASS, EMITS, LISTENS, WRAPPED_BY, GUARDS, HANDLES, TESTS, USES.
+- **Edge types (the `viaEdge` field on traversal results):** CALLS, IMPORTS, READS_FROM, WRITES_TO, PROP_PASS, EMITS, LISTENS, WRAPPED_BY, GUARDS, HANDLES, TESTS, USES, NEXTJS_API_CALL.
 - Compact node refs carry `score` (centrality), `severity` (none|low|medium|high) and a short `summary`; traversal results (`get_node` callers/callees, `get_blast_radius`/`get_khop` nodes) additionally carry **`viaEdge`** and `hop`. Use these to encode meaning + risk, not just structure.
+
+**Cross-boundary impact via `NEXTJS_API_CALL` (high-value, often overlooked).** `NEXTJS_API_CALL` links a client node (a component/function that does `fetch`/`axios`) to the API `ROUTE` it hits. Because it **composes with `HANDLES`** (route definition → handler), a blast radius on an API route now climbs *past* the calling component to the **page route** that renders it. So `get_blast_radius` on `GET /api/...` answers "**which user-facing pages break if I change this endpoint?**" — a client↔server dependency the graph couldn't express before. When impact/architecture touches an API route, always look one hop past the component for the page route, and report that page→API coupling explicitly.
 
 ## Tool catalog
 
@@ -42,7 +44,7 @@ The order that produces good architecture/diagram/explain output:
 
 ### Structure, traversal & impact
 - **`get_subgraph`** — the cohesive cluster (feature/module) a seed node belongs to: its sibling nodes plus the edges internal to that cluster. Use to discover real module boundaries and to draw a module's internals. (Returns structured `{ clusterId, nodes, edges }` — the parseable cluster data the old CLI `subgraph` text output couldn't give.)
-- **`get_blast_radius`** — **upstream** dependents: "if I change this, what breaks." `radius` defaults to 2 (capped when direct fan-out ≥100 and `radius` omitted → returns hop-1, `truncated=true`; re-call with an explicit `radius` to go deeper, uncapped). `edgeTypes` to focus.
+- **`get_blast_radius`** — **upstream** dependents: "if I change this, what breaks." `radius` defaults to 2 (capped when direct fan-out ≥100 and `radius` omitted → returns hop-1, `truncated=true`; re-call with an explicit `radius` to go deeper, uncapped). `edgeTypes` to focus. **Empty-result caveat:** zero/few callers means "none *in the graph*," which can be a coverage gap, not proof of safety — the real caller may be an un-extracted call site (e.g. a `fetch`/`axios` inside an object-literal method or config registry, or a URL used as an `src`/`href` rather than a fetch arg). Don't assert "nothing depends on this" from an empty blast radius; say "no graph-visible callers" and, if it matters, confirm with a quick targeted `Grep`.
 - **`get_khop`** — **downstream** dependencies: "what this depends on." Same `radius`/`edgeTypes` behavior as blast-radius.
 - **`list_cycles`** — groups of nodes forming cyclic dependencies (circular imports/calls). Refactor hotspots.
 

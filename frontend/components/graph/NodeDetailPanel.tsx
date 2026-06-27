@@ -118,6 +118,7 @@ const EDGE_COLORS: Record<string, string> = {
   HANDLES: "#8286bb",
   TESTS: "#f97316",
   USES: "#a78bfa",
+  NEXTJS_API_CALL: "#ec4899",
 };
 
 const METHOD_COLORS: Record<
@@ -219,6 +220,8 @@ function EdgeIcon({ type, color }: { type: string; color: string }) {
       return <GrDocumentTest size={size} color={color} />;
     case "USES":
       return <HiOutlineCommandLine size={size} color={color} />;
+    case "NEXTJS_API_CALL":
+      return <HiOutlineArrowsRightLeft size={size} color={color} />;
     default:
       return <HiOutlineBolt size={size} color={color} />;
   }

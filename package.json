@@ -39,7 +39,7 @@
     "@types/node": "^26.0.0",
     "commander": "^15.0.0",
     "concurrently": "^9.0.0",
-    "devlensio": "^0.4.1",
+    "devlensio": "^0.4.3",
     "dotenv": "^17.3.1",
     "lru-cache": "^11.5.1",
     "zod": "^4.4.3"

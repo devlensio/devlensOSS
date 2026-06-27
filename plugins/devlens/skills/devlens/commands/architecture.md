@@ -30,6 +30,13 @@ From the fingerprint + module model + dominant edge mix + route call graph, name
 
 For each named pattern, say *how the app is structured around it and where it shows up* (cite the modules/routes/edges that evidence it) — don't just list libraries.
 
+## Output discipline (read before writing)
+A rich traversal is wasted if the write-up is rushed, garbled, or truncated. Hold these:
+- **Lead with the exclusives.** Foreground what only the graph gives: **security severity flags are a mandatory call-out** (§10 — never bury a high-severity finding), describe connections by their **edge type**, and rank by **centrality**. These are exactly what a raw LLM can't produce.
+- **No hand-drawn ASCII diagrams.** They break and truncate. Use **Markdown tables** for structure and **Mermaid** blocks for visuals (or defer to `/devlens diagram architecture`). Never draw boxes/arrows in raw text.
+- **Protect the synthesis budget.** Collect efficiently — batch `get_summaries`, cap how many routes you deep-traverse to what each section needs. Then write deliberately, section by section. If budget runs short, **a few sections written cleanly beats all sections truncated**; a garbled brief is a failure even if the data behind it was right.
+- **Match a top-tier hand-written design doc** for clarity and structure, and add the graph-only insight (edges, centrality, security) on top.
+
 ## Output template
 Build a layered brief. Be comprehensive through structure and exact counts — represent long tails as "+N more (see `/devlens diagram cluster <module>`)" rather than pasting raw node lists.
 

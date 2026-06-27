@@ -38,7 +38,8 @@ export type EdgeType =
   | "GUARDS"
   | "HANDLES"
   | "TESTS"
-  | "USES";
+  | "USES"
+  | "NEXTJS_API_CALL";
 
   export type RouteNodeType =
   | "PAGE"
