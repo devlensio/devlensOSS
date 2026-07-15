@@ -24,33 +24,58 @@ Turn any JavaScript, TypeScript, React, Next.js, or Node.js repo into a living, 
 
 ---
 
-## Is this for you?
+## Table of Contents
 
-DevLens is a **codebase visualizer** for JavaScript, TypeScript, React, Next.js, and Node.js codebases. It turns your repo into a living, queryable map with functional summaries, technical summaries, and security analysis on every component, hook, function, and route.
+- [About](#about)
+- [Who is this for](#who-is-this-for)
+- [Quick Start](#quick-start)
+- [The Problem DevLens Solves](#the-problem-devlens-solves)
+- [Benchmarks](#benchmarks)
+- [Ways to Use DevLens](#ways-to-use-devlens)
+  - [Web UI](#web-ui--visual-exploration)
+  - [CLI](#cli--terminal-power)
+  - [Agent Skill](#agent-skill--ai-powered-understanding)
+  - [MCP Server](#mcp-server--for-any-mcp-compatible-ai-agent)
+- [Configuration](#configuration)
+- [What DevLens Understands](#what-devlens-understands)
+- [Repository Layout](#repository-layout)
+- [DevLens Cloud](#devlens-cloud)
 
-### For developers & teams
+---
 
-- **Onboard new devs in hours, not weeks** — explore the graph instead of spelunking files
-- **Review PRs with full context** — see exactly what depends on each change
+## About
+
+DevLens is a **codebase visualizer** for JavaScript, TypeScript, React, Next.js, and Node.js projects. It builds a typed dependency graph of every component, hook, function, route, and store — with AI-powered summaries on each node — so you can explore, understand, and analyze your architecture in seconds instead of hours.
+
+> **What makes it different?** Instead of reading files one at a time, you (or your AI agent) query the pre-built graph. A node summary costs **~50 tokens** vs **~2,000 tokens** per file.
+
+---
+
+## Who Is This For
+
+### Developers & Teams
+
+- **Onboard new devs in hours, not weeks** — explore the graph instead of spelunking files.
+- **Review PRs with full context** — see exactly what depends on each change.
 - **Run impact analysis before refactoring** — "what breaks if I change this?"
-- **Catch circular deps, god-files, and coupling hotspots** automatically
-- **Keep living documentation** — summaries stay fresh as code changes
+- **Catch circular deps, god-files, and coupling hotspots** automatically.
+- **Keep living documentation** — summaries stay fresh as code changes.
 
-### For engineering leaders
+### Engineering Leaders
 
-- **Get a bird's-eye view** of your entire codebase in seconds
-- **Spot architectural debt** before it becomes a crisis
-- **Understand what your team has been building** — even across repos
+- **Get a bird's-eye view** of your entire codebase in seconds.
+- **Spot architectural debt** before it becomes a crisis.
+- **Understand what your team has been building** — even across repos.
 
-### For students & learners
+### Students & Learners
 
-- **See how real codebases are designed** — layers, patterns, data flow
-- **Understand why things are connected**, not just what each file does
-- **Learn architecture patterns** from production-grade projects
+- **See how real codebases are designed** — layers, patterns, data flow.
+- **Understand why things are connected**, not just what each file does.
+- **Learn architecture patterns** from production-grade projects.
 
-### For AI-augmented developers
+### AI-Augmented Developers
 
-Your agent burns tokens re-reading files it's seen before. DevLens gives it a graph to query instead: **~50 tokens per node vs ~2,000 per file**.
+Your agent burns tokens re-reading files it's seen before. DevLens gives it a graph to query instead.
 
 > **Coming soon — DevLens Cloud:** Shareable graphs your whole team can access, cross-repo navigation, and giving graphical context to your AI agents for smarter code review and analysis — all without running anything locally.
 
@@ -64,11 +89,11 @@ Your agent burns tokens re-reading files it's seen before. DevLens gives it a gr
 npm install -g @devlensio/cli
 ```
 
-No Node.js? One-command standalone binary installer:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
-```
+> **No Node.js?** Use the one-command standalone binary installer:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
+> ```
 
 **2. Init**
 
@@ -97,7 +122,7 @@ devlens security                  # see security flags across the codebase
 
 ---
 
-## The problem DevLens solves
+## The Problem DevLens Solves
 
 AI coding tools let you ship faster than ever — but that speed creates **AI debt**: code merged without understanding, agents re-discovering connections every session, new hires drowning in unfamiliar structure.
 
@@ -111,19 +136,19 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 
 ---
 
-## Real benchmarks: with DevLens vs without
+## Benchmarks
 
 *Tested across real-world tasks — architecture understanding, feature implementation, and bug finding — comparing the same model (DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, Qwen 3.6) with and without DevLens.*
 
-### Architecture understanding (4 models, full DevLens MCP)
+### Architecture Understanding (4 models, full DevLens MCP)
 
-<br /><br /><br />
+<br /><br />
 
 <div align="center">
 <img src="assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
 </div>
 
-<br /><br /><br />
+<br /><br />
 
 | Metric | Without DevLens | With DevLens | Improvement |
 |--------|:--------------:|:------------:|:-----------:|
@@ -135,29 +160,29 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 | Architectural debt discovered | 0% | **50%** | **Now discoverable** |
 | Avg cache hit rate | 75.2% | **83.7%** | **+8.5pp** |
 
-<br /><br /><br />
+<br /><br />
 
 <div align="center">
 <img src="assets/03_arch_savings_per_model.png" alt="Per-model savings" width="70%" />
-<br /><br /><br /><br />
+<br /><br />
 <img src="assets/02_arch_cache.png" alt="Cache hit rate comparison" width="70%" />
 </div>
 
-<br /><br /><br />
+<br /><br />
 
-> Even the strongest model (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
+> **Notable:** Even the strongest model (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
 
-### Feature implementation & bug finding (DeepSeek V4 Flash)
+### Feature Implementation & Bug Finding (DeepSeek V4 Flash)
 
 *5 prompts across implementation and debugging tasks — DevLens graph context only (no per-node summaries).*
 
-<br /><br /><br />
+<br /><br />
 
 <div align="center">
 <img src="assets/04_prompt_metrics.png" alt="Prompt benchmark metrics" width="80%" />
 </div>
 
-<br /><br /><br />
+<br /><br />
 
 | Task | Input tokens saved | Cache improvement |
 |------|:-----------------:|:-----------------:|
@@ -166,9 +191,9 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 | Error Handling audit | *(comparable)* | Comparable |
 | Profile Bug trace | **32%** less input (36.9k vs 54.3k) | Similar |
 
-### Quality impact (architecture task)
+### Quality Impact (Architecture Task)
 
-<br /><br /><br />
+<br /><br />
 
 <div align="center">
 <img src="assets/09_quality_comparison.png" alt="Quality comparison" width="80%" />
@@ -176,7 +201,7 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 <img src="assets/08_quality_matrix.png" alt="Quality matrix" width="80%" />
 </div>
 
-<br /><br /><br />
+<br /><br />
 
 When asked to explain a codebase's architecture:
 
@@ -189,13 +214,11 @@ When asked to explain a codebase's architecture:
 
 ---
 
-## Ways to use DevLens
+## Ways to Use DevLens
 
-Pick the interface that fits your workflow:
+Pick the interface that fits your workflow.
 
----
-
-### <img src="assets/web-icon.svg" width="20" style="vertical-align: middle" /> Web UI — Visual exploration
+### <img src="assets/web-icon.svg" width="20" style="vertical-align: middle" /> Web UI — Visual Exploration
 
 *For when you want to see your codebase laid out as an interactive graph.*
 
@@ -206,68 +229,62 @@ git clone https://github.com/devlensio/devlensOSS.git
 cd devlensOSS && bun install && bun run dev
 ```
 
----
-
-### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — Terminal power
+### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — Terminal Power
 
 *For scripts, CI, and when you want answers fast without leaving the terminal.*
 
-Query the graph directly: find nodes, trace blast radius before refactoring, spot circular dependencies, list security issues.
-
 ```bash
 npm install -g @devlensio/cli
-devlens overview                  # see the big picture
-devlens blast-radius <nodeId>     # "what breaks if I change this?"
-devlens cycles                    # find circular deps
-devlens security                  # list every security issue
 ```
 
-Each command works with `--json` for piping into scripts and CI pipelines.
+| Command | Description |
+|---------|-------------|
+| `devlens analyze .` | Analyze a repository into a DevLens graph |
+| `devlens overview` | Big picture — framework, stats, central nodes |
+| `devlens blast-radius <nodeId>` | What breaks if I change this? |
+| `devlens cycles` | Find circular dependencies |
+| `devlens find-nodes -t <type>` | Filter nodes by type (ROUTE, COMPONENT, etc.) |
+| `devlens security` | List every security issue |
+| `devlens config` | View or update configuration |
 
-→ **[Full CLI reference](src/cli/README.md)** — every command with examples and options.
+Each command supports `--json` for piping into scripts and CI pipelines.
 
----
+> **Full reference:** [`src/cli/README.md`](src/cli/README.md) — every command with examples and options.
 
-### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill (`@devlensio/skill`) — AI-powered understanding
+### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill (`@devlensio/skill`) — AI-Powered Understanding
 
-*The most powerful way to use DevLens. For when you want your AI coding agent to understand your full codebase in one command.*
-
-Your AI agent normally reads files one at a time — it has no idea how your codebase fits together. The DevLens Skill teaches it to query the pre-built graph instead. Type `/devlens` in Claude Code, Cursor, or Kilo:
+*The most powerful way to use DevLens. Your AI agent normally reads files one at a time — the DevLens Skill teaches it to query the pre-built graph instead.*
 
 ```bash
 npx @devlensio/skill install
 ```
 
-Then reload your tool and use:
+Then reload your tool and use `/devlens` in Claude Code, Cursor, or Kilo:
 
-| Command | What it does |
+| Command | Description |
 |---------|-------------|
 | `/devlens architecture` | Full system overview — stack, modules, routes, patterns |
 | `/devlens security-analysis` | Prioritized security findings with exploit notes |
 | `/devlens impact <symbol>` | Blast radius — what breaks if you change this? |
 | `/devlens tech-debt` | Circular deps, coupling hotspots, god-files |
-| `/devlens onboard` | Generate ONBOARDING.md for new devs |
+| `/devlens onboard` | Generate `ONBOARDING.md` for new devs |
 | `/devlens explain [path]` | Understand a module with callers/callees |
 | `/devlens find <name>` | Locate any component, hook, or function |
 | `/devlens changes [range]` | Explain what changed and its impact |
 | `/devlens diagram` | Mermaid diagrams of architecture or flows |
 
-→ **[Full Skill reference](packages/skill-installer/README.md)** — all subcommands with examples, install options, supported tools.
+> **Full reference:** [`packages/skill-installer/README.md`](packages/skill-installer/README.md) — all subcommands with examples, install options, and supported tools.
 
----
+### <img src="assets/mcp-icon.svg" width="20" style="vertical-align: middle" /> MCP Server — For Any MCP-Compatible AI Agent
 
-### <img src="assets/mcp-icon.svg" width="20" style="vertical-align: middle" /> MCP Server — For any MCP-compatible AI agent
-
-*For when you want to wire DevLens into any MCP client (Claude Desktop, IDE plugins, etc.).*
-
-Bundled inside the CLI — exposes 14 tools over the Model Context Protocol.
+*Wire DevLens into any MCP client (Claude Desktop, IDE plugins, etc.). Bundled inside the CLI — exposes 14 tools over the Model Context Protocol.*
 
 ```bash
 devlens mcp                       # stdio mode
 claude mcp add devlens -- devlens mcp   # register in Claude Code
 ```
 
-→ **[MCP docs](src/mcp/README.md)** — tool reference, registration, config.
+> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool reference, registration, and configuration.
 
 ---
 
@@ -279,7 +296,7 @@ Config lives in `~/.devlens/config.json` — set via `devlens init` or `devlens 
 | :-- | :-- | :-- |
 | Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8GB+ RAM |
 | OpenAI | `gpt-4o-mini` | Fast, cost-effective |
-| Anthropic | `claude-saunnet-family` | Excellent code understanding |
+| Anthropic | `claude-sonnet-5` | Excellent code understanding |
 | OpenRouter | `deepseek-v4-flash` or `mimo-v2.5` | Best cost/quality balance |
 | Gemini | `gemini-2.0-flash` | Fast, large context |
 
@@ -289,7 +306,7 @@ devlens config --provider openrouter --model deepseek-v4-flash --api-key <key>
 
 ---
 
-## What DevLens understands
+## What DevLens Understands
 
 **Node types:** `COMPONENT`, `HOOK`, `FUNCTION`, `STATE_STORE`, `UTILITY`, `FILE`, `ROUTE`, `TEST`, `STORY`, `THIRD_PARTY`
 
@@ -301,7 +318,7 @@ devlens config --provider openrouter --model deepseek-v4-flash --api-key <key>
 
 ---
 
-## Repository layout
+## Repository Layout
 
 ```
 devlensOSS/
@@ -330,12 +347,6 @@ A hosted version is in development:
 - **Shareable graphs** your whole team can access
 - **Cross-repo navigation** — understand your entire org
 - **Give graphical context to AI agents** for smarter code review and analysis
-- No local setup required
+- **No local setup required**
 
 **[Join the waitlist →](https://devlens.io)**
-
----
-
-## License
-
-DevLens is licensed under the [GNU Affero General Public License v3.0](LICENSE). You are free to use, modify, and distribute it. If you run a modified version as a hosted service, you must release your modifications under the same license.
