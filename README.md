@@ -89,11 +89,18 @@ Your agent burns tokens re-reading files it's seen before. DevLens gives it a gr
 npm install -g @devlensio/cli
 ```
 
-> **No Node.js?** Use the one-command standalone binary installer:
+> **No Node.js?** Use the standalone binary installer (no dependencies):
 >
+> **Linux / macOS:**
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
 > ```
+>
+> **Windows (PowerShell):**
+> ```powershell
+> irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
+> ```
+>
 
 **2. Init**
 
