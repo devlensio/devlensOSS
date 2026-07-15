@@ -1,117 +1,193 @@
-# `src/cli` — the `devlens` CLI
+# `@devlensio/cli` — The DevLens CLI
 
-The command-line interface for DevLens. It's a [commander](https://github.com/tj/commander.js) program that analyzes a repo and queries the resulting graph. The compiled binary (`@devlensio/cli`) is built from this folder's entrypoint.
+[![npm](https://img.shields.io/npm/v/@devlensio/cli?color=cb3837&logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f9f1e1?logo=bun)](https://bun.sh)
 
-> User-facing command docs (every command, arg, and option) live in the [root README](../../README.md#cli-command-reference). This file documents the **code**.
+The command-line interface for [DevLens](https://github.com/devlensio/devlensOSS) — a codebase visualizer that turns any TypeScript / JavaScript / React / Next.js / Node.js repo into a queryable graph with functional summaries, technical summaries, and security analysis on every node.
 
-## Layout
+---
+
+## Install
+
+```bash
+npm install -g @devlensio/cli
+```
+
+**No Node.js?** Use the standalone binary (one command, no dependencies):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
+```
+
+---
+
+## Quick Start
+
+```bash
+# 1. Set up your LLM provider
+devlens init
+
+# 2. Analyze a repo
+cd your-project
+devlens analyze . --summarize
+
+# 3. Explore
+devlens overview
+devlens top-nodes
+devlens find-nodes -t COMPONENT
+```
+
+---
+
+## When to use each command
+
+### New to a codebase (onboarding)
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens analyze . --summarize` | First time exploring a repo — build the graph + AI summaries | `devlens analyze ./my-app --summarize` |
+| `devlens overview` | Start here — see the big picture (framework, stats, central nodes) | `devlens overview` |
+| `devlens top-nodes` | Find the most important code (highest architectural score) | `devlens top-nodes --limit 10 --json` |
+| `devlens nodes-in-path <path>` | Understand everything in a folder at once | `devlens nodes-in-path src/components/` |
+
+### Finding things
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens find-nodes <name>` | You know the name but not where it lives | `devlens find-nodes Button` |
+| `devlens find-nodes -t ROUTE` | Find every route in the app | `devlens find-nodes -t ROUTE` |
+| `devlens find-nodes -f <file>` | See all nodes in a specific file | `devlens find-nodes -f src/app/layout.js` |
+| `devlens find-nodes --min-score 7` | Only high-importance nodes | `devlens find-nodes --min-score 7` |
+| `devlens find-nodes --severity high` | Find nodes with high-severity security flags | `devlens find-nodes --severity high` |
+| `devlens get-node <nodeId>` | Full detail on one node (summaries, callers, callees) | `devlens get-node "src/auth/login.ts::login"` |
+| `devlens get-summaries <ids...>` | Batch-read summaries for multiple nodes | `devlens get-summaries id1 id2 id3` |
+| `devlens node-code <nodeId>` | Raw source code for a node (expensive — prefer get-node) | `devlens node-code "src/auth/login.ts::login"` |
+
+### Understanding impact before changing
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens blast-radius <nodeId>` | **Before refactoring** — what breaks if I change this? | `devlens blast-radius "src/auth/login.ts::login"` |
+| `devlens blast-radius <nodeId> -r 3` | Widen the blast radius search | `devlens blast-radius "src/store/user.js::useUserStore" -r 3` |
+| `devlens khop <nodeId>` | What does this depend on? (downstream deps) | `devlens khop "src/api/anime.js::getAnime"` |
+| `devlens subgraph <nodeId>` | See the cohesive cluster around a node | `devlens subgraph "src/components/Navbar.jsx"` |
+| `devlens cycles` | Find circular dependencies before they cause issues | `devlens cycles` |
+| `devlens diff <from> <to>` | Compare two analyzed commits — what changed + impact | `devlens diff abc123 def456` |
+
+### Security reviews
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens security` | View all flagged security issues | `devlens security` |
+| `devlens security --min-severity high` | Only critical + high severity | `devlens security --min-severity high` |
+| `devlens security --json` | Machine-readable output for dashboards | `devlens security --json` |
+
+### Integrations
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens mcp` | Start the MCP server (for AI agent/editor integration) | `devlens mcp` |
+| `devlens mcp http -p 7000` | Start MCP over HTTP | `devlens mcp http -p 7000` |
+| `devlens serve` | Start the backend API (for the Web UI) | `devlens serve -p 3001` |
+
+### Setup & maintenance
+
+| Command | When | Example |
+|---------|------|---------|
+| `devlens init` | First run — configure LLM provider interactively | `devlens init` |
+| `devlens doctor` | Something broken? Check environment health | `devlens doctor` |
+| `devlens config` | View or update `~/.devlens/config.json` | `devlens config --set` |
+| `devlens config --provider openrouter` | Switch LLM provider | `devlens config --provider openrouter --model mimo-v2.5 --api-key sk-...` |
+| `devlens status` | Show analyzed + summarized graphs | `devlens status` |
+| `devlens repos` | List all analyzed repositories | `devlens repos` |
+| `devlens graphs list` | List stored graphs | `devlens graphs list` |
+| `devlens graphs delete <graphId>` | Delete a specific graph | `devlens graphs delete abc-123` |
+
+---
+
+## Configuration
+
+Supported LLM providers for AI summarization:
+
+| Provider | Recommended model | Setup |
+| :-- | :-- | :-- |
+| Ollama (local) | `qwen2.5-coder:7b` | `devlens config --provider ollama --model qwen2.5-coder:7b --base-url http://localhost:11434` |
+| OpenAI | `gpt-4o-mini` | `devlens config --provider openai --model gpt-4o-mini --api-key <key>` |
+| Anthropic | `claude-haiku-4-5` | `devlens config --provider anthropic --model claude-haiku-4-5 --api-key <key>` |
+| OpenRouter | `mimo-v2.5` | `devlens config --provider openrouter --model mimo-v2.5 --api-key <key>` |
+| Gemini | `gemini-2.0-flash` | `devlens config --provider gemini --model gemini-2.0-flash --api-key <key>` |
+
+---
+
+## Global options
+
+Available on every command:
+
+| Flag | What it does |
+|:--|:--|
+| `--json` | Machine-readable JSON output (for scripts, CI) |
+| `-v, --verbose` | Diagnostic output |
+| `-g <graphId>` | Target a specific graph (default: current directory) |
+| `-c <commit>` | Target a specific commit in the graph |
+| `-h, --help` | Show help |
+
+---
+
+## Architecture
 
 ```
 src/cli/
-├── index.ts            # entrypoint — builds the commander program, registers every command
-├── options.ts          # withGlobalFlags() + the --json/--verbose preAction hook (setJsonMode)
-├── output.ts           # emit() / info() / success() / warn() / die() — stdout vs stderr discipline
-├── graphResolve.ts     # resolveGraphId() — map cwd (or -g) to a stored graphId
-├── jobRunner.ts        # runs long-lived jobs (analyze/summarize) with progress on stderr
+├── index.ts           # Entrypoint — registers all commands
+├── options.ts         # Global flags (--json, --verbose)
+├── output.ts          # stdout vs stderr discipline
+├── graphResolve.ts    # Resolves current directory → graph ID
+├── jobRunner.ts       # Progress streaming for long jobs
 └── commands/
-    ├── analyze.ts      # analyze
-    ├── summarize.ts    # summarize
-    ├── config.ts       # config
-    ├── init.ts         # init
-    ├── doctor.ts       # doctor
-    ├── status.ts       # status
-    ├── repos.ts        # repos
-    ├── graphs.ts       # graphs list|delete
-    ├── serve.ts        # serve (backend API for the Web UI)
-    ├── mcp.ts          # mcp stdio|http
-    └── query.ts        # overview, top-nodes, find-nodes, nodes-in-path, get-node,
-                        # get-summaries, node-code, blast-radius, khop, subgraph,
-                        # cycles, security, diff
+    ├── analyze.ts     # analyze & summarize
+    ├── config.ts      # config management
+    ├── init.ts        # first-time setup
+    ├── doctor.ts      # health check
+    ├── status.ts      # status
+    ├── repos.ts       # repos
+    ├── graphs.ts      # graphs list|delete
+    ├── serve.ts       # backend API server
+    ├── mcp.ts         # MCP server
+    └── query.ts       # all query commands
 ```
 
-## How it's wired
+CLI and MCP share `src/core/` — they never drift.
 
-- **`index.ts`** creates the `commander` program (`.name("devlens")`, `.version(...)`), then calls each `register<X>Command(program)`. The hardcoded `.version("x.y.z")` is what `devlens --version` reports — `scripts/set-version.mjs` patches it at release time.
-- **`options.ts`** — `withGlobalFlags()` adds `--json` / `--verbose` to a command, and a `preAction` hook calls `setJsonMode()` before any action runs.
-- **`output.ts`** — the single output channel. Results go to **stdout** via `emit()` (JSON when `--json`, else human text); diagnostics/progress/errors go to **stderr** via `info`/`success`/`warn`/`die`. In `--json` mode it also redirects stray `console.log`/`info`/`debug` to stderr so machine output stays clean.
-- **`graphResolve.ts`** — `resolveGraphId(optGraph)` returns the explicit `-g` id or the graph for the current working directory.
-- **Query commands** (`commands/query.ts`) are thin: they parse flags, call a pure function in [`src/core`](../core), and `emit()` the result. **The CLI and the MCP server call the same `src/core` functions**, so the two never drift.
-- **Job commands** (`analyze`, `summarize`) run through `jobRunner.ts`, which drives the `devlensio` pipeline and streams progress to stderr.
+---
 
-## Develop
+## Development
 
 ```bash
-# run any command straight from source (no build)
+# Run any command from source (no build needed)
 bun src/cli/index.ts <command> [args]
-bun src/cli/index.ts overview --json
 
-# build the native binaries (all 5 targets)
+# Build native binaries (all 5 targets)
 bun run build:binaries
 ```
 
-`import.meta.main` guards mean entry files only auto-run when executed directly. Entry files need `/// <reference types="bun" />` for `import.meta.main` to type-check.
+---
 
-## Add a command
+## Related packages
 
-1. Create `commands/my-command.ts` exporting `registerMyCommand(program)`.
-2. For a **query**, add it to `query.ts` and back it with a pure function in `src/core` (so the MCP tool can reuse it).
-3. Wrap the command with `withGlobalFlags(...)` and emit results with `emit()`.
-4. Register it in `index.ts`.
+| Package | What it is |
+| :-- | :-- |
+| [`devlensio`](https://www.npmjs.com/package/devlensio) | The core analysis engine (AST → graph → scores → summaries) |
+| [`@devlensio/skill`](https://www.npmjs.com/package/@devlensio/skill) | Agent Skill — `/devlens` commands for Claude Code, Cursor, Kilo |
+| `@devlensio/cli-<platform>` | Platform-specific binaries (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64) |
 
-## Release / publish the CLI
+---
 
-The CLI release is **tag-driven and fully automated** — pushing a `v*` git tag triggers [`.github/workflows/release.yml`](../../.github/workflows/release.yml), which builds and publishes everything. You do **not** build or `npm publish` by hand.
+## License
 
-> This is the **CLI + MCP** channel (`@devlensio/cli`, the 5 platform packages, `server.json` → MCP registry). It is **separate** from the `/devlens` **skill** channel (`@devlensio/skill` + the plugin), which is versioned by `scripts/set-skill-version.mjs`. A CLI release does not bump the skill, and vice-versa. Use this section for changes under `src/**`.
-
-### Steps to cut a release
-
-```bash
-# 1. Be on a clean, green main.
-git checkout main && git pull
-
-# 2. Sync the version everywhere, then commit (keeps the repo honest).
-#    set-version.mjs updates: package.json + the 5 npm/<platform>/package.json,
-#    the main package's pinned optionalDependencies, server.json (+ its packages),
-#    and the hardcoded .version("x.y.z") in src/cli/index.ts.
-node scripts/set-version.mjs 0.3.0
-git commit -am "cli 0.3.0"
-git push origin main
-
-# 3. Tag with the SAME version (prefixed with v) and push the tag — this fires the release.
-git tag v0.3.0
-git push origin v0.3.0
-```
-
-The git tag is what actually triggers publishing; the CI job re-derives the version from the tag name and re-runs `set-version.mjs` itself, so step 2 is for repo consistency (committed files matching what ships). Tag-only would still publish correctly.
-
-### What the GitHub Action does automatically (in order)
-
-1. Installs deps (`bun install --frozen-lockfile`) and derives the version from the tag (`v0.3.0` → `0.3.0`).
-2. `node scripts/set-version.mjs <version>` — syncs every package + `server.json` + the CLI version string.
-3. `bun run build:binaries` — cross-compiles all 5 native targets from one Linux runner (darwin arm64/x64, linux x64/arm64, windows x64).
-4. `bun run stage:binaries` — copies each binary into its `npm/<platform>/` package.
-5. **Publishes platform packages first**, then the **main package** (so the main package's pinned `optionalDependencies` resolve). npm **Trusted Publishing via OIDC** — no `NPM_TOKEN` needed.
-6. Uploads the raw binaries to the **GitHub Release** (for the install-script channel).
-7. Publishes `server.json` to the **MCP Registry** (`mcp-publisher`, tokenless via GitHub OIDC) — last, so a registry hiccup can't block the npm release.
-
-### Before you tag — local sanity (optional)
-
-```bash
-bun install
-bun run build:binaries
-./dist/bin/devlens-windows-x64.exe --version   # smoke-test your platform's binary
-```
-
-### After the action finishes — verify
-
-```bash
-npm view @devlensio/cli version                 # the registry shows the new version
-npx -y @devlensio/cli@latest --version          # end users get it
-npx -y @devlensio/cli@latest mcp --help         # the `mcp` subcommand the plugin depends on works
-```
-
-### Prerequisites
-
-- Push access to the repo (to push tags) and maintainer rights on the npm `@devlensio` org / the MCP-registry namespace.
-- Trusted Publishing must be configured for each npm package (already set up; OIDC means no secrets in the repo).
+AGPL-3.0. Part of the [DevLens](https://github.com/devlensio/devlensOSS) project.

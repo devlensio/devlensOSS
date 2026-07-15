@@ -1,23 +1,33 @@
 # DevLens plugin — the `/devlens` Agent Skill
 
-This is the Claude Code plugin that ships the **DevLens Agent Skill**: one `/devlens` command (with subcommands) that teaches an AI agent how to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) instead of grepping and reading whole files. The skill drives the **bundled DevLens MCP server** (registered automatically by this plugin) and orchestrates its tools — discovering real modules from graph clusters, tracing typed edges, and reading precomputed summaries.
+This is the Claude Code plugin that ships the **DevLens Agent Skill**: one `/devlens` command (with subcommands) that teaches an AI agent how to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) for JavaScript, TypeScript, React, Next.js, and Node.js codebases — instead of grepping and reading whole files.
+
+The skill drives the **bundled DevLens MCP server** (registered automatically by this plugin) and orchestrates its tools — discovering real modules from graph clusters, tracing typed edges, and reading precomputed summaries.
+
+---
 
 ## Install
 
 **Claude Code (plugin):**
+
 ```text
 /plugin marketplace add devlensio/devlensOSS
 /plugin install devlens@devlensio
 ```
-→ commands are namespaced: `/devlens:devlens <subcommand>`.
+
+Commands are namespaced: `/devlens:devlens <subcommand>`.
 
 **Any agent (npx installer — Claude Code, Cursor, Kilo, opencode, pi):**
+
 ```bash
 npx @devlensio/skill install
 ```
-→ clean commands: `/devlens <subcommand>`. See [../../packages/skill-installer/README.md](../../packages/skill-installer/README.md).
+
+Clean commands: `/devlens <subcommand>`. See [../../packages/skill-installer/README.md](../../packages/skill-installer/README.md).
 
 > The DevLens MCP server ships inside `@devlensio/cli` and is launched on demand via `npx -y @devlensio/cli mcp` — the plugin registers it for you, so no separate global install is required. (Generating summaries still uses an LLM provider you configure once via the CLI: `devlens init`.)
+
+---
 
 ## Subcommands
 
@@ -37,6 +47,8 @@ npx @devlensio/skill install
 | `/devlens changes [range]` | Explain recent work / a commit range / a merge conflict, by functionality. |
 | `/devlens guard [target]` | Warn before editing high-value / high-blast-radius nodes (defaults to current uncommitted changes). |
 
+---
+
 ## Structure
 
 ```
@@ -52,6 +64,14 @@ The plugin's `.claude-plugin/plugin.json` declares the DevLens MCP server under 
 
 `skills/devlens/` is the **single source of truth** — the `@devlensio/skill` npx installer bundles a copy of it at publish time. The plugin's `version` (in `plugin.json`) gates `/plugin update`; bump it via `node scripts/set-skill-version.mjs <ver>` from the repo root.
 
+---
+
 ## How a skill works
 
-When invoked, `SKILL.md` loads into the agent's context. It confirms the **DevLens MCP** is connected, runs a **graph-freshness guard** (analyze if needed; never summarize without permission), then routes the subcommand to its recipe in `commands/`, which the agent reads and executes by calling the DevLens MCP tools. Each recipe teaches a **traversal methodology** — orient cheaply, discover modules from graph clusters (`get_subgraph`), draw real edges (`get_blast_radius`/`get_khop`), label from summaries — so results are comprehensive *and* synthesized, not brute-force node dumps.
+When invoked, `SKILL.md` loads into the agent's context. It:
+
+1. Confirms the **DevLens MCP** is connected
+2. Runs a **graph-freshness guard** (analyze if needed; never summarize without permission)
+3. Routes the subcommand to its recipe in `commands/`, which the agent reads and executes by calling the DevLens MCP tools
+
+Each recipe teaches a **traversal methodology** — orient cheaply, discover modules from graph clusters (`get_subgraph`), draw real edges (`get_blast_radius`/`get_khop`), label from summaries — so results are comprehensive *and* synthesized, not brute-force node dumps.
