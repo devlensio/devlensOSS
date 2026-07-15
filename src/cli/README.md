@@ -112,6 +112,80 @@ devlens find-nodes -t COMPONENT
 
 ---
 
+## Real-world workflows
+
+### Onboarding a new developer
+
+```bash
+# 1. Configure an LLM provider for summaries
+devlens init
+
+# 2. Analyze the project with AI summaries
+devlens analyze . --summarize
+
+# 3. See the big picture
+devlens overview
+
+# 4. Find the most important code to learn first
+devlens top-nodes --limit 10
+
+# 5. Understand the auth module
+devlens nodes-in-path src/auth/
+devlens get-summaries "src/auth/login.ts::login" "src/auth/register.ts::register"
+
+# 6. Check for architectural debt
+devlens cycles
+```
+
+### Before a risky refactor
+
+```bash
+# 1. Find what depends on the code you're changing
+devlens blast-radius "src/store/user.ts::useUserStore"
+
+# 2. See what that code depends on
+devlens khop "src/store/user.ts::useUserStore"
+
+# 3. Get the full picture of the node
+devlens get-node "src/store/user.ts::useUserStore"
+
+# 4. Check all security concerns in the area
+devlens security --min-severity medium
+```
+
+### CI pipeline integration
+
+```bash
+# Run in CI to catch regressions
+devlens status --json                          # Check graph freshness
+devlens cycles --json                          # Fail on new circular deps
+devlens security --min-severity high --json    # Fail on critical security issues
+devlens find-nodes --severity medium --json    # Log medium-severity flags
+
+# Compare against the main branch graph
+devlens diff main HEAD --json                  # What nodes changed in this PR?
+```
+
+### Exploring a large codebase
+
+```bash
+# Start broad
+devlens overview
+
+# Narrow to a feature area
+devlens nodes-in-path src/components/player/
+devlens find-nodes -t ROUTE | grep watch
+
+# Drill into specific symbols
+devlens get-node "src/components/player/VideoPlayer.tsx::VideoPlayer"
+devlens blast-radius "src/components/player/VideoPlayer.tsx::VideoPlayer" -r 3
+
+# Export for reporting
+devlens security --json > security-audit.json
+```
+
+---
+
 ## Configuration
 
 Supported LLM providers for AI summarization:

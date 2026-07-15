@@ -237,15 +237,17 @@ cd devlensOSS && bun install && bun run dev
 npm install -g @devlensio/cli
 ```
 
-| Command | Description |
-|---------|-------------|
-| `devlens analyze .` | Analyze a repository into a DevLens graph |
-| `devlens overview` | Big picture — framework, stats, central nodes |
-| `devlens blast-radius <nodeId>` | What breaks if I change this? |
-| `devlens cycles` | Find circular dependencies |
-| `devlens find-nodes -t <type>` | Filter nodes by type (ROUTE, COMPONENT, etc.) |
-| `devlens security` | List every security issue |
-| `devlens config` | View or update configuration |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `devlens analyze .` | Analyze a repository into a DevLens graph | `devlens analyze ./my-app --summarize` |
+| `devlens overview` | Big picture — framework, stats, central nodes | `devlens overview` → "Next.js 15, 342 nodes, 12 routes, top node: Layout (9.2)" |
+| `devlens blast-radius <nodeId>` | What breaks if I change this? | `devlens blast-radius "src/auth.ts::login"` → "14 dependents affected" |
+| `devlens cycles` | Find circular dependencies | `devlens cycles` → Lists every circular import group |
+| `devlens find-nodes -t <type>` | Filter nodes by type (ROUTE, COMPONENT, etc.) | `devlens find-nodes -t ROUTE` → Lists all 12 routes |
+| `devlens find-nodes --severity high` | Find high-severity security issues | `devlens find-nodes --severity high` → "2 findings in auth module" |
+| `devlens diff <from> <to>` | Compare two analyzed commits | `devlens diff abc123 def456` → "Added: AnalyticsTracker, Changed: CheckoutForm" |
+| `devlens security` | List every security issue | `devlens security --min-severity high --json` |
+| `devlens config` | View or update configuration | `devlens config --provider openrouter --model deepseek-v4-flash` |
 
 Each command supports `--json` for piping into scripts and CI pipelines.
 
@@ -261,17 +263,18 @@ npx @devlensio/skill install
 
 Then reload your tool and use `/devlens` in Claude Code, Cursor, or Kilo:
 
-| Command | Description |
-|---------|-------------|
-| `/devlens architecture` | Full system overview — stack, modules, routes, patterns |
-| `/devlens security-analysis` | Prioritized security findings with exploit notes |
-| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? |
-| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files |
-| `/devlens onboard` | Generate `ONBOARDING.md` for new devs |
-| `/devlens explain [path]` | Understand a module with callers/callees |
-| `/devlens find <name>` | Locate any component, hook, or function |
-| `/devlens changes [range]` | Explain what changed and its impact |
-| `/devlens diagram` | Mermaid diagrams of architecture or flows |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/devlens architecture` | Full system overview — stack, modules, routes, patterns | `/devlens architecture` → Returns structured report: framework, 12 routes, 3 modules, security posture |
+| `/devlens security-analysis` | Prioritized security findings with exploit notes | `/devlens security-analysis high` → "SQL injection in loginUser (reach: 14 nodes)" |
+| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? | `/devlens impact loginUser` → "14 dependents across 3 modules" |
+| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files | `/devlens tech-debt` → "3 cycles, Navbar has 28 dependents" |
+| `/devlens guard [target]` | Warn before editing high-risk code | `/devlens guard` → "⚠️ authMiddleware affects 22 dependents" |
+| `/devlens onboard` | Generate `ONBOARDING.md` for new devs | `/devlens onboard` → Writes full onboarding doc to repo root |
+| `/devlens explain [path]` | Understand a module with callers/callees | `/devlens explain src/api/` → Walks through all API handlers |
+| `/devlens find <name>` | Locate any component, hook, or function | `/devlens find Button` → "3 matches across components and tests" |
+| `/devlens changes [range]` | Explain what changed and its impact | `/devlens changes yesterday` → "3 files, 2 features, 1 bug fix" |
+| `/devlens diagram [type]` | Mermaid diagrams of architecture or flows | `/devlens diagram architecture` → Generates layered module diagram |
 
 > **Full reference:** [`packages/skill-installer/README.md`](packages/skill-installer/README.md) — all subcommands with examples, install options, and supported tools.
 
@@ -282,9 +285,19 @@ Then reload your tool and use `/devlens` in Claude Code, Cursor, or Kilo:
 ```bash
 devlens mcp                       # stdio mode
 claude mcp add devlens -- devlens mcp   # register in Claude Code
+devlens mcp http -p 7000          # HTTP mode
 ```
 
-> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool reference, registration, and configuration.
+Each MCP tool is a query into the pre-built graph — your agent can:
+- `list_analyzed_repos` — see what repos are already analyzed
+- `get_repo_overview` — framework, stats, route count at a glance
+- `find_nodes` — search by name, type, file, severity, or score
+- `get_blast_radius` — check impact before refactoring
+- `get_security_issues` — rank all security findings
+- `list_cycles` — find circular dependencies
+- `analyze_changes` — diff two analyzed commits
+
+> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool reference, examples, registration, and configuration.
 
 ---
 

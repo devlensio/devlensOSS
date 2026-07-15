@@ -148,35 +148,35 @@ After installing, reload your AI tool and type `/devlens`:
 
 ### New to a codebase?
 
-| Command | What it does |
-|---------|-------------|
-| `/devlens init` | First run — connect MCP, configure provider, analyze repo |
-| `/devlens architecture` | Full system overview — stack, modules, all routes/stores, patterns |
-| `/devlens explain [path]` | Understand a specific module — callers, callees, summaries |
-| `/devlens onboard` | Generate a saved `ONBOARDING.md` for new devs |
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `/devlens init` | First run — connect MCP, configure provider, analyze repo | `/devlens init` → Sets up DevLens for the current repo |
+| `/devlens architecture` | Full system overview — stack, modules, all routes/stores, patterns | `/devlens architecture` → Returns: "Next.js 15 app with 12 routes, 4 state stores, 3 modules (auth, anime, user)..." |
+| `/devlens explain [path]` | Understand a specific module — callers, callees, summaries | `/devlens explain src/auth/` → Explains the auth module: login, register, session management, and how they connect |
+| `/devlens onboard` | Generate a saved `ONBOARDING.md` for new devs | `/devlens onboard` → Writes `ONBOARDING.md` with setup steps, module map, key flows, and a reading path |
 
 ### About to refactor?
 
-| Command | What it does |
-|---------|-------------|
-| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? |
-| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files |
-| `/devlens guard [target]` | Warns if you're about to edit a critical/high-blast-radius node |
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? | `/devlens impact loginUser` → "Changing `loginUser` affects 14 dependents: LoginPage, AuthGuard, Navbar (via auth store), ProfilePage..." |
+| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files | `/devlens tech-debt` → "3 circular dependency groups, Navbar has 28 dependents (highest fan-in), `utils.ts` has 12 functions (candidate for splitting)" |
+| `/devlens guard [target]` | Warns if you're about to edit a critical/high-blast-radius node | `/devlens guard` (no arg) → Checks uncommitted changes; warns if modifying `authMiddleware` (score 9.1, affects 22 dependents) |
 
 ### Before shipping?
 
-| Command | What it does |
-|---------|-------------|
-| `/devlens security-analysis [level]` | Prioritized security findings with exploit notes |
-| `/devlens changes [range]` | Explain recent work — what changed and its impact |
-| `/devlens diagram [type]` | Mermaid diagrams — architecture, clusters, flows, deps |
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `/devlens security-analysis [level]` | Prioritized security findings with exploit notes | `/devlens security-analysis high` → "2 high-severity issues: SQL injection in `loginUser` (reach: 14 nodes), missing CSRF in `deleteAccount`" |
+| `/devlens changes [range]` | Explain recent work — what changed and its impact | `/devlens changes yesterday` → "3 files changed: added analytics tracking, fixed rate-limiting bug in API handler" |
+| `/devlens diagram [type]` | Mermaid diagrams — architecture, clusters, flows, deps | `/devlens diagram architecture` → Generates a layered Mermaid diagram with module map, route flows, and external dependencies |
 
 ### Need to find something?
 
-| Command | What it does |
-|---------|-------------|
-| `/devlens find <name>` | Locate any component, hook, or function |
-| `/devlens summary <target>` | On-demand technical + business + security summaries |
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `/devlens find <name>` | Locate any component, hook, or function | `/devlens find Button` → "Found 3 matches: `src/ui/Button.tsx` (COMPONENT, score 6.2), `src/ui/IconButton.tsx` (COMPONENT, score 4.1), `tests/Button.test.tsx` (TEST)" |
+| `/devlens summary <target>` | On-demand technical + business + security summaries | `/devlens summary security Navbar` → "Security: Navbar reads user role from auth store — no privilege escalation risk, but exposes admin links" |
 
 ---
 

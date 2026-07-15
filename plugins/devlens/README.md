@@ -31,21 +31,21 @@ Clean commands: `/devlens <subcommand>`. See [../../packages/skill-installer/REA
 
 ## Subcommands
 
-| Command | What it does |
-| :-- | :-- |
-| `/devlens` | List subcommands + point at the full tool reference. |
-| `/devlens init` | Bootstrap: ensure the MCP is connected, configure a provider, analyze the repo. |
-| `/devlens architecture` | Comprehensive system brief — stack, modules, all routes/stores/hooks, patterns, edges, security posture, risks. |
-| `/devlens diagram [architecture\|cluster\|flow\|deps]` | Mermaid diagram (node-type shapes, typed edges, severity badges) — saved + optionally rendered. |
-| `/devlens summary [technical\|functional\|security] <target>` | On-demand summaries for a node/file/folder. |
-| `/devlens security-analysis [low\|medium\|high]` | Prioritized security findings with exploit notes + reach. |
-| `/devlens explain [path]` | Quick in-chat onboarding walkthrough + a ranked "read these first" learning path. |
-| `/devlens onboard` | Generate a saved `ONBOARDING.md` — setup/run, architecture, key flows, reading path, glossary, "where to change things". |
-| `/devlens tech-debt` | Circular dependencies, coupling hotspots, god-files. |
-| `/devlens impact <symbol\|file>` | Blast radius (what breaks) + k-hop (what it needs). |
-| `/devlens find <name\|path>` | Locate where something lives (compact node refs). |
-| `/devlens changes [range]` | Explain recent work / a commit range / a merge conflict, by functionality. |
-| `/devlens guard [target]` | Warn before editing high-value / high-blast-radius nodes (defaults to current uncommitted changes). |
+| Command | What it does | Example |
+| :-- | :-- | :-- |
+| `/devlens` | List subcommands + point at the full tool reference | `/devlens` → Shows available commands |
+| `/devlens init` | Bootstrap: ensure the MCP is connected, configure a provider, analyze the repo | `/devlens init` → Sets up DevLens for this repo |
+| `/devlens architecture` | Comprehensive system brief — stack, modules, all routes/stores/hooks, patterns, edges, security posture, risks | `/devlens architecture` → "Next.js 15, 3 modules (auth/anime/user), 12 routes, 4 stores" |
+| `/devlens diagram [architecture\|cluster\|flow\|deps]` | Mermaid diagram (node-type shapes, typed edges, severity badges) — saved + optionally rendered | `/devlens diagram flow login` → Mermaid sequence diagram tracing login → auth handler → API → store |
+| `/devlens summary [technical\|functional\|security] <target>` | On-demand summaries for a node/file/folder | `/devlens summary security src/api/` → Security assessment for all API handlers |
+| `/devlens security-analysis [low\|medium\|high]` | Prioritized security findings with exploit notes + reach | `/devlens security-analysis high` → "2 issues: SQL injection (reach: 14 nodes), missing CSRF" |
+| `/devlens explain [path]` | Quick in-chat onboarding walkthrough + a ranked "read these first" learning path | `/devlens explain src/auth/` → Walks through login flow, session management, role guards |
+| `/devlens onboard` | Generate a saved `ONBOARDING.md` — setup/run, architecture, key flows, reading path | `/devlens onboard` → Writes ONBOARDING.md to repo root |
+| `/devlens tech-debt` | Circular dependencies, coupling hotspots, god-files | `/devlens tech-debt` → "3 cycles, Navbar has 28 dependents" |
+| `/devlens impact <symbol\|file>` | Blast radius (what breaks) + k-hop (what it needs) | `/devlens impact checkAuth` → "8 dependents across auth guard, middleware, protected routes" |
+| `/devlens find <name\|path>` | Locate where something lives (compact node refs) | `/devlens find Button` → "3 results in src/ui/Button.tsx, src/ui/IconButton.tsx, tests/" |
+| `/devlens changes [range]` | Explain recent work / a commit range / a merge conflict, by functionality | `/devlens changes yesterday` → "3 files, added analytics tracking, fixed rate-limiting bug" |
+| `/devlens guard [target]` | Warn before editing high-value / high-blast-radius nodes | `/devlens guard` → "⚠️ authMiddleware (score 9.1) has 22 dependents" |
 
 ---
 
