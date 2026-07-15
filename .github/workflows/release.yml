@@ -36,7 +36,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Sync version across all packages
         run: node scripts/set-version.mjs "${{ steps.ver.outputs.version }}"
