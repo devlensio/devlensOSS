@@ -1,7 +1,7 @@
 {
   "name": "devlens",
   "description": "Codebase intelligence for AI agents. The /devlens skill teaches your agent to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) via the bundled DevLens MCP server instead of grepping and reading whole files — with subcommands for architecture, diagrams, security analysis, impact, summaries, and more.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "mcpServers": {
     "devlens": {
       "command": "npx",
