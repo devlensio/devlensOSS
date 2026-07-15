@@ -1,128 +1,194 @@
-# @devlensio/skill
+# `@devlensio/skill` — DevLens Agent Skill
 
-Installs the **DevLens Agent Skill** (`/devlens`) into your AI coding tool. The skill teaches the agent to drive the [DevLens CLI](https://www.npmjs.com/package/@devlensio/cli) — querying a precomputed code graph (nodes, typed edges, technical/business/security summaries) instead of grepping and reading whole files.
+[![npm](https://img.shields.io/npm/v/@devlensio/skill?color=cb3837&logo=npm)](https://www.npmjs.com/package/@devlensio/skill)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+Teach your AI coding agent to understand your full JavaScript, TypeScript, React, Next.js, or Node.js codebase in one command.
+
+---
+
+## What it does for you
+
+**Without DevLens**, your AI agent reads files one at a time — it has no idea how components connect, what depends on what, or where security issues lurk. It burns tokens re-discovering the same connections every session.
+
+**With the DevLens Skill**, your agent has a pre-built graph of every node in your codebase — with functional summaries, technical summaries, and security analysis. Type `/devlens` and get instant answers.
+
+| Before (agent alone) | After (with DevLens Skill) |
+|----------------------|---------------------------|
+| Reads files one by one, 2,000+ tokens each | Queries the graph: ~50 tokens per node |
+| No idea how components connect | Sees every edge — IMPORTS, CALLS, PROP_PASS, navigations |
+| Misses architectural debt | Surfaces circular deps, god-files, coupling hotspots |
+| No per-component security insight | Every node has a security assessment |
+| Can't see big picture without reading everything | `/devlens architecture` — full overview instantly |
+
+---
+
+## Real benchmarks — with DevLens vs without
+
+*Tested across 4 different LLMs (DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, Qwen 3.6) on real-world tasks — architecture understanding, feature implementation, and bug finding — comparing the same model with and without DevLens.*
+
+### Architecture understanding (full DevLens MCP)
+
+<div align="center">
+<img src="../../assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
+</div>
+
+| Metric | Without DevLens | With DevLens | Improvement |
+|--------|:--------------:|:------------:|:-----------:|
+| Avg cost per query | $0.163 | **$0.075** | **54% cheaper** |
+| Avg input tokens | 88,980 | **35,035** | **61% less** |
+| Avg output tokens | 9,549 | **3,233** | **66% less** |
+| Avg tool steps | 14.3 | **7.8** | **45% faster** |
+| Structured architecture output | 50% | **100%** | **2× more reliable** |
+| Architectural debt discovered | 0% | **50%** | **Now discoverable** |
+| Avg cache hit rate | 75.2% | **83.7%** | **+8.5pp** |
+
+<div align="center">
+<img src="../../assets/03_arch_savings_per_model.png" alt="Per-model savings" width="70%" />
+<img src="../../assets/02_arch_cache.png" alt="Cache hit rate comparison" width="70%" />
+</div>
+
+> Even the strongest model tested (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
+
+### Feature implementation & bug finding (DeepSeek V4 Flash)
+
+*5 prompts across implementation and debugging tasks — DevLens graph context only (no per-node summaries).*
+
+<div align="center">
+<img src="../../assets/04_prompt_metrics.png" alt="Prompt benchmark metrics" width="80%" />
+<img src="../../assets/06_prompt_savings_pertask.png" alt="Per-task savings" width="70%" />
+</div>
+
+| Task | Input tokens saved | Cache improvement |
+|------|:-----------------:|:-----------------:|
+| **Continue Watching** feature | **24%** less input (56.8k vs 74.9k) | +5.2pp cache |
+| **Rate Limiting** feature | **22%** less input (32.1k vs 41.1k) | +8.3pp cache |
+| **Error Handling** audit | *(comparable due to simple task)* | Comparable |
+| **Profile Bug** trace | **32%** less input (36.9k vs 54.3k) | Similar |
+
+### Quality impact
+
+<div align="center">
+<img src="../../assets/09_quality_comparison.png" alt="Quality comparison" width="80%" />
+<img src="../../assets/08_quality_matrix.png" alt="Quality matrix" width="80%" />
+</div>
+
+When asked to explain a codebase's architecture:
+
+| Capability | Without DevLens | With DevLens |
+|-----------|:--------------:|:------------:|
+| Produced structured output (diagrams, tables) | 50% | **100%** |
+| Referenced specific graph metrics | 0% | **100%** |
+| Identified architectural debt | 0% | **50%** |
+| Named specific important files/modules | 75% | **100%** |
+
+*(Benchmarked across DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, and Qwen 3.6 — with and without DevLens.)*
+
+---
 
 ## Install
 
 ```bash
-# Install into the AI tools detected in this project (defaults to Claude Code if none found)
 npx @devlensio/skill install
+```
 
-# Force a specific tool
-npx @devlensio/skill install --harness=cursor
+This auto-detects which AI tools you're using and installs into each.
 
-# Install into your home directory instead of the current project
-npx @devlensio/skill install --global
+### Options
 
-# Re-copy after an update / overwrite an existing install
-npx @devlensio/skill update          # or: install --force
+| Flag | What it does |
+|:--|:--|
+| `--harness=cursor` | Force install for a specific tool |
+| `--global` | Install to home directory instead of project |
+| `--force` | Re-copy after an update |
 
-# See whether your install is up to date
+### Check your installation
+
+```bash
 npx @devlensio/skill check
 ```
 
-> Requires the DevLens CLI itself: `npm install -g @devlensio/cli`. Behind a corporate proxy? set `NODE_EXTRA_CA_CERTS` to your org root CA.
+### Prerequisite
 
-After installing, reload your tool and type `/devlens` — e.g. `/devlens architecture`, `/devlens security-analysis`, `/devlens diagram`.
+The DevLens CLI must be installed globally:
+
+```bash
+npm install -g @devlensio/cli
+```
+
+---
+
+## How to use
+
+After installing, reload your AI tool and type `/devlens`:
+
+### New to a codebase?
+
+| Command | What it does |
+|---------|-------------|
+| `/devlens init` | First run — connect MCP, configure provider, analyze repo |
+| `/devlens architecture` | Full system overview — stack, modules, all routes/stores, patterns |
+| `/devlens explain [path]` | Understand a specific module — callers, callees, summaries |
+| `/devlens onboard` | Generate a saved `ONBOARDING.md` for new devs |
+
+### About to refactor?
+
+| Command | What it does |
+|---------|-------------|
+| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? |
+| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files |
+| `/devlens guard [target]` | Warns if you're about to edit a critical/high-blast-radius node |
+
+### Before shipping?
+
+| Command | What it does |
+|---------|-------------|
+| `/devlens security-analysis [level]` | Prioritized security findings with exploit notes |
+| `/devlens changes [range]` | Explain recent work — what changed and its impact |
+| `/devlens diagram [type]` | Mermaid diagrams — architecture, clusters, flows, deps |
+
+### Need to find something?
+
+| Command | What it does |
+|---------|-------------|
+| `/devlens find <name>` | Locate any component, hook, or function |
+| `/devlens summary <target>` | On-demand technical + business + security summaries |
+
+---
 
 ## Supported tools
 
-| Harness | Project skills dir | Global (`--global`) dir |
+| Tool | Project install dir | Global install dir |
 | :-- | :-- | :-- |
-| Claude Code | `.claude/skills/devlens/` | `~/.claude/skills/devlens/` |
-| Cursor | `.cursor/skills/devlens/` | `~/.cursor/skills/devlens/` |
-| Kilo Code | `.kilo/skills/devlens/` | `~/.kilocode/skills/devlens/` |
-| opencode | `.opencode/skills/devlens/` | `~/.config/opencode/skills/devlens/` |
-| pi | `.agents/skills/devlens/` | `~/.pi/agent/skills/devlens/` |
+| **Claude Code** | `.claude/skills/devlens/` | `~/.claude/skills/devlens/` |
+| **Cursor** | `.cursor/skills/devlens/` | `~/.cursor/skills/devlens/` |
+| **Kilo Code** | `.kilo/skills/devlens/` | `~/.kilocode/skills/devlens/` |
+| **opencode** | `.opencode/skills/devlens/` | `~/.config/opencode/skills/devlens/` |
+| **pi** | `.agents/skills/devlens/` | `~/.pi/agent/skills/devlens/` |
 
-Without `--harness`, the installer auto-detects which tools are in use from their marker dirs (`.claude`, `.cursor`, `.kilo`/`.kilocode`, `.opencode`, `.pi`/`.agents`) and installs to each. (`.agents/skills/` is a shared convention also read by Kilo Code and opencode.)
+Without `--harness`, the installer auto-detects which tools are in use from their marker directories (`.claude`, `.cursor`, `.kilo`, `.opencode`, `.agents`).
 
-Claude Code users can alternatively install via the plugin marketplace:
+---
+
+## Alternative: Claude Code plugin
 
 ```text
 /plugin marketplace add devlensio/devlensOSS
 /plugin install devlens@devlensio
 ```
 
+Commands are namespaced as `/devlens:devlens <subcommand>`.
+
 ---
 
-## For maintainers
+## How it works
 
-### How this package is built
+1. **DevLens analyzes your codebase** — walks the AST, builds a graph of every node + typed edges, scores by importance, generates AI summaries
+2. **The Skill teaches your agent** — when to query the graph, how to keep output token-cheap, how to produce thorough architecture/security/impact reports
+3. **You type `/devlens <command>`** — agent queries the graph via MCP, returns structured results
 
-The skill content has **one source of truth**: [`plugins/devlens/skills/devlens/`](../../plugins/devlens/skills/devlens) in this repo (the Claude plugin). This installer package does **not** keep its own copy in git. Instead, a copy is generated at publish time:
+---
 
-- `scripts/bundle-skill.mjs` copies that source skill into `packages/skill-installer/skill/`.
-- It runs automatically on the **`prepack`** npm lifecycle hook (i.e. before `npm pack` / `npm publish`).
-- `skill/` is gitignored — it only exists transiently during a publish.
+## License
 
-This is why the package can't just reference `../../plugins/...`: an npm tarball can only contain files inside the package directory, so the skill must be bundled in.
-
-### `package.json` fields that matter
-
-- **`bin`** (`{ "skill": "bin/skill.mjs" }`) — declares the executable. This is what makes `npx @devlensio/skill …` resolve to and run `bin/skill.mjs`.
-- **`files`** (`["bin/", "skill/"]`) — the whitelist of what ships in the tarball. Paths are **relative to this `package.json`**, so `bin/` = `packages/skill-installer/bin/` and `skill/` = `packages/skill-installer/skill/`. `scripts/` is intentionally **not** listed — `bundle-skill.mjs` is a build-time tool and must not ship.
-- **`prepack`** script — runs `bundle-skill.mjs` to populate `skill/` before packing.
-
-So `bin/skill.mjs` runs on the **user's** machine; `scripts/bundle-skill.mjs` runs on the **publisher's** machine. Same package, two roles.
-
-### Releasing a new version
-
-The skill product is versioned **independently of the `@devlensio/cli`**, and ships on **two channels** that must carry the **same** version:
-
-- `packages/skill-installer/package.json` → the npm package `@devlensio/skill` (drives `npx @devlensio/skill update`).
-- `plugins/devlens/.claude-plugin/plugin.json` → the Claude plugin (served from the git repo via the root `.claude-plugin/marketplace.json`; this version gates `/plugin update`).
-
-> This is the **skill** channel. It is **separate** from the **CLI + MCP** channel (`@devlensio/cli`, platform packages, `server.json`/MCP registry), which is tag-driven via `scripts/set-version.mjs` + `.github/workflows/release.yml` (see [`src/cli/README.md`](../../src/cli/README.md#release--publish-the-cli)). A skill release never bumps the CLI, and vice-versa. Use this section for changes under `plugins/devlens/**`.
-
-#### 0. Pick the version (mind the drift)
-
-Both files must match, and npm won't accept a version **≤** what's already published. Check both before choosing:
-
-```bash
-npm view @devlensio/skill version                                  # installer's published version
-node -e "console.log(require('./plugins/devlens/.claude-plugin/plugin.json').version)"   # plugin's version
-```
-
-Pick a version **greater than both**. (Bump minor for a behavior change like the MCP-transport switch or a new subcommand; patch for fixes.)
-
-#### Steps
-
-```bash
-# 1. Be on a clean, green main.
-git checkout main && git pull
-
-# 2. Stamp BOTH channels to the same version (installer package.json + plugin.json).
-node scripts/set-skill-version.mjs 0.4.0
-
-# 3. Plugin channel = the git repo. Commit + push to main; users get it via /plugin update.
-git commit -am "skill 0.4.0" && git push origin main
-
-# 4. npx-installer channel. Preview the tarball FIRST, then publish.
-cd packages/skill-installer
-npm publish --dry-run      # confirm skill/commands/*.md (incl. onboard.md) and SKILL.md are in the file list
-npm publish                # prepack re-runs bundle-skill.mjs to rebundle skill/ from the source of truth
-cd ../..
-```
-
-#### What `npm publish` does here
-
-`packages/skill-installer/skill/` is **gitignored and generated** — the authored skill lives only at [`plugins/devlens/skills/devlens/`](../../plugins/devlens/skills/devlens). The `prepack` hook runs `scripts/bundle-skill.mjs`, which wipes and re-copies that source into `skill/` so the tarball always ships the latest authored recipes (that's how a freshly added recipe like `onboard.md` gets in). The `--dry-run` above is your check that it actually did.
-
-#### After publishing — verify
-
-```bash
-npm view @devlensio/skill version            # registry shows the new version
-npx -y @devlensio/skill@latest check         # an end-user install reports up to date
-# In Claude Code: /plugin update   → the plugin moves to the new version
-```
-
-#### Cross-dependency to check (don't skip)
-
-The skill/plugin now auto-registers the DevLens **MCP** via `npx -y @devlensio/cli mcp`. That only works if the **published** CLI already has the `mcp` subcommand:
-
-```bash
-npx -y @devlensio/cli@latest mcp --help      # must work; if not, release the CLI first (see src/cli/README.md)
-```
-
-> Do **not** add these versions to the CLI's `scripts/set-version.mjs` — keeping the two version systems separate ensures a CLI release never bumps the skill.
+AGPL-3.0. Part of the [DevLens](https://github.com/devlensio/devlensOSS) project.
