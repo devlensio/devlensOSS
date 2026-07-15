@@ -1,0 +1,36 @@
+name: release-skill
+
+# Tag a skill release to publish:  git tag skill-v0.4.1 && git push origin skill-v0.4.1
+on:
+  push:
+    tags:
+      - "skill-v*"
+
+permissions:
+  id-token: write # needed for npm Trusted Publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Derive version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#skill-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync skill version
+        run: node scripts/set-skill-version.mjs "${{ steps.ver.outputs.version }}"
+
+      - name: Publish @devlensio/skill
+        run: |
+          cd packages/skill-installer
+          npm publish --access public
