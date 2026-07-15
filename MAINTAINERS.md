@@ -2,7 +2,7 @@
 
 > **This file is for maintainers only.** It documents the exact steps to cut a release of the DevLens CLI (`@devlensio/cli`).
 
-When you make changes under `src/**` (CLI, MCP, core, server), you need to release the CLI. The skill (`@devlensio/skill`) is versioned separately — see `packages/skill-installer/MAINTAINERS.md`.
+When you make changes under `src/**` (CLI, MCP, core, server), you need to release the CLI. The skill (`@devlensio/skill`) is versioned separately — see [`packages/skill-installer/MAINTAINERS.md`](packages/skill-installer/MAINTAINERS.md).
 
 ---
 

@@ -46,33 +46,37 @@ node scripts/set-skill-version.mjs <new-version>
 
 This updates: `packages/skill-installer/package.json` and `plugins/devlens/.claude-plugin/plugin.json`.
 
-### 4. Commit and push (Plugin channel)
-
-The Claude Plugin is served from the git repo, so push the new version:
+### 4. Commit and push (both channels)
 
 ```bash
 git commit -am "skill <version>"
 git push origin main
 ```
 
-Users get the update via `/plugin update`.
+The Claude Plugin channel updates as soon as `main` is pushed — users get it via `/plugin update`.
 
-### 5. Publish to npm (Installer channel)
+### 5. Tag and publish (npm channel)
 
-`npx @devlensio/skill` resolves from npm.
+Push a `skill-v*` tag — CI detects this and publishes to npm automatically.
 
 ```bash
-cd packages/skill-installer
-npm publish --dry-run    # Preview the tarball — verify skill/commands/*.md and SKILL.md are included
-npm publish              # prepack hook runs bundle-skill.mjs automatically
-cd ../..
+git tag skill-v<version>
+git push origin skill-v<version>
 ```
 
-**What `npm publish` does:**
-- Runs the `prepack` hook, which executes `scripts/bundle-skill.mjs`
-- This copies `plugins/devlens/skills/devlens/` into `packages/skill-installer/skill/`
-- `skill/` is gitignored — it only exists transiently during publish
-- The tarball ships `bin/` + `skill/` contents
+**What the CI does (`.github/workflows/release-skill.yml`):**
+- Derives version from the tag name (strips the `skill-v` prefix)
+- Runs `node scripts/set-skill-version.mjs <version>` — syncs manifests
+- Runs `npm publish` inside `packages/skill-installer/` (Trusted Publishing via OIDC — no token needed)
+- The `prepack` hook runs `scripts/bundle-skill.mjs` automatically, which copies `plugins/devlens/skills/devlens/` into `packages/skill-installer/skill/` (that dir is gitignored — it only exists transiently during publish)
+
+> **Manual fallback:** If CI is down, publish manually:
+> ```bash
+> cd packages/skill-installer
+> npm publish --dry-run   # Preview tarball — verify skill/commands/*.md and SKILL.md
+> npm publish
+> cd ../..
+> ```
 
 ### 6. Verify
 

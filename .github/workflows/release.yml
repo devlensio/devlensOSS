@@ -24,10 +24,10 @@ jobs:
       # Node is used to publish to npm and to run the helper scripts.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
 
-      # Trusted Publishing (OIDC) needs npm >= 11.5; setup-node's Node 20 ships npm 10.
+      # Trusted Publishing (OIDC) needs npm >= 11.5; setup-node ships npm 10 which is too old.
       - name: Upgrade npm for Trusted Publishing
         run: npm install -g npm@latest
 
