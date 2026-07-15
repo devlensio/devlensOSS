@@ -29,9 +29,13 @@ Teach your AI coding agent to understand your full JavaScript, TypeScript, React
 
 ### Architecture understanding (full DevLens MCP)
 
+<br />
+
 <div align="center">
 <img src="../../assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
 </div>
+
+<br />
 
 | Metric | Without DevLens | With DevLens | Improvement |
 |--------|:--------------:|:------------:|:-----------:|
@@ -43,10 +47,15 @@ Teach your AI coding agent to understand your full JavaScript, TypeScript, React
 | Architectural debt discovered | 0% | **50%** | **Now discoverable** |
 | Avg cache hit rate | 75.2% | **83.7%** | **+8.5pp** |
 
+<br /><br /><br />
+
 <div align="center">
 <img src="../../assets/03_arch_savings_per_model.png" alt="Per-model savings" width="70%" />
+<br /><br />
 <img src="../../assets/02_arch_cache.png" alt="Cache hit rate comparison" width="70%" />
 </div>
+
+<br /><br /><br />
 
 > Even the strongest model tested (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
 
@@ -54,10 +63,15 @@ Teach your AI coding agent to understand your full JavaScript, TypeScript, React
 
 *5 prompts across implementation and debugging tasks — DevLens graph context only (no per-node summaries).*
 
+<br /><br /><br />
+
 <div align="center">
 <img src="../../assets/04_prompt_metrics.png" alt="Prompt benchmark metrics" width="80%" />
+<br /><br /><br /><br />
 <img src="../../assets/06_prompt_savings_pertask.png" alt="Per-task savings" width="70%" />
 </div>
+
+<br /><br /><br />
 
 | Task | Input tokens saved | Cache improvement |
 |------|:-----------------:|:-----------------:|
@@ -66,12 +80,19 @@ Teach your AI coding agent to understand your full JavaScript, TypeScript, React
 | **Error Handling** audit | *(comparable due to simple task)* | Comparable |
 | **Profile Bug** trace | **32%** less input (36.9k vs 54.3k) | Similar |
 
+<br /><br />
+
 ### Quality impact
+
+<br />
 
 <div align="center">
 <img src="../../assets/09_quality_comparison.png" alt="Quality comparison" width="80%" />
+<br /><br />
 <img src="../../assets/08_quality_matrix.png" alt="Quality matrix" width="80%" />
 </div>
+
+<br /><br /><br />
 
 When asked to explain a codebase's architecture:
 
@@ -102,12 +123,14 @@ This auto-detects which AI tools you're using and installs into each.
 | `--global` | Install to home directory instead of project |
 | `--force` | Re-copy after an update |
 
+<br /><br />
+
 ### Check your installation
 
 ```bash
 npx @devlensio/skill check
 ```
-
+<br /><br />
 ### Prerequisite
 
 The DevLens CLI must be installed globally:
@@ -118,6 +141,7 @@ npm install -g @devlensio/cli
 
 ---
 
+<br />
 ## How to use
 
 After installing, reload your AI tool and type `/devlens`:
@@ -156,6 +180,7 @@ After installing, reload your AI tool and type `/devlens`:
 
 ---
 
+<br /><br />
 ## Supported tools
 
 | Tool | Project install dir | Global install dir |
@@ -169,7 +194,7 @@ After installing, reload your AI tool and type `/devlens`:
 Without `--harness`, the installer auto-detects which tools are in use from their marker directories (`.claude`, `.cursor`, `.kilo`, `.opencode`, `.agents`).
 
 ---
-
+<br /><br />
 ## Alternative: Claude Code plugin
 
 ```text

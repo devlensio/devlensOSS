@@ -117,9 +117,13 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 
 ### Architecture understanding (4 models, full DevLens MCP)
 
+<br /><br /><br />
+
 <div align="center">
 <img src="assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
 </div>
+
+<br /><br /><br />
 
 | Metric | Without DevLens | With DevLens | Improvement |
 |--------|:--------------:|:------------:|:-----------:|
@@ -131,10 +135,15 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 | Architectural debt discovered | 0% | **50%** | **Now discoverable** |
 | Avg cache hit rate | 75.2% | **83.7%** | **+8.5pp** |
 
+<br /><br /><br />
+
 <div align="center">
 <img src="assets/03_arch_savings_per_model.png" alt="Per-model savings" width="70%" />
+<br /><br /><br /><br />
 <img src="assets/02_arch_cache.png" alt="Cache hit rate comparison" width="70%" />
 </div>
+
+<br /><br /><br />
 
 > Even the strongest model (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
 
@@ -142,9 +151,13 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 
 *5 prompts across implementation and debugging tasks — DevLens graph context only (no per-node summaries).*
 
+<br /><br /><br />
+
 <div align="center">
 <img src="assets/04_prompt_metrics.png" alt="Prompt benchmark metrics" width="80%" />
 </div>
+
+<br /><br /><br />
 
 | Task | Input tokens saved | Cache improvement |
 |------|:-----------------:|:-----------------:|
@@ -155,10 +168,15 @@ Armed with this graph, you (or your AI agent) can understand the full architectu
 
 ### Quality impact (architecture task)
 
+<br /><br /><br />
+
 <div align="center">
 <img src="assets/09_quality_comparison.png" alt="Quality comparison" width="80%" />
+<br /><br />
 <img src="assets/08_quality_matrix.png" alt="Quality matrix" width="80%" />
 </div>
+
+<br /><br /><br />
 
 When asked to explain a codebase's architecture:
 
