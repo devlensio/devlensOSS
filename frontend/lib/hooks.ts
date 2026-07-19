@@ -17,6 +17,8 @@ export const keys = {
   config:     ()                              => ["config"]                          as const,
   nodeCode:   (graphId: string, hash: string, nodeId: string) => ["nodeCode", graphId, hash, nodeId] as const,
   diff: (graphId: string, from: string, to: string) => ["diff", graphId, from, to] as const,
+  providers:  ()                              => ["providers"]                      as const,
+  providerModels: (name: string)              => ["provider-models", name]          as const,
 };
 
 //Graph Hooks
@@ -94,6 +96,26 @@ export function useConfig() {
   });
 }
 
+// ── Provider hooks ──────────────────────────────────────────────────────────
+
+export function useProviders() {
+  return useQuery({
+    queryKey: keys.providers(),
+    queryFn:  () => api.getProviders(),
+    staleTime: 1000 * 60 * 60,  // provider catalog rarely changes
+  });
+}
+
+export function useProviderModels(name: string | undefined) {
+  return useQuery({
+    queryKey: keys.providerModels(name ?? ""),
+    queryFn:  () => api.getProviderModels(name!),
+    enabled:  !!name,
+    staleTime: 1000 * 60 * 5,  // 5 min cache
+    retry: 1,
+  });
+}
+
 // ── Mutation hooks ───────────────────────────────────────────────────────────
 
 export function useAnalyze() {
@@ -154,6 +176,8 @@ export function usePatchConfig() {
     mutationFn: api.patchConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.config() });
+      // Invalidate provider-models cache so models refresh after key/provider changes
+      queryClient.invalidateQueries({ queryKey: ["provider-models"] });
     },
   });
 }
@@ -165,5 +189,29 @@ export function useCommitDiff(graphId: string, fromHash: string, toHash: string)
     enabled:  !!fromHash && !!toHash && fromHash !== toHash,
     staleTime: Infinity,  // diff between two fixed commits never changes
     gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
+  });
+}
+
+// ── Multi-provider hooks ───────────────────────────────────────────────────
+
+export function useSetActiveProvider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.setActiveProvider,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.config() });
+      queryClient.invalidateQueries({ queryKey: ["provider-models"] });
+    },
+  });
+}
+
+export function useRemoveProvider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.removeProvider,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.config() });
+      queryClient.invalidateQueries({ queryKey: ["provider-models"] });
+    },
   });
 }

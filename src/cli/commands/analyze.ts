@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { Command } from "commander";
 import { withGlobalFlags } from "../options.js";
-import { emit, die, info } from "../output.js";
+import { emit, die, info, step } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
 // `devlens analyze [path] [commitHash]` — Phase 1 analysis; --summarize chains Phase 2.
@@ -21,11 +21,17 @@ export function registerAnalyzeCommand(program: Command): void {
         const repoPath = path.resolve(process.cwd(), repoArg ?? ".");
         info(`Repo: ${repoPath}`);
 
-        const res = await runAnalyzeJob({
-          repoPath,
-          summarize: !!(opts.summarize || opts.forceSummarize),
-          forceSummarize: !!opts.forceSummarize,
-        });
+        const res = await step(
+          opts.summarize || opts.forceSummarize
+            ? "Analyzing + summarizing repository"
+            : "Analyzing repository",
+          () =>
+            runAnalyzeJob({
+              repoPath,
+              summarize: !!(opts.summarize || opts.forceSummarize),
+              forceSummarize: !!opts.forceSummarize,
+            })
+        );
 
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
         emit({ graphId: res.graphId, status: res.status });

@@ -103,8 +103,11 @@ devlens find-nodes -t COMPONENT
 |---------|------|---------|
 | `devlens init` | First run — configure LLM provider interactively | `devlens init` |
 | `devlens doctor` | Something broken? Check environment health | `devlens doctor` |
-| `devlens config` | View or update `~/.devlens/config.json` | `devlens config --set` |
-| `devlens config --provider openrouter` | Switch LLM provider | `devlens config --provider openrouter --model mimo-v2.5 --api-key sk-...` |
+| `devlens config` | Show configuration with all saved providers | `devlens config` |
+| `devlens config set` | Interactive provider setup — pick from catalog, fetch live models | `devlens config set` |
+| `devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash` | Non-interactive scripting (upserts into registry, marks active) | `devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key sk-...` |
+| `devlens config --active openai:deepseek` | Switch active provider without re-entering credentials | `devlens config --active openai:deepseek` |
+| `devlens config --remove anthropic:anthropic` | Remove a saved provider (refused if active — switch first) | `devlens config --remove anthropic:anthropic` |
 | `devlens status` | Show analyzed + summarized graphs | `devlens status` |
 | `devlens repos` | List all analyzed repositories | `devlens repos` |
 | `devlens graphs list` | List stored graphs | `devlens graphs list` |
@@ -188,15 +191,87 @@ devlens security --json > security-audit.json
 
 ## Configuration
 
-Supported LLM providers for AI summarization:
+### Provider model: protocol + brand identity
 
-| Provider | Recommended model | Setup |
+DevLens splits provider configuration into two fields:
+
+- **`--provider`** — the wire protocol (`openai` or `anthropic`). Routes to the correct SDK.
+- **`--provider-name`** — the brand identity (e.g. `deepseek`, `my-custom-gateway`). Picks base URL + key rules from the built-in catalog.
+
+Models are **never hardcoded** — they are fetched live from each provider's `/models` endpoint. A custom model can always be typed manually as a fallback.
+
+### Supported providers
+
+All providers are sourced from the built-in catalog — no hardcoded lists in the CLI. Models are discovered at runtime:
+
+| Provider | Protocol | Notes |
 | :-- | :-- | :-- |
-| Ollama (local) | `qwen2.5-coder:7b` | `devlens config --provider ollama --model qwen2.5-coder:7b --base-url http://localhost:11434` |
-| OpenAI | `gpt-4o-mini` | `devlens config --provider openai --model gpt-4o-mini --api-key <key>` |
-| Anthropic | `claude-haiku-4-5` | `devlens config --provider anthropic --model claude-haiku-4-5 --api-key <key>` |
-| OpenRouter | `mimo-v2.5` | `devlens config --provider openrouter --model mimo-v2.5 --api-key <key>` |
-| Gemini | `gemini-2.0-flash` | `devlens config --provider gemini --model gemini-2.0-flash --api-key <key>` |
+| Ollama (local) | openai | `devlens config --provider openai --provider-name ollama --model qwen2.5-coder:7b --base-url http://localhost:11434/v1` |
+| OpenAI | openai | `devlens config --provider openai --provider-name openai --model gpt-4o-mini --api-key <key>` |
+| Anthropic | anthropic | `devlens config --provider anthropic --provider-name anthropic --model claude-haiku-4-5 --api-key <key>` |
+| DeepSeek | openai | `devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key <key>` |
+| OpenRouter | openai | `devlens config --provider openai --provider-name openrouter --model deepseek-v4-flash --api-key <key>` |
+| Gemini | openai | `devlens config --provider openai --provider-name gemini --model gemini-2.0-flash --api-key <key>` |
+| Groq | openai | Uses Groq's OpenAI-compatible endpoint |
+| Mistral | openai | Uses Mistral's OpenAI-compatible endpoint |
+| xAI Grok | openai | Uses xAI's OpenAI-compatible endpoint |
+
+Custom endpoints (any OpenAI- or Anthropic-compatible API) can be added through the interactive flow or by editing `~/.devlens/providers.json`.
+
+### Interactive config flow
+
+```bash
+# Launch the interactive picker
+devlens config set
+
+# Or with pre-filled values (cursor lands on the matching provider, you still confirm)
+devlens config set --provider-name deepseek
+```
+
+The interactive flow:
+1. Pick a provider from the catalog (or choose "Custom…")
+2. Enter API key (or leave empty to keep existing)
+3. Optionally override the base URL
+4. **Models are fetched live** from the provider's endpoint — search and pick one, or type a custom model
+5. Set batch size
+6. Config is saved and the provider becomes active
+
+### Non-interactive (scripting) path
+
+```bash
+# Write directly — for CI, scripts, automation
+devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key sk-...
+```
+
+When `--set` is NOT used, flags write directly without prompts. `--model` is required in this mode.
+
+### Multi-provider management
+
+You can keep multiple providers configured and switch between them:
+
+```bash
+# View all configured providers (active one marked with ★)
+devlens config
+
+# Switch active provider without re-entering credentials
+devlens config --active openai:deepseek
+
+# Remove a saved provider (refused if it's the active one)
+devlens config --remove anthropic:anthropic
+```
+
+### Custom providers
+
+Choose "Custom…" in the interactive flow (or use flags) to add any OpenAI- or Anthropic-compatible endpoint:
+
+```bash
+# Interactive
+devlens config set
+# → Select Custom… → enter name "my-gateway" → pick protocol → enter base URL → API key → model
+
+# Non-interactive
+devlens config --provider openai --provider-name my-gateway --model my-model --base-url http://localhost:8080/v1 --api-key sk-...
+```
 
 ---
 
@@ -207,10 +282,17 @@ Available on every command:
 | Flag | What it does |
 |:--|:--|
 | `--json` | Machine-readable JSON output (for scripts, CI) |
-| `-v, --verbose` | Diagnostic output |
+| `-v, --verbose` | Diagnostic output (timestamps, traces, progress counts) |
+| `--quiet` | Suppress all non-error output (only errors + final result) |
 | `-g <graphId>` | Target a specific graph (default: current directory) |
 | `-c <commit>` | Target a specific commit in the graph |
 | `-h, --help` | Show help |
+
+Verbosity levels:
+- **Default**: clean human output — banner, colored step headers, spinners during long ops (model fetch, summarization)
+- **`-v` / `--verbose`**: adds timestamps, request/response shapes, per-node token usage
+- **`--quiet`**: only errors and the final result — no spinners, no info lines
+- **`--json`**: all output as structured JSON on stdout (stderr for diagnostics); ANSI colors automatically dropped when piped
 
 ---
 
@@ -218,17 +300,17 @@ Available on every command:
 
 ```
 src/cli/
-├── index.ts           # Entrypoint — registers all commands
-├── options.ts         # Global flags (--json, --verbose)
-├── output.ts          # stdout vs stderr discipline
+├── index.ts           # Entrypoint — registers all commands, shows banner
+├── options.ts         # Global flags (--json, --verbose, --quiet)
+├── output.ts          # Central output layer — TTY-aware, spinners, colors, step()
 ├── graphResolve.ts    # Resolves current directory → graph ID
 ├── jobRunner.ts       # Progress streaming for long jobs
 └── commands/
-    ├── analyze.ts     # analyze & summarize
-    ├── config.ts      # config management
-    ├── init.ts        # first-time setup
-    ├── doctor.ts      # health check
-    ├── status.ts      # status
+    ├── analyze.ts     # analyze & summarize with spinner phases
+    ├── config.ts      # Config management — interactive picker, multi-provider, catalog
+    ├── init.ts        # First-time setup
+    ├── doctor.ts      # Health check — catalog, model fetch, multi-provider registry
+    ├── status.ts      # Status
     ├── repos.ts       # repos
     ├── graphs.ts      # graphs list|delete
     ├── serve.ts       # backend API server
@@ -237,6 +319,20 @@ src/cli/
 ```
 
 CLI and MCP share `src/core/` — they never drift.
+
+### Output layer
+
+All styled output routes through `src/cli/output.ts`:
+
+| Feature | Behaviour |
+| :-- | :-- |
+| `banner()` | Header box on startup and long commands — hidden under `--quiet` |
+| `step(label, fn)` | Named phase wrapper with status icon (✓/✗) — extra detail under `-v` |
+| `spinner(text)` | Animated indicator during async ops (model fetch, analysis) — suppressed in non-TTY or `--quiet` |
+| `success/info/warn/error` | Colored one-liners on stderr — `info` hidden under `--quiet` |
+| `emit(obj)` | Machine JSON on stdout when piped / `--json`; boxed card in TTY |
+| ANSI colors | Automatically dropped when `!isTTY` — no color codes in piped output |
+| TTY detection | Spinners, boxes, arrow-key pickers only activate in a TTY; non-TTY degrades gracefully |
 
 ---
 

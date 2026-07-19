@@ -12,13 +12,19 @@ import { registerMcpCommand } from "./commands/mcp.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerInitCommand } from "./commands/init.js";
+import { banner } from "./output.js";
 
 const program = new Command();
+
+const CLI_VERSION = "0.2.8";
 
 program
   .name("devlens")
   .description("DevLens — codebase intelligence for TS/JS/React/Next.js/Node repositories")
-  .version("0.2.8");
+  .version(CLI_VERSION);
+
+// Show banner on startup (unless piped or quiet)
+banner(CLI_VERSION);
 
 //  Command groups 
 // Core lifecycle

@@ -9,6 +9,7 @@ import type {
   DevLensConfig,
   NodeDiff,
   PreScanResult,
+  CatalogProvider,
 } from "./types";
 
 const ENGINE_URL = process.env.NEXT_PUBLIC_ENGINE_URL ?? "http://localhost:3000";
@@ -50,6 +51,17 @@ async function patch<T>(url: string, body: unknown): Promise<T> {
 
 async function del<T>(url: string): Promise<T> {
   const res  = await fetch(`${ENGINE_URL}${url}`, { method: "DELETE" });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
+  return json.data;
+}
+
+async function put<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(`${ENGINE_URL}${url}`, {
+    method:  "PUT",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
@@ -98,7 +110,23 @@ export const api = {
   getNodeCode: (graphId: string, commitHash: string, nodeId: string) =>
     post<CodeNode>(`/api/graph/${graphId}/${commitHash}/node`, { nodeId }),
 
-  //  Pre-scan
+  //  Providers
+  getProviders: () =>
+    get<CatalogProvider[]>("/api/providers"),
+
+  getProviderModels: (name: string) =>
+    get<{ models: string[]; error?: string; fallback?: boolean }>(`/api/providers/${encodeURIComponent(name)}/models`),
+
+  postProviderModels: (body: { protocol: string; baseUrl: string; apiKey?: string }) =>
+    post<{ models: string[]; error?: string; fallback?: boolean }>("/api/providers/models", body),
+
+  // Multi-provider management
+  setActiveProvider: (active: string) =>
+    put<{ active: string }>("/api/config/active", { active }),
+
+  removeProvider: (key: string) =>
+    post<{ removed: string }>("/api/config/remove-provider", { key }),
+
   preScan: (repoPath: string) =>
     get<PreScanResult>(`/api/pre-scan?repoPath=${encodeURIComponent(repoPath)}`),
 

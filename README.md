@@ -254,9 +254,12 @@ npm install -g @devlensio/cli
 | `devlens find-nodes --severity high` | Find high-severity security issues | `devlens find-nodes --severity high` → "2 findings in auth module" |
 | `devlens diff <from> <to>` | Compare two analyzed commits | `devlens diff abc123 def456` → "Added: AnalyticsTracker, Changed: CheckoutForm" |
 | `devlens security` | List every security issue | `devlens security --min-severity high --json` |
-| `devlens config` | View or update configuration | `devlens config --provider openrouter --model deepseek-v4-flash` |
+| `devlens config` | View configuration with all saved providers | `devlens config` |
+| `devlens config set` | Interactive provider configuration with live model fetching | `devlens config set` |
+| `devlens config --active <key>` | Switch active provider without re-entering credentials | `devlens config --active openai:deepseek` |
+| `devlens config --remove <key>` | Remove a saved provider entry | `devlens config --remove anthropic:anthropic` |
 
-Each command supports `--json` for piping into scripts and CI pipelines.
+Each command supports `--json` for piping into scripts and CI pipelines, `-v/--verbose` for diagnostics, and `--quiet` for minimal output.
 
 > **Full reference:** [`src/cli/README.md`](src/cli/README.md) — every command with examples and options.
 
@@ -316,13 +319,23 @@ Config lives in `~/.devlens/config.json` — set via `devlens init` or `devlens 
 | :-- | :-- | :-- |
 | Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8GB+ RAM |
 | OpenAI | `gpt-4o-mini` | Fast, cost-effective |
-| Anthropic | `claude-sonnet-5` | Excellent code understanding |
+| Anthropic | `claude-haiku-4-5` | Best cost/quality for summaries |
+| DeepSeek | `deepseek-v4-flash` | Strong code model |
 | OpenRouter | `deepseek-v4-flash` or `mimo-v2.5` | Best cost/quality balance |
 | Gemini | `gemini-2.0-flash` | Fast, large context |
 
 ```bash
-devlens config --provider openrouter --model deepseek-v4-flash --api-key <key>
+# Interactive setup — picks from a catalog and fetches live model lists
+devlens config set
+
+# Non-interactive scripting
+devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key <key>
+
+# Switch between saved providers without re-entering credentials
+devlens config --active openai:deepseek
 ```
+
+Models are discovered dynamically from each provider's `/models` endpoint — no hardcoded model lists. Custom OpenAI- or Anthropic-compatible endpoints can be added through the interactive flow.
 
 ---
 

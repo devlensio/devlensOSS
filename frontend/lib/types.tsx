@@ -1,4 +1,5 @@
-// Mirrors engine types — keep in sync with src/types.ts
+import type { LLMProvider, SummarizationConfig, DevLensConfig, EmbeddingProvider, EmbeddingConfig } from "devlensio";
+export type { LLMProvider, SummarizationConfig, DevLensConfig, EmbeddingProvider, EmbeddingConfig };
 
 export type RenderingBoundary = "client" | "server" | null;
 
@@ -244,41 +245,28 @@ export interface JobSummary {
 
 // ── Config types ─────────────────────────────────────────────────────────────
 
-export type LLMProvider =
-  | "anthropic"
-  | "openai"
-  | "openrouter"
-  | "gemini"
-  | "ollama"
-  | "managed";
-
-export type EmbeddingProvider =
-  | "openai"
-  | "anthropic"
-  | "openrouter"
-  | "gemini"
-  | "ollama"
-  | "managed";
-
-export interface SummarizationConfig {
-  provider:  LLMProvider;
-  model:     string;
-  apiKey?:   string;
-  baseUrl?:  string;
-  batchSize: number;
+export interface CatalogProvider {
+  name: string;
+  label: string;
+  protocol: "openai" | "anthropic";
+  baseUrl: string;
+  requiresKey: boolean;
 }
 
-export interface EmbeddingConfig {
-  provider: EmbeddingProvider;
-  model:    string;
-  apiKey?:  string;
-  baseUrl?: string;
+// ── Multi-provider config types ─────────────────────────────────────────────
+
+export interface ProviderConfigEntry {
+  provider:     "openai" | "anthropic";
+  providerName: string;
+  model:        string;
+  apiKey?:      string;
+  baseUrl?:     string;
+  batchSize:    number;
 }
 
-export interface DevLensConfig {
-  deploymentMode: "local" | "cloud";
-  summarization:  SummarizationConfig;
-  embedding:      EmbeddingConfig;
+export interface AllProvidersResult {
+  active: string;
+  providers: ProviderConfigEntry[];
 }
 
 // ── Graph meta types ─────────────────────────────────────────────────────────

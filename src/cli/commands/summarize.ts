@@ -2,7 +2,7 @@ import path from "node:path";
 import type { Command } from "commander";
 import { storage } from "devlensio";
 import { withGlobalFlags } from "../options.js";
-import { emit, die, info } from "../output.js";
+import { emit, die, info, step } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
 // `devlens summarize [target] [commit]` — runs analysis then summarization.
@@ -16,18 +16,20 @@ export function registerSummarizeCommand(program: Command): void {
       .argument("[commit]", "commit hash (informational)")
       .option("--force-summarize", "re-summarize from scratch (ignore prior summaries)", false)
       .option("--model <model>", "override summarization model")
-      .option("--provider <provider>", "override provider (anthropic|openai|openrouter|gemini|ollama)")
+      .option("--provider <provider>", "override provider protocol (openai|anthropic)")
       .action(async (target, _commit, opts) => {
         const repoPath = resolveTarget(target ?? ".");
         info(`Repo: ${repoPath}`);
 
-        const res = await runAnalyzeJob({
-          repoPath,
-          summarize: true,
-          forceSummarize: !!opts.forceSummarize,
-          model: opts.model,
-          provider: opts.provider,
-        });
+        const res = await step("Analyzing + summarizing repository", () =>
+          runAnalyzeJob({
+            repoPath,
+            summarize: true,
+            forceSummarize: !!opts.forceSummarize,
+            model: opts.model,
+            provider: opts.provider,
+          })
+        );
 
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
         emit({ graphId: res.graphId, status: res.status });
