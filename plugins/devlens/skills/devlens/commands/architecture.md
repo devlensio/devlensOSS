@@ -6,21 +6,15 @@ This is not a node-dump. You build a **module model from the graph's own cluster
 
 **Completeness floor (the architectural backbone — always cover in full):** routes, state stores, and custom hooks are bounded, high-value sets — **enumerate every one of them**, no sampling. For **each route**, also trace the functions/handlers it calls (its downstream call graph) — that entry-point flow is the core of the architecture. The long tail that may be summarized as "+N more" is the *incidental* nodes (low-score components, utilities, files), never a route, store, hook, or a function on a route's path.
 
-## Method — work the graph, in order
+## Method — one call, then format
 
-1. **Orient.** `get_repo_overview` → record the framework fingerprint (framework, router, state management, data fetching, databases) and the **exact** counts: total nodes, total edges, `routeCount`, and the top central nodes. These counts anchor the whole report.
+1. Call `architecture_brief`. This ONE call replaces the 7-step orchestration (overview+subgraph+find_nodes+khop+blast_radius+get_summaries+cycles+security). The result is a pre-assembled, token-budgeted architecture packet.
 
-2. **Build the module model from clusters.** For the top **5** central nodes (not 8–12 — cap here to protect context budget), call `get_subgraph` → the cohesive cluster each belongs to. Merge into a **deduped set of modules** (bounded contexts). These graph-derived clusters — not directory-name guesses — are your modules. If two central nodes return overlapping clusters, treat them as one module.
+2. Verify `result.schemaVersion === 1`. If not, stop and warn the user the skill is out of date.
 
-3. **Enumerate the backbone in full.** `find_nodes` with `nodeTypes: ["ROUTE"]` and a `limit` ≥ `routeCount` so you get **every** route (split PAGE vs API where known); then `["STATE_STORE"]` for **every** store; then `["HOOK"]` for **every** custom hook. Map each onto the module it belongs to (by cluster membership or path). These three sets are bounded — do not sample them.
+3. Format the result per the output template below. The tool already gives you modules, routes, stores, hooks, key flows, connections, core nodes, and health — you only need to *present* them.
 
-4. **Trace the route call graph — top routes only.** Call `get_khop` (downstream) for the **5–8 highest-score routes** only (not every route — capping here is critical to preserve context for writing). For the remaining routes, the name and purpose from step 3 is enough. For modules, run `get_blast_radius` on each module's central node. Aggregate `viaEdge` types to identify dominant edge kinds (CALLS, IMPORTS, READS_FROM, WRITES_TO, GUARDS, HANDLES…) and which modules connect to which.
-
-5. **Attach meaning.** Batch `get_summaries` with `include: ["business"]` (and `["technical"]` where you need the how) for the module centers, the important routes, and every store. Describe each module by what it *does for the product*, not by its name.
-
-6. **Pick the key flows.** From the routes + their call graphs (step 4) and the top central nodes, choose the **2–4 most important end-to-end journeys** — the ones that define the product (e.g. auth/login, the primary read path, the primary write/mutation, a background/webhook job). For each, walk its `get_khop` chain in call order (route → guard/middleware → handler → service → store/db → response), pulling each node's summary so every step is described by what it *does*, not just its name.
-
-7. **Overlay health.** `list_cycles` → circular-dependency groups. `get_security_issues` → severity distribution and the flagged nodes. Map both onto the modules.
+> **No-summary fallback:** When a summary is missing on a node, read the node's exact source lines (`Read filePath startLine–endLine`) to fill the description. A 20-line source read beats an empty bullet.
 
 ## Detect the patterns (architectural AND system-design) — explicitly
 From the fingerprint + module model + dominant edge mix + route call graph, name the concrete patterns. Cover two levels:

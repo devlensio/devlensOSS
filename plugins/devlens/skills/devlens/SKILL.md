@@ -2,7 +2,7 @@
 name: devlens
 description: Understand a Typescript/Javascript/React/Next.js/Node codebase with the DevLens MCP — query a precomputed graph of nodes (components, hooks, functions, routes) and typed edges, each carrying technical/business/security summaries, instead of grepping and reading whole files. Use PROACTIVELY — reach for this BEFORE grepping/Glob/reading files whenever you need to locate, understand, or assess the impact of TS/JS/React/Next.js/Node code, not only when DevLens is named. Triggers: exploring an unfamiliar repo, orienting before an edit, "where does X live", "what calls/uses X", "what breaks if I change Y", "how does X work", "explain this codebase", "draw the architecture", "is this secure", "find circular dependencies", or any impact/security/architecture/onboarding review.
 argument-hint: "[init|architecture|diagram|summary|security-analysis|explain|onboard|tech-debt|impact|find|changes|guard]"
-allowed-tools: mcp__plugin_devlens_devlens__list_analyzed_repos, mcp__plugin_devlens_devlens__get_repo_overview, mcp__plugin_devlens_devlens__find_nodes, mcp__plugin_devlens_devlens__get_nodes_in_path, mcp__plugin_devlens_devlens__get_node, mcp__plugin_devlens_devlens__get_summaries, mcp__plugin_devlens_devlens__get_node_code, mcp__plugin_devlens_devlens__get_security_issues, mcp__plugin_devlens_devlens__get_blast_radius, mcp__plugin_devlens_devlens__get_khop, mcp__plugin_devlens_devlens__get_subgraph, mcp__plugin_devlens_devlens__list_cycles, mcp__plugin_devlens_devlens__analyze, mcp__plugin_devlens_devlens__analyze_changes, Read, Write, Bash(git *)
+allowed-tools: mcp__plugin_devlens_devlens__list_analyzed_repos, mcp__plugin_devlens_devlens__get_repo_overview, mcp__plugin_devlens_devlens__find_nodes, mcp__plugin_devlens_devlens__get_nodes_in_path, mcp__plugin_devlens_devlens__get_node, mcp__plugin_devlens_devlens__get_summaries, mcp__plugin_devlens_devlens__get_node_code, mcp__plugin_devlens_devlens__get_security_issues, mcp__plugin_devlens_devlens__get_blast_radius, mcp__plugin_devlens_devlens__get_khop, mcp__plugin_devlens_devlens__get_subgraph, mcp__plugin_devlens_devlens__list_cycles, mcp__plugin_devlens_devlens__analyze, mcp__plugin_devlens_devlens__analyze_changes, mcp__plugin_devlens_devlens__check_freshness, mcp__plugin_devlens_devlens__get_coverage, mcp__plugin_devlens_devlens__architecture_brief, mcp__plugin_devlens_devlens__security_brief, mcp__plugin_devlens_devlens__review_pr, mcp__plugin_devlens_devlens__onboarding_tour, mcp__plugin_devlens_devlens__get_context, Read, Write, Bash(git *)
 ---
 
 # DevLens — codebase intelligence via the DevLens MCP
@@ -15,16 +15,17 @@ DevLens precomputes a structural graph of a repo: nodes (components, hooks, func
 
 **Standing rule — prefer summaries when available:** whenever a node has a technical or business summary, read it (`get_node` / `get_summaries`) to understand the code **instead of opening the file** — it is far cheaper and usually enough. Fall back to `get_node_code` or reading the file only when no summary exists (structure-only graph) or the summary is genuinely insufficient to act. This applies to every subcommand below.
 
-## Pre-flight check — the `list_analyzed_repos` reflex
+## Pre-flight check — the `devlens://repos` resource
 
-**Before calling `Read`, `Grep`, or `Glob` on a javascrip/Typescript based TS/JS/React/Next.js/Node repo to *understand* something**, check whether DevLens has the repo analyzed. This check takes ~1 second and ~100 tokens, and it saves you from fan-out file reads that cost 10–40× more.
+The `devlens://repos` MCP resource is auto-attached by the host — read it to get the graphId for this repo without a tool call. If the resource is not available, call `list_analyzed_repos` once per session. Cache the graphId and reuse it for every subsequent query. **Do not ask the user's permission**; this is automatic.
 
-**When you should fire this check** — if the user wants to understand the repo, or if you need to read the Repository to understand the structure, architecture, impact radius, connectivity, functionality, or technicality of the Repo, use devlens for this task first.
+## Freshness guard — ALWAYS run before any workflow tool call
 
-**The check itself (one call, cached for the session):**
-1. Call `list_analyzed_repos`. If this repo appears → use DevLens tools. If not → fall back to file tools, and note that `/devlens init` can analyze the repo.
+**Before ANY workflow tool call** (`architecture_brief`, `security_brief`, `review_pr`, `onboarding_tour`, `get_context`), run `check_freshness` once. If `stale === true`, ask the user before proceeding (or re-analyze structure-only if `dirty`). Do not silently answer against a stale graph.
 
-Treat `list_analyzed_repos` the way you treat `git log` — a reflex, not a deliberate choice. Call it once per session, cache the `graphId`, and reuse it for every subsequent query. **Do not ask the user's permission to run this check**; it's automatic.
+On a `{ code: STALE_GRAPH | COMMIT_NOT_ANALYZED }` error from any tool, call `analyze` (structure-only) and retry once; do not ask the user unless summarize permission is required.
+
+If `result.schemaVersion !== 1` on any composed tool result, stop and warn the user the skill is out of date with the installed DevLens.
 
 ---
 
@@ -54,19 +55,15 @@ claude mcp add devlens -- npx -y @devlensio/cli mcp
 (The MCP ships inside the `@devlensio/cli` package, so no separate install is needed once registered.)
 
 ## Step 2 — Graph freshness guard (ALWAYS run before any query)
-Determine state:
-- Current commit: `git rev-parse HEAD`
-- Dirty? `git status --porcelain` (any output = uncommitted/untracked changes)
-- Existing graphs: `list_analyzed_repos` → find the entry whose repo path is this repo; note its graphId and latest analyzed commit. `get_repo_overview` on that graphId reports its commit coverage.
 
-**Resolve `graphId` and freshness ONCE per session, then reuse.** `list_analyzed_repos` returns every analyzed repo (a large payload) — call it once, cache the graphId and `latestAnalyzedAt`, and pass that graphId to every subsequent tool. Do **not** re-call `list_analyzed_repos` (or re-run the freshness guard) before each query; that re-reads the full repo list for no new information. Re-resolve only if the user switches repos or you re-`analyze`.
+**Resolve `graphId` ONCE per session, then reuse.** Use the `devlens://repos` resource (auto-attached) or `list_analyzed_repos` to find the entry whose repo path matches this repo. Cache the graphId and reuse it. Re-resolve only if the user switches repos or you re-`analyze`.
 
-Then apply, in order:
+Then call `check_freshness` once. Based on the result:
 
-1. **Worktree is dirty** → re-analyze the working tree so structure matches disk: call `analyze` with this repo's path. This refreshes the **structure only** — existing summaries are inherited for unchanged nodes; new/changed nodes simply have none yet. Then proceed.
-2. **Clean worktree AND a graph for the current commit exists** → use it directly.
-   - If the chosen subcommand needs summaries (architecture, explain, security-analysis, summary) and the graph has none for this commit, **STOP and ask the user for permission to summarize** before re-running `analyze` with summarization enabled. If they decline, continue structure-only and say what's limited.
-3. **Clean worktree AND no graph for the current commit** → call `analyze` (structure only) first, then **ask the user whether to summarize this commit**. Proceed structure-only if they decline.
+1. **`dirty === true`** → re-analyze structure-only: call `analyze` with this repo's path. Existing summaries are inherited for unchanged nodes. Then proceed.
+2. **`behind === true` (clean worktree, HEAD ahead of graph)** → call `analyze` (structure only) for the current HEAD. Then **ask the user whether to summarize this commit**. Proceed structure-only if they decline.
+3. **`stale === false`** → use the graph directly.
+4. **If the subcommand needs summaries and the graph has none** (`summariesCoverage.pct === 0`) → **STOP and ask the user for permission to summarize** before running summarization. If they decline, continue structure-only and say what's limited.
 
 **Golden rule:** structural `analyze` may run automatically; **summarizing requires explicit user permission every time** — it costs LLM calls. Never summarize silently.
 

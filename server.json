@@ -7,13 +7,13 @@
     "url": "https://github.com/devlensio/devlensOSS",
     "source": "github"
   },
-  "version": "0.2.8",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@devlensio/cli",
-      "version": "0.2.8",
+      "version": "0.3.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

@@ -1,6 +1,6 @@
 # DevLens MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the DevLens code graph to AI agents as **14 MCP tools**. Works with JavaScript, TypeScript, React, Next.js, and Node.js codebases. Bundled inside `@devlensio/cli` — no separate installation required.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the DevLens code graph to AI agents as **21 MCP tools**. Works with JavaScript, TypeScript, React, Next.js, and Node.js codebases. Bundled inside `@devlensio/cli` — no separate installation required.
 
 ---
 
@@ -67,7 +67,15 @@ Registered in the official MCP registry as **`io.github.devlensio/devlens`**.
 | `get_subgraph` | Cohesive cluster around a seed node |
 | `list_cycles` | Circular dependency groups |
 | `get_security_issues` | Security-flagged nodes, ranked by severity |
+| `analyze` | Run the pipeline on a repo path and store the graph |
 | `analyze_changes` | Difference between two analyzed commits + impact |
+| `check_freshness` | Is the graph stale vs HEAD? (dirty, behind, summaries coverage) |
+| `get_coverage` | Graph health report — summarized / total / by type |
+| `architecture_brief` | One-call repo architecture brief — modules, routes, flows, health |
+| `security_brief` | One-call prioritized security report + blast radius for highs |
+| `review_pr` | One-call PR review — diff + impact + test coverage + security delta |
+| `onboarding_tour` | One-call onboarding skeleton — graph-derived tour for new devs |
+| `get_context` | Token-budgeted context packet — keyword-seeded retrieval + traverse |
 
 Every tool shares the same underlying graph data — CLI and MCP outputs never drift because they use the same `src/core/` code.
 
@@ -182,7 +190,7 @@ Pull summaries, callers, and callees — without reading the source file:
 ```
 src/mcp/
 ├── index.ts        # Transport setup (stdio / HTTP) + server factory
-├── tools.ts        # 14 tool definitions (thin adapters over src/core)
+├── tools.ts        # 21 tool definitions (thin adapters over src/core)
 ├── helpers.ts      # Shared Zod schemas + argument coercion
 └── graphCache.ts   # LRU cache — avoids reloading graphs on every call
 ```

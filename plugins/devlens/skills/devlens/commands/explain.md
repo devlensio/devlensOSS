@@ -9,11 +9,15 @@ Before any wide sweep, decide the scope. A scoped question ("explain how **strea
 - **Named subsystem or path** (in the argument *or* in the prose) → resolve it to its cluster and stay there: `find_nodes <name>` (or `get_nodes_in_path <path>`) to seed, then `get_subgraph` on the seed → the feature cluster; expand only along the routes/edges that subsystem actually touches (`get_khop` on its entry routes). Do **not** enumerate the whole repo.
 - **Whole-repo "explain this codebase"** → the broader method below.
 
-## Method — work the graph, in order (scale to the scope above)
-1. **Orient.** `get_repo_overview` → stack (fingerprint), exact counts, `routeCount`, top central nodes.
-2. **Modules / cluster.** `get_subgraph` on the relevant seed(s) — the subsystem's cluster for a scoped ask, or the top ~6–10 central nodes for the whole repo → the real module model (bounded contexts), each with directories and key members.
-3. **Entry points & state.** `find_nodes` for `ROUTE` (pages vs API) and `STATE_STORE` **in scope** → map onto modules; trace each in-scope route's `get_khop` for its call path.
-4. **Meaning + exclusives.** `get_summaries` (`business`, and `technical`/`security` where relevant) for the in-scope nodes. Capture the three things a raw LLM can't: **typed edges** (who READS_FROM / CALLS / PROP_PASS to whom), **centrality** (which nodes are the load-bearing ones), and **security severity** flags. Describe from summaries, not names.
+## Method — one call, then format (scale to the scope above)
+
+**For a scoped question** ("explain how auth works", a path argument): call `get_context` with `intent: "explain"` and `focus: <nodeId or path>`. This keyword-seeds the subsystem's cluster and returns a token-budgeted context packet — one call replaces find_nodes+get_node+blast_radius+get_summaries.
+
+**For whole-repo "explain this codebase"**: call `get_context` with `intent: "explain"` (no focus). Falls back to central nodes if no keyword match.
+
+**For architecture-level orientation**: call `architecture_brief` instead — it's the full structured brief.
+
+Verify `result.schemaVersion === 1`. If not, stop and warn the user.
 
 ## Output template
 1. **What this app does** — 2–4 sentences on the product/domain, from business summaries.

@@ -6,7 +6,7 @@
       "name": "@devlensio/cli",
       "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "devlensio": "^0.6.0",
+        "devlensio": "^0.6.1",
       },
       "devDependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
@@ -125,7 +125,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
 
-    "@google/genai": ["@google/genai@2.12.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-LUr972DZosqPUhf9Mb3CIVu/B99woD3QW6ZJV1T9aNgxaoimAZARmo+IyyDsxIL+zouFiYSdA4hzfEWXc9oNIQ=="],
+    "@google/genai": ["@google/genai@2.13.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-GM7C8Kaomvjz05x5JEO6+l3d/pciL9LxAG9dUjJLD7nTPZ9X0Cfsf2Z7eET6UjgWyUmxXCHtYnQoQ77F9+ZIOQ=="],
 
     "@hono/node-server": ["@hono/node-server@1.19.14", "", { "peerDependencies": { "hono": "^4" } }, "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="],
 
@@ -607,7 +607,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "devlensio": ["devlensio@0.6.0", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-cbX2sW5iTtJ2yg0D5WNyGwVZtA+9o9auPOWZGnnhRDvHBawg/OyYEIAiyckoBJidS3CKo4ZD3b/Gl3Jgiioirg=="],
+    "devlensio": ["devlensio@0.6.1", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-hPRbxw/55KbYmFMqoXXhXkhc+BbfUtJ/lOmdwqPdI/FSwVEj/GdOtbjRkEwk9zVnLjxKBBIup+eY575yb2A7AA=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
 

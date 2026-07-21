@@ -1,12 +1,13 @@
 /// <reference types="bun" />
 import http from "node:http";
 import { randomUUID } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { initConfig } from "devlensio";
+import { initConfig, storage } from "devlensio";
 import { registerTools } from "./tools.js";
+import * as q from "../core/queries.js";
 
 const INSTRUCTIONS = [
   "WHAT THIS IS",
@@ -65,6 +66,37 @@ export function buildMcpServer(): McpServer {
     { instructions: INSTRUCTIONS }
   );
   registerTools(server);
+
+  // ── Resources (A1) — cacheable, host-managed discovery ──────────────────────
+
+  server.registerResource(
+    "repos",
+    "devlens://repos",
+    {
+      description: "All analyzed DevLens graphs (graphId, repo path, framework, latest commit)",
+      mimeType: "application/json",
+    },
+    async () => ({
+      contents: [{ uri: "devlens://repos", mimeType: "application/json", text: JSON.stringify(q.listRepos()) }],
+    })
+  );
+
+  server.registerResource(
+    "graph-meta",
+    new ResourceTemplate("devlens://graph/{graphId}/meta", { list: undefined }),
+    {
+      description: "Metadata for one graph — fingerprint, commit list, summarized commits",
+      mimeType: "application/json",
+    },
+    async (_uri, params) => {
+      const graphId = Array.isArray(params.graphId) ? params.graphId[0] : params.graphId;
+      const meta = storage.getGraphMeta(graphId);
+      return {
+        contents: [{ uri: `devlens://graph/${graphId}/meta`, mimeType: "application/json", text: JSON.stringify(meta ?? { error: "not found" }) }],
+      };
+    }
+  );
+
   return server;
 }
 

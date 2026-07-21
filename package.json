@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/cli",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "mcpName": "io.github.devlensio/devlens",
   "type": "module",
   "publishConfig": {
@@ -27,11 +27,11 @@
     "stage:binaries": "node scripts/stage-binaries.mjs"
   },
   "optionalDependencies": {
-    "@devlensio/cli-darwin-arm64": "0.2.8",
-    "@devlensio/cli-darwin-x64": "0.2.8",
-    "@devlensio/cli-linux-x64": "0.2.8",
-    "@devlensio/cli-linux-arm64": "0.2.8",
-    "@devlensio/cli-windows-x64": "0.2.8"
+    "@devlensio/cli-darwin-arm64": "0.3.0",
+    "@devlensio/cli-darwin-x64": "0.3.0",
+    "@devlensio/cli-linux-x64": "0.3.0",
+    "@devlensio/cli-linux-arm64": "0.3.0",
+    "@devlensio/cli-windows-x64": "0.3.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -46,6 +46,6 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
-    "devlensio": "^0.6.0"
+    "devlensio": "^0.6.1"
   }
 }

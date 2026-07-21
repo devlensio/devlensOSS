@@ -4,10 +4,13 @@ Produce a thorough, prioritized security review covering the flagged nodes — n
 
 **Needs summaries** (security assessments come from summarization) — follow the freshness/summarize-permission policy in SKILL.md first. If summaries are missing, ask permission to summarize, or stop and explain that findings can't be produced without them.
 
-## Method — work the graph, in order
-1. **List findings.** `get_security_issues` with `minSeverity` = the argument (default `low`). It returns `{ id, name, type, filePath, lines, score, severity, summary, securitySummary }`, ranked by severity. If the result is capped by `limit` and more exist, raise `limit` (or page) so **no finding is dropped** — confirm you've covered all high/medium.
-2. **Detail.** For every high and medium finding, ensure you have its full `securitySummary`; if the list output truncates it, fetch via `get_node` with `include: ["security"]`, or batch with `get_summaries` (`include: ["security"]`).
-3. **Reach.** For high-severity findings, `get_blast_radius <id>` → how many nodes depend on the vulnerable code. A high-severity node with a large blast radius is the top priority.
+## Method — one call, then format
+
+1. Call `security_brief` with `minSeverity` = the argument (default `low`). This ONE call replaces the 3-step method (get_security_issues+get_node+blast_radius). The result includes all findings, blast radius for high-severity issues, and a ranked `fixTheseFirst` list.
+
+2. Verify `result.schemaVersion === 1`. If not, stop and warn the user.
+
+3. Format per the output template below. The tool already handles enumeration, reach, and ranking — you present them.
 
 ## Output template
 1. **Severity summary** — counts: `high: N, medium: N, low: N` (out of total).

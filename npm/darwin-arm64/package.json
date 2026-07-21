@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/cli-darwin-arm64",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "Prebuilt DevLens CLI binary for macOS arm64 (Apple Silicon)",
   "license": "AGPL-3.0",
   "repository": {

@@ -51,6 +51,16 @@ export function pickSummaries(n: CodeNode, include: SummaryKind[] = ALL_SUMMARIE
 export function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
 }
-export function fail(message: string) {
-  return { content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }], isError: true };
+export function fail(message: string, code?: string, suggestedTool?: string, suggestedArgs?: Record<string, unknown>) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify({
+      error: {
+        code: code ?? "INTERNAL",
+        message,
+        ...(suggestedTool && { suggestedTool }),
+        ...(suggestedArgs && { suggestedArgs }),
+      }
+    }) }],
+    isError: true,
+  };
 }

@@ -4,14 +4,13 @@ Produce a complete, **one-shot** onboarding guide for a newcomer and **save it t
 
 This is graph-driven for *code understanding* (modules, flows, reading path) and uses a few targeted file reads for things the graph doesn't model (how to install/run). Synthesize — don't dump.
 
-## Method — work the graph, then the setup files
+## Method — one graph call + disk reads
 
-1. **Orient.** `get_repo_overview` → framework fingerprint + exact counts + top central nodes.
-2. **Modules from clusters.** `get_subgraph` on the top ~6–10 central nodes → the deduped module model (bounded contexts), each with its purpose and directories.
-3. **Backbone.** `find_nodes` for every `ROUTE`, `STATE_STORE`, `HOOK` → map onto modules (these orient a newcomer to entry points and state).
-4. **Key flows.** Pick the 2–4 defining journeys (auth, primary read, primary write/mutation, a background job); walk each route's `get_khop` call graph in order (route → guard → handler → service → store/db) and describe each step from its summary.
-5. **Meaning & glossary.** `get_summaries -i business` for module centers, key routes/stores, and the central nodes → the product-level vocabulary (the domain concepts a newcomer must learn).
-6. **Setup facts (file reads — the graph doesn't model these).** Read `package.json` (scripts, key deps, engines/packageManager), `.env.example` / `.env.sample` if present (required env vars — never print secret values), and skim the repo `README` for run instructions. Note the test/lint/build/dev commands.
+1. Call `onboarding_tour`. This ONE call replaces steps 1–5 (overview+subgraph+find_nodes+khop+get_summaries). The result gives you the graph-derived skeleton: modules, entry points, state, key flows, a reading path, a domain glossary, and gotchas.
+
+2. Read `package.json`, `.env.example` (or `.env.sample`), and the repo `README` from disk for setup facts — the `needsDisk` field in the result tells you exactly what to read. Note the test/lint/build/dev commands.
+
+3. Verify `result.schemaVersion === 1`. If not, stop and warn the user.
 
 ## Write `ONBOARDING.md` (fill every section)
 Save to the repo root as `ONBOARDING.md`. Keep it concrete — name real files and nodes, link `/devlens` follow-ups.

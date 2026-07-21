@@ -6,9 +6,15 @@ import { emit, die } from "../output.js";
 import { resolveGraphId } from "../graphResolve.js";
 
 // Run a core query and emit, converting thrown errors into a clean exit.
+// Handles both sync and async queries transparently.
 const run = (fn: () => unknown) => {
   try {
-    emit(fn());
+    const result = fn();
+    if (result instanceof Promise) {
+      result.then(emit).catch((e) => die((e as Error).message));
+    } else {
+      emit(result);
+    }
   } catch (e) {
     die((e as Error).message);
   }
@@ -189,5 +195,156 @@ export function registerQueryCommands(program: Command): void {
       .option("-g, --graph <id>")
       .option("-r, --radius <n>", "blast-radius hops for changed nodes", "1")
       .action((from, to, o) => run(() => q.analyzeChanges(resolveGraphId(o.graph), from, to, intOr(o.radius, 1))))
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  S1  check-freshness
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("check-freshness")
+      .description("Check if the graph is stale vs HEAD (dirty, behind, summaries)")
+      .option("-g, --graph <id>")
+      .action((o) => run(() => q.checkFreshness(resolveGraphId(o.graph))))
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  S2  coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("coverage")
+      .description("Graph health: summarized / total / by type / model")
+      .option("-g, --graph <id>")
+      .option("-c, --commit <hash>")
+      .action((o) => run(() => q.getCoverage(resolveGraphId(o.graph), o.commit)))
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  T1  architecture
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("architecture")
+      .description("One-call architecture brief — modules, routes, flows, health")
+      .option("-g, --graph <id>")
+      .option("-c, --commit <hash>")
+      .option("--budget <n>", "token budget", "8000")
+      .option("--max-routes <n>", "routes to trace call paths for", "8")
+      .option("--max-modules <n>", "central nodes to cluster", "5")
+      .action((o) =>
+        run(() =>
+          q.architectureBrief(resolveGraphId(o.graph), {
+            tokenBudget: intOr(o.budget, 8000),
+            maxRoutesTraced: intOr(o.maxRoutes, 8),
+            maxModules: intOr(o.maxModules, 5),
+            commitHash: o.commit,
+          })
+        )
+      )
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  T2  security-brief
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("security-brief")
+      .description("One-call security report — findings + blast radius + fix-first")
+      .option("-g, --graph <id>")
+      .option("-c, --commit <hash>")
+      .option("--min-severity <sev>", "low|medium|high", "low")
+      .option("--budget <n>", "token budget", "8000")
+      .action((o) =>
+        run(() =>
+          q.securityBrief(resolveGraphId(o.graph), {
+            minSeverity: o.minSeverity as "low" | "medium" | "high",
+            tokenBudget: intOr(o.budget, 8000),
+            commitHash: o.commit,
+          })
+        )
+      )
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  T3  review-pr
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("review-pr")
+      .description("One-call PR review: diff + impact + tests + security delta")
+      .argument("<from>", "older commit hash")
+      .argument("<to>", "newer commit hash")
+      .option("-g, --graph <id>")
+      .option("-r, --radius <n>", "blast-radius hops", "1")
+      .option("--budget <n>", "token budget", "10000")
+      .action((from, to, o) =>
+        run(() =>
+          q.reviewPr(resolveGraphId(o.graph), from, to, {
+            radius: intOr(o.radius, 1),
+            tokenBudget: intOr(o.budget, 10000),
+          })
+        )
+      )
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  T4  onboard-tour
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("onboard-tour")
+      .description("One-call onboarding skeleton: modules, routes, flows, glossary, gotchas")
+      .option("-g, --graph <id>")
+      .option("-c, --commit <hash>")
+      .option("--budget <n>", "token budget", "8000")
+      .option("--max-modules <n>", "central nodes to cluster", "8")
+      .option("--max-flows <n>", "routes to trace call paths for", "4")
+      .action((o) =>
+        run(() =>
+          q.onboardingTour(resolveGraphId(o.graph), {
+            tokenBudget: intOr(o.budget, 8000),
+            maxModules: intOr(o.maxModules, 8),
+            maxFlows: intOr(o.maxFlows, 4),
+            commitHash: o.commit,
+          })
+        )
+      )
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  T5  get-context
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  withGlobalFlags(
+    program
+      .command("get-context")
+      .description("Token-budgeted context packet — keyword-seeded retrieval + traverse + assemble")
+      .argument("<query>", "keyword query for seeding")
+      .option("-g, --graph <id>")
+      .option("-c, --commit <hash>")
+      .option("--intent <intent>", "explain|architecture|impact|security|generic", "generic")
+      .option("--focus <nodeId|path>", "force a seed node by id or path")
+      .option("--hops <n>", "traversal radius (1 or 2)", "1")
+      .option("--budget <n>", "token budget", "8000")
+      .option("--seed-node-ids <ids...>", "skip keyword seeding, use these ids")
+      .action((query, o) =>
+        run(() =>
+          q.getContext(resolveGraphId(o.graph), query, {
+            intent: o.intent as "explain" | "architecture" | "impact" | "security" | "generic",
+            focus: o.focus,
+            hops: intOr(o.hops, 1) as 1 | 2,
+            tokenBudget: intOr(o.budget, 8000),
+            seedNodeIds: o.seedNodeIds,
+            commitHash: o.commit,
+          })
+        )
+      )
   );
 }
