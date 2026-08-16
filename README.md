@@ -363,9 +363,7 @@ Every alternative trades away at least one of those capabilities:
 **Why teams choose DevLens over the others:**
 - You get **semantic edges** (type-checked inheritance, ORM data flow, framework routes) that syntactic tools like Graphify and GitNexus simply can't produce — so your agent doesn't guess relationships, it knows them.
 - You get **per-node security analysis** that no other open-source tool provides — not Sourcegraph (which only has compliance certifications), not GitNexus (which has optional PDG, not built-in), not DeepWiki (which ignores security entirely).
-- You get **AGPL licensing with commercial use allowed** — unlike GitNexus's PolyForm Noncommercial (which prohibits commercial use) and Sourcegraph's paid Enterprise tiers.
 - You get **21 MCP tools + a universal `/devlens` skill** — a tighter, more purpose-built agent surface than Sourcegraph's general-purpose MCP or GitNexus's hooks.
-- And you get it **today**, not behind an enterprise paywall — the Web UI, CLI, and skill all work out of the box with no license server.
 
 (Feature comparison from public sources, Aug 2026.)
 
