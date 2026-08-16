@@ -342,23 +342,32 @@ Next.js (app & pages), React Router / TanStack Router / wouter, Express / Fastif
 
 ## How DevLens compares
 
-The code-graph / code-intelligence space has several tools sharing a goal — help humans and agents understand codebases faster — but they differ in depth, scope, and licensing. Here's how **DevLens** stacks up against the most notable alternatives:
+DevLens is the **only tool in this space** that combines three things: native semantic parsing (not regex or tree-sitter), per-node AI summaries with per-node security analysis, and framework-aware data edges (routes, ORM reads/writes). That combination is what makes it uniquely suited for AI agents working inside a single codebase — and it's the only option you can use commercially under AGPL.
+
+Every alternative trades away at least one of those capabilities:
 
 | Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| Core idea | Prebuilt semantic graph per repo with per-node AI summaries | Syntactic knowledge graph with community detection | Agent-focused knowledge graph with clustering + taint analysis | Code search + navigation + AI assistant (Cody) | AI-generated documentation per repo |
-| Parsing | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`) — type-resolved | tree-sitter (syntactic) | tree-sitter (native bindings) | SCIP / LSIF symbol index + language servers | LLM reads source directly (no structured parser) |
-| Edge quality | Type-checked `IMPLEMENTS`/`EXTENDS`, framework **routes**, ORM **data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags | call chains, clusters, processes, `route_map` | Precise symbol cross-references (SCIP) | Docs-level relationships (no structured graph) |
-| Per-node AI summaries | ✅ Technical + business + **security** with severity | ❌ (LLM for docs/concepts) | ❌ (embeddings for semantic query) | ✅ Via Cody (hover + inline docs) | ✅ Auto-generated docs per symbol |
-| Security analysis | ✅ Per-node severity + blast-radius reach | ❌ | Partial (opt-in PDG/taint) | ❌ (SOC 2/ISO 27001 *compliance*, no code-level finding) | ❌ |
-| Agent / MCP integration | CLI + **21-tool MCP** + `/devlens` skill + Web UI | CLI + local skill | CLI + 17-tool MCP + skills + hooks (`AGENTS.md`) | MCP server (cross-repo + Cody agent) | Unknown (no public MCP integration data) |
-| Language coverage | TS/JS, Python, Java, Go, Rust | 12 code families + docs/images | Many (tree-sitter incl. Dart/Kotlin/Swift…) | 30+ (via language servers) | Any (LLM reads source) |
-| License / pricing | **AGPL-3.0 — free, including commercial** | Apache-2.0 | PolyForm Noncommercial (free non-commercial only) | Open-source core; **Enterprise paid** | Free for public repos; enterprise tiers unlisted |
-| Multi-user cloud | In development | No | Enterprise SaaS (paid) | Sourcegraph Enterprise (hosted) | Web-hosted for public repos |
+| Core idea | Prebuilt semantic graph + per-node AI summaries + security | Syntactic knowledge graph + community detection | Agent-focused knowledge graph + taint analysis | Code search + AI assistant (Cody) | AI-generated docs per repo |
+| Parsing depth | **✅ Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`) — type-resolved | tree-sitter (syntactic, no type info) | tree-sitter + native bindings (no type info) | SCIP/LSIF symbol index + language servers (no semantic parse) | LLM reads source directly (no structured parser) |
+| Edge quality | **✅ Type-checked `IMPLEMENTS`/`EXTENDS`**, framework **routes** (Next.js/Django/Spring/Gin/axum), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags — no type or framework awareness | call chains, clusters, processes, `route_map` — no ORM/data edges | Precise symbol cross-references (SCIP) — no type-checked inheritance | Docs-level relationships (no structured graph) |
+| Per-node AI summaries | **✅ Technical + business + security** with severity — every node carries all three | ❌ (LLM used for docs/concepts) | ❌ (embeddings for semantic query) | ✅ Via Cody (hover + inline docs — chat-level, not per-node graph summaries) | ✅ Auto-generated docs per symbol (no security, no technical/business split) |
+| Security analysis | **✅ Per-node severity + blast-radius reach** — real exploit descriptions, not just flags | ❌ | Partial (opt-in PDG/taint — not built-in) | ❌ (SOC 2/ISO 27001 *compliance* only — no code-level findings) | ❌ |
+| Agent / MCP integration | CLI + **21-tool MCP** + `/devlens` skill + Web UI | CLI + local skill (no MCP) | CLI + 17-tool MCP + skills + hooks (`AGENTS.md`) | MCP server (cross-repo search + Cody agent — not a per-repo graph query surface) | Unknown (no public MCP integration) |
+| Language coverage | TS/JS, Python, Java, Go, Rust — **native parsers for each** | 12 code families + docs/images (shallow syntactic) | Many via tree-sitter (Dart/Kotlin/Swift…) — shallow syntactic | 30+ (via language servers — symbol-level, no semantic edges) | Any (LLM reads source — no structured extraction) |
+| License / pricing | **✅ AGPL-3.0 — free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (**cannot use commercially**) | Open-source core; **Enterprise paid** (cross-repo search) | Free for public repos; enterprise tiers unlisted |
+| Multi-user cloud | In development (waitlist open) | No | Enterprise SaaS (paid) | Sourcegraph Enterprise (hosted, paid) | Web-hosted for public repos |
 
-**Other notable alternatives:** **CodeSee** (service-level dependency mapping + AI PR analysis, enterprise-only), **CodeQL** (GitHub-native semantic security analysis, no AI summaries), and ctags-based indexers (lightweight symbol indexes, no graph intelligence).
+**Other notable alternatives:** CodeSee (service-level dependency mapping, enterprise-only), CodeQL (GitHub-native semantic security analysis — deep but no AI summaries or graph visualization), and ctags-based indexers (lightweight symbol indexes, no graph intelligence).
 
-**In one line:** Graphify compresses large mixed corpora for agents; GitNexus provides agent-context tooling with embeddings and hooks; Sourcegraph excels at cross-repo search and navigation at scale; DeepWiki auto-generates readable docs from code; **DevLens is the semantic-depth option for single-repo intelligence** — real type resolution, framework-aware routes and data edges, per-node AI summaries with security posture, a 21-tool MCP, and AGPL licensing you can use commercially. (Feature comparison from public sources, Aug 2026.)
+**Why teams choose DevLens over the others:**
+- You get **semantic edges** (type-checked inheritance, ORM data flow, framework routes) that syntactic tools like Graphify and GitNexus simply can't produce — so your agent doesn't guess relationships, it knows them.
+- You get **per-node security analysis** that no other open-source tool provides — not Sourcegraph (which only has compliance certifications), not GitNexus (which has optional PDG, not built-in), not DeepWiki (which ignores security entirely).
+- You get **AGPL licensing with commercial use allowed** — unlike GitNexus's PolyForm Noncommercial (which prohibits commercial use) and Sourcegraph's paid Enterprise tiers.
+- You get **21 MCP tools + a universal `/devlens` skill** — a tighter, more purpose-built agent surface than Sourcegraph's general-purpose MCP or GitNexus's hooks.
+- And you get it **today**, not behind an enterprise paywall — the Web UI, CLI, and skill all work out of the box with no license server.
+
+(Feature comparison from public sources, Aug 2026.)
 
 ---
 
