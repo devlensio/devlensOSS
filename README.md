@@ -30,6 +30,7 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 - [What is DevLens?](#what-is-devlens)
 - [Supported languages](#supported-languages)
 - [Quick Start](#quick-start)
+- [Screenshots](#screenshots)
 - [Why it's faster & cheaper](#why-its-faster--cheaper)
 - [Ways to use DevLens](#ways-to-use-devlens)
   - [Web UI](#web-ui--visual-exploration)
@@ -40,6 +41,7 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 - [What DevLens understands](#what-devlens-understands)
 - [Benchmarks](#benchmarks)
 - [Who is this for](#who-is-this-for)
+- [How DevLens compares](#how-devlens-compares)
 - [Repository layout](#repository-layout)
 - [DevLens Cloud](#devlens-cloud)
 
@@ -119,6 +121,20 @@ devlens security                # security flags across the codebase
 ```
 
 That's it. Want it in your AI agent instead? Jump to the [Agent Skill](#agent-skill--ai-powered-understanding).
+
+---
+
+## Screenshots
+
+<div align="center">
+<img src="assets/screenshot-graph.jpg" alt="Interactive graph explorer" width="48%" />
+<img src="assets/screenshot-node.jpg" alt="Node inspector with summaries & security risk" width="48%" />
+<br/><br/>
+<img src="assets/screenshot-dashboard.jpg" alt="Repo dashboard" width="48%" />
+<img src="assets/screenshot-security.jpg" alt="Security findings" width="48%" />
+<br/>
+<em>Interactive graph explorer · node inspector with AI summaries & security risk · repo dashboard · security findings</em>
+</div>
 
 ---
 
@@ -321,6 +337,25 @@ Next.js (app & pages), React Router / TanStack Router / wouter, Express / Fastif
 - **Developers & teams** — onboard devs in hours not weeks, review PRs with impact context, catch circular deps and god-files, keep living documentation.
 - **Engineering leaders** — bird's-eye architecture view, spot debt before it becomes a crisis, understand work across repos.
 - **AI-augmented developers** — stop letting your agent burn tokens re-reading files; it queries the graph instead.
+
+---
+
+## How DevLens compares
+
+The code-graph space has three notable open-source players. They share a goal — replace re-reading files with a precomputed graph — but differ in depth:
+
+| Dimension | **DevLens** | **Graphify** | **GitNexus** |
+| :-- | :-- | :-- | :-- |
+| Parsing | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`) — type-resolved | tree-sitter (syntactic) | tree-sitter (syntactic, native bindings) |
+| Edge quality | Type-checked `IMPLEMENTS`/`EXTENDS`, framework **routes** (Next.js/Django/Spring/Gin/axum…), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags | call chains, clusters, processes, `route_map` |
+| Per-node AI summaries | ✅ Technical + business + **security** with severity | ❌ (LLM used for docs/concepts) | ❌ (embeddings for semantic query) |
+| Security analysis | ✅ Per-node severity + blast-radius reach | ❌ | Partial (opt-in PDG/taint) |
+| Agent integration | CLI + **21-tool MCP** + `/devlens` skill + Web UI | CLI + local skill | CLI + 17-tool MCP + skills + hooks (`AGENTS.md`) |
+| Language coverage | TS/JS, Python, Java, Go, Rust | 12 code families + docs/images | Many (tree-sitter incl. Dart/Kotlin/Swift…) |
+| License | **AGPL-3.0 — free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (free non-commercial only) |
+| Multi-user cloud | In development | No | Enterprise SaaS (paid) |
+
+**In one line:** Graphify is great at compressing large mixed corpora for agents; GitNexus is built around agent-context tooling with embeddings and hooks; **DevLens is the semantic-depth option** — real type resolution, framework-aware routes and data edges, per-node AI summaries with security posture, and AGPL licensing you can use commercially. (Feature comparison from public sources, Aug 2026.)
 
 ---
 
