@@ -342,20 +342,23 @@ Next.js (app & pages), React Router / TanStack Router / wouter, Express / Fastif
 
 ## How DevLens compares
 
-The code-graph space has three notable open-source players. They share a goal — replace re-reading files with a precomputed graph — but differ in depth:
+The code-graph / code-intelligence space has several tools sharing a goal — help humans and agents understand codebases faster — but they differ in depth, scope, and licensing. Here's how **DevLens** stacks up against the most notable alternatives:
 
-| Dimension | **DevLens** | **Graphify** | **GitNexus** |
-| :-- | :-- | :-- | :-- |
-| Parsing | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`) — type-resolved | tree-sitter (syntactic) | tree-sitter (syntactic, native bindings) |
-| Edge quality | Type-checked `IMPLEMENTS`/`EXTENDS`, framework **routes** (Next.js/Django/Spring/Gin/axum…), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags | call chains, clusters, processes, `route_map` |
-| Per-node AI summaries | ✅ Technical + business + **security** with severity | ❌ (LLM used for docs/concepts) | ❌ (embeddings for semantic query) |
-| Security analysis | ✅ Per-node severity + blast-radius reach | ❌ | Partial (opt-in PDG/taint) |
-| Agent integration | CLI + **21-tool MCP** + `/devlens` skill + Web UI | CLI + local skill | CLI + 17-tool MCP + skills + hooks (`AGENTS.md`) |
-| Language coverage | TS/JS, Python, Java, Go, Rust | 12 code families + docs/images | Many (tree-sitter incl. Dart/Kotlin/Swift…) |
-| License | **AGPL-3.0 — free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (free non-commercial only) |
-| Multi-user cloud | In development | No | Enterprise SaaS (paid) |
+| Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Core idea | Prebuilt semantic graph per repo with per-node AI summaries | Syntactic knowledge graph with community detection | Agent-focused knowledge graph with clustering + taint analysis | Code search + navigation + AI assistant (Cody) | AI-generated documentation per repo |
+| Parsing | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`) — type-resolved | tree-sitter (syntactic) | tree-sitter (native bindings) | SCIP / LSIF symbol index + language servers | LLM reads source directly (no structured parser) |
+| Edge quality | Type-checked `IMPLEMENTS`/`EXTENDS`, framework **routes**, ORM **data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags | call chains, clusters, processes, `route_map` | Precise symbol cross-references (SCIP) | Docs-level relationships (no structured graph) |
+| Per-node AI summaries | ✅ Technical + business + **security** with severity | ❌ (LLM for docs/concepts) | ❌ (embeddings for semantic query) | ✅ Via Cody (hover + inline docs) | ✅ Auto-generated docs per symbol |
+| Security analysis | ✅ Per-node severity + blast-radius reach | ❌ | Partial (opt-in PDG/taint) | ❌ (SOC 2/ISO 27001 *compliance*, no code-level finding) | ❌ |
+| Agent / MCP integration | CLI + **21-tool MCP** + `/devlens` skill + Web UI | CLI + local skill | CLI + 17-tool MCP + skills + hooks (`AGENTS.md`) | MCP server (cross-repo + Cody agent) | Unknown (no public MCP integration data) |
+| Language coverage | TS/JS, Python, Java, Go, Rust | 12 code families + docs/images | Many (tree-sitter incl. Dart/Kotlin/Swift…) | 30+ (via language servers) | Any (LLM reads source) |
+| License / pricing | **AGPL-3.0 — free, including commercial** | Apache-2.0 | PolyForm Noncommercial (free non-commercial only) | Open-source core; **Enterprise paid** | Free for public repos; enterprise tiers unlisted |
+| Multi-user cloud | In development | No | Enterprise SaaS (paid) | Sourcegraph Enterprise (hosted) | Web-hosted for public repos |
 
-**In one line:** Graphify is great at compressing large mixed corpora for agents; GitNexus is built around agent-context tooling with embeddings and hooks; **DevLens is the semantic-depth option** — real type resolution, framework-aware routes and data edges, per-node AI summaries with security posture, and AGPL licensing you can use commercially. (Feature comparison from public sources, Aug 2026.)
+**Other notable alternatives:** **CodeSee** (service-level dependency mapping + AI PR analysis, enterprise-only), **CodeQL** (GitHub-native semantic security analysis, no AI summaries), and ctags-based indexers (lightweight symbol indexes, no graph intelligence).
+
+**In one line:** Graphify compresses large mixed corpora for agents; GitNexus provides agent-context tooling with embeddings and hooks; Sourcegraph excels at cross-repo search and navigation at scale; DeepWiki auto-generates readable docs from code; **DevLens is the semantic-depth option for single-repo intelligence** — real type resolution, framework-aware routes and data edges, per-node AI summaries with security posture, a 21-tool MCP, and AGPL licensing you can use commercially. (Feature comparison from public sources, Aug 2026.)
 
 ---
 
