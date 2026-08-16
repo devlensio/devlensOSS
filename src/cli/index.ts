@@ -18,7 +18,7 @@ import { banner } from "./output.js";
 const program = new Command();
 
 // Keep in sync with the `version` field in package.json.
-const CLI_VERSION = "0.3.0";
+const CLI_VERSION = "0.4.0";
 
 program
   .name("devlens")
