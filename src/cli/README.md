@@ -4,7 +4,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f9f1e1?logo=bun)](https://bun.sh)
 
-The command-line interface for [DevLens](https://github.com/devlensio/devlensOSS) — a codebase visualizer that turns any TypeScript / JavaScript / React / Next.js / Node.js repo into a queryable graph with functional summaries, technical summaries, and security analysis on every node.
+The command-line interface for [DevLens](https://github.com/devlensio/devlensOSS) — a codebase visualizer that turns any TypeScript, JavaScript, Python, Go, Rust, or Java repo into a queryable graph with functional summaries, technical summaries, and security analysis on every node.
 
 ---
 

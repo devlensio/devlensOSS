@@ -6,10 +6,11 @@
 
 **Intelligent codebase visualizer.**
 
-Turn any JavaScript, TypeScript, React, Next.js, or Node.js repo into a living, queryable map — with functional summaries, technical summaries, and security analysis on every node.
+Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a living, queryable graph — every node carries a functional summary, a technical summary, and a security assessment.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![npm: @devlensio/cli](https://img.shields.io/badge/npm-%40devlensio%2Fcli-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
+[![npm: @devlensio/skill](https://img.shields.io/badge/npm-%40devlensio%2Fskill-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/skill)
 [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f9f1e1?logo=bun)](https://bun.sh)
 
 **[Join the DevLens Cloud Waitlist →](https://devlens.io)**
@@ -26,58 +27,49 @@ Turn any JavaScript, TypeScript, React, Next.js, or Node.js repo into a living, 
 
 ## Table of Contents
 
-- [About](#about)
-- [Who is this for](#who-is-this-for)
+- [What is DevLens?](#what-is-devlens)
+- [Supported languages](#supported-languages)
 - [Quick Start](#quick-start)
-- [The Problem DevLens Solves](#the-problem-devlens-solves)
-- [Benchmarks](#benchmarks)
-- [Ways to Use DevLens](#ways-to-use-devlens)
+- [Why it's faster & cheaper](#why-its-faster--cheaper)
+- [Ways to use DevLens](#ways-to-use-devlens)
   - [Web UI](#web-ui--visual-exploration)
   - [CLI](#cli--terminal-power)
-  - [Agent Skill](#agent-skill--ai-powered-understanding)
-  - [MCP Server](#mcp-server--for-any-mcp-compatible-ai-agent)
+  - [Agent Skill — AI-Powered Understanding](#agent-skill--ai-powered-understanding)
+  - [MCP Server — for any MCP-compatible AI agent](#mcp-server--for-any-mcp-compatible-ai-agent)
 - [Configuration](#configuration)
-- [What DevLens Understands](#what-devlens-understands)
-- [Repository Layout](#repository-layout)
+- [What DevLens understands](#what-devlens-understands)
+- [Benchmarks](#benchmarks)
+- [Who is this for](#who-is-this-for)
+- [Repository layout](#repository-layout)
 - [DevLens Cloud](#devlens-cloud)
 
 ---
 
-## About
+## What is DevLens?
 
-DevLens is a **codebase visualizer** for JavaScript, TypeScript, React, Next.js, and Node.js projects. It builds a typed dependency graph of every component, hook, function, route, and store — with AI-powered summaries on each node — so you can explore, understand, and analyze your architecture in seconds instead of hours.
+**DevLens turns a codebase into a pre-built dependency graph.** Instead of reading files one at a time, you (or your AI agent) query the graph: every component, class, function, route, struct, or trait is a **node**, and every connection is a **typed edge** (`CALLS`, `IMPORTS`, `HANDLES`, `IMPLEMENTS`, …). Each node carries:
 
-> **What makes it different?** Instead of reading files one at a time, you (or your AI agent) query the pre-built graph. A node summary costs **~50 tokens** vs **~2,000 tokens** per file.
+- **Functional summary** — *what business purpose does this serve?*
+- **Technical summary** — *how does it work?*
+- **Security assessment** — *severity + explanation*
+
+This is the difference between an AI that re-reads your whole repo every session and an AI that already knows the architecture — architecture reviews, impact analysis, security audits, and onboarding take **seconds, not hours**.
 
 ---
 
-## Who Is This For
+## Supported languages
 
-### Developers & Teams
+DevLens parses **six languages with native parsers** (no regex, no tree-sitter) and understands their frameworks:
 
-- **Onboard new devs in hours, not weeks** — explore the graph instead of spelunking files.
-- **Review PRs with full context** — see exactly what depends on each change.
-- **Run impact analysis before refactoring** — "what breaks if I change this?"
-- **Catch circular deps, god-files, and coupling hotspots** automatically.
-- **Keep living documentation** — summaries stay fresh as code changes.
+| Language | Frameworks / stacks the graph understands | What gets parsed |
+| :-- | :-- | :-- |
+| **TypeScript / JavaScript** | React, Next.js (app & pages router), Express/Hono/Fastify, React Router, TanStack Router, any Node | components, hooks, state stores, classes, methods, functions, routes |
+| **Python** | FastAPI, Flask, Django (+DRF), SQLAlchemy / Django ORM, Celery, Pydantic | classes, methods, functions, routes, data models |
+| **Java** | Spring Boot (controllers, JPA, Spring Data repositories) | classes, methods, interfaces, enums, routes |
+| **Go** | net/http, Gin, Echo, chi, Fiber, GORM, database/sql | structs, interfaces, methods, functions, routes |
+| **Rust** | axum, actix-web, rocket, utoipa, Diesel | structs, enums, traits, impl blocks, methods, functions, routes |
 
-### Engineering Leaders
-
-- **Get a bird's-eye view** of your entire codebase in seconds.
-- **Spot architectural debt** before it becomes a crisis.
-- **Understand what your team has been building** — even across repos.
-
-### Students & Learners
-
-- **See how real codebases are designed** — layers, patterns, data flow.
-- **Understand why things are connected**, not just what each file does.
-- **Learn architecture patterns** from production-grade projects.
-
-### AI-Augmented Developers
-
-Your agent burns tokens re-reading files it's seen before. DevLens gives it a graph to query instead.
-
-> **Coming soon — DevLens Cloud:** Shareable graphs your whole team can access, cross-repo navigation, and giving graphical context to your AI agents for smarter code review and analysis — all without running anything locally.
+Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, Go `go/ast` + `go/types`, Rust `syn`, TS compiler API), so edges are **real** — type-checked interfaces (`IMPLEMENTS`), framework routes (`HANDLES`), and ORM data layers (`READS_FROM`/`WRITES_TO`).
 
 ---
 
@@ -89,7 +81,7 @@ Your agent burns tokens re-reading files it's seen before. DevLens gives it a gr
 npm install -g @devlensio/cli
 ```
 
-> **No Node.js?** Use the standalone binary installer (no dependencies):
+> **No Node.js?** Use the standalone binary installer (zero dependencies):
 >
 > **Linux / macOS:**
 > ```bash
@@ -100,16 +92,13 @@ npm install -g @devlensio/cli
 > ```powershell
 > irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
 > ```
->
 
-**2. Init**
+**2. Configure your AI provider** *(only needed if you want AI summaries — structure-only works offline)*
 
 ```bash
 cd your-project
 devlens init
 ```
-
-This sets up your LLM provider for AI summaries. Don't need AI? Skip this — structural analysis works offline.
 
 **3. Analyze**
 
@@ -117,113 +106,31 @@ This sets up your LLM provider for AI summaries. Don't need AI? Skip this — st
 devlens analyze . --summarize
 ```
 
-This builds a typed dependency graph of every component, hook, function, route, and store — with AI-powered summaries on each node.
+DevLens detects the language (TS/JS, Python, Go, Rust, Java) from your manifests, builds the graph, and summarizes every node.
 
 **4. Explore**
 
 ```bash
-devlens overview                  # big picture: framework, stats, central nodes
-devlens find-nodes -t ROUTE       # find every route in the app
-devlens security                  # see security flags across the codebase
+devlens overview                # language, framework, stats, central nodes
+devlens detect                  # "what is this repo?" — language, manifest, deps
+devlens find-nodes -t ROUTE     # every route in the app
+devlens architecture            # one-command architecture brief
+devlens security                # security flags across the codebase
 ```
 
----
-
-## The Problem DevLens Solves
-
-AI coding tools let you ship faster than ever — but that speed creates **AI debt**: code merged without understanding, agents re-discovering connections every session, new hires drowning in unfamiliar structure.
-
-DevLens fixes this by pre-building a **typed dependency graph** of your entire codebase. Every node gets:
-
-- **Functional summary** — what business purpose does this serve?
-- **Technical summary** — how does it work?
-- **Security assessment** — severity + explanation
-
-Armed with this graph, you (or your AI agent) can understand the full architecture in **~50 tokens per node** instead of ~2,000 per file.
+That's it. Want it in your AI agent instead? Jump to the [Agent Skill](#agent-skill--ai-powered-understanding).
 
 ---
 
-## Benchmarks
+## Why it's fast & cheaper
 
-*Tested across real-world tasks — architecture understanding, feature implementation, and bug finding — comparing the same model (DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, Qwen 3.6) with and without DevLens.*
-
-### Architecture Understanding (4 models, full DevLens MCP)
-
-<br /><br />
-
-<div align="center">
-<img src="assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
-</div>
-
-<br /><br />
-
-| Metric | Without DevLens | With DevLens | Improvement |
-|--------|:--------------:|:------------:|:-----------:|
-| Avg cost per query | $0.163 | **$0.075** | **54% cheaper** |
-| Avg input tokens | 88,980 | **35,035** | **61% less** |
-| Avg output tokens | 9,549 | **3,233** | **66% less** |
-| Avg tool steps | 14.3 | **7.8** | **45% faster** |
-| Structured architecture output | 50% | **100%** | **2× more reliable** |
-| Architectural debt discovered | 0% | **50%** | **Now discoverable** |
-| Avg cache hit rate | 75.2% | **83.7%** | **+8.5pp** |
-
-<br /><br />
-
-<div align="center">
-<img src="assets/03_arch_savings_per_model.png" alt="Per-model savings" width="70%" />
-<br /><br />
-<img src="assets/02_arch_cache.png" alt="Cache hit rate comparison" width="70%" />
-</div>
-
-<br /><br />
-
-> **Notable:** Even the strongest model (DeepSeek V4 Flash) was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
-
-### Feature Implementation & Bug Finding (DeepSeek V4 Flash)
-
-*5 prompts across implementation and debugging tasks — DevLens graph context only (no per-node summaries).*
-
-<br /><br />
-
-<div align="center">
-<img src="assets/04_prompt_metrics.png" alt="Prompt benchmark metrics" width="80%" />
-</div>
-
-<br /><br />
-
-| Task | Input tokens saved | Cache improvement |
-|------|:-----------------:|:-----------------:|
-| Continue Watching feature | **24%** less input (56.8k vs 74.9k) | +5.2pp cache |
-| Rate Limiting feature | **22%** less input (32.1k vs 41.1k) | +8.3pp cache |
-| Error Handling audit | *(comparable)* | Comparable |
-| Profile Bug trace | **32%** less input (36.9k vs 54.3k) | Similar |
-
-### Quality Impact (Architecture Task)
-
-<br /><br />
-
-<div align="center">
-<img src="assets/09_quality_comparison.png" alt="Quality comparison" width="80%" />
-<br /><br />
-<img src="assets/08_quality_matrix.png" alt="Quality matrix" width="80%" />
-</div>
-
-<br /><br />
-
-When asked to explain a codebase's architecture:
-
-| Capability | Without DevLens | With DevLens |
-|-----------|:--------------:|:------------:|
-| Produced structured output | 50% | **100%** |
-| Referenced specific graph metrics | 0% | **100%** |
-| Identified architectural debt | 0% | **50%** |
-| Named specific important files | 75% | **100%** |
+A node summary is **~50 tokens**. The file it describes is **~2,000**. Querying summaries and graph slices (`get_blast_radius`, `get_subgraph`) costs a fraction of reading files — humans get answers faster, and AI agents spend dramatically fewer tokens on the same task.
 
 ---
 
-## Ways to Use DevLens
+## Ways to use DevLens
 
-Pick the interface that fits your workflow.
+Pick the interface that fits your workflow:
 
 ### <img src="assets/web-icon.svg" width="20" style="vertical-align: middle" /> Web UI — Visual Exploration
 
@@ -238,32 +145,57 @@ cd devlensOSS && bun install && bun run dev
 
 ### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — Terminal Power
 
-*For scripts, CI, and when you want answers fast without leaving the terminal.*
+*For scripts, CI, and answers fast without leaving the terminal. Every command supports `--json` for piping into scripts, `-v/--verbose` for diagnostics, and `--quiet` for minimal output.*
 
 ```bash
 npm install -g @devlensio/cli
 ```
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `devlens analyze .` | Analyze a repository into a DevLens graph | `devlens analyze ./my-app --summarize` |
-| `devlens overview` | Big picture — framework, stats, central nodes | `devlens overview` → "Next.js 15, 342 nodes, 12 routes, top node: Layout (9.2)" |
-| `devlens blast-radius <nodeId>` | What breaks if I change this? | `devlens blast-radius "src/auth.ts::login"` → "14 dependents affected" |
-| `devlens cycles` | Find circular dependencies | `devlens cycles` → Lists every circular import group |
-| `devlens find-nodes -t <type>` | Filter nodes by type (ROUTE, COMPONENT, etc.) | `devlens find-nodes -t ROUTE` → Lists all 12 routes |
-| `devlens find-nodes --severity high` | Find high-severity security issues | `devlens find-nodes --severity high` → "2 findings in auth module" |
-| `devlens diff <from> <to>` | Compare two analyzed commits | `devlens diff abc123 def456` → "Added: AnalyticsTracker, Changed: CheckoutForm" |
-| `devlens security` | List every security issue | `devlens security --min-severity high --json` |
-| `devlens config` | View configuration with all saved providers | `devlens config` |
-| `devlens config set` | Interactive provider configuration with live model fetching | `devlens config set` |
-| `devlens config --active <key>` | Switch active provider without re-entering credentials | `devlens config --active openai:deepseek` |
-| `devlens config --remove <key>` | Remove a saved provider entry | `devlens config --remove anthropic:anthropic` |
+**Analyze & summarize**
 
-Each command supports `--json` for piping into scripts and CI pipelines, `-v/--verbose` for diagnostics, and `--quiet` for minimal output.
+| Command | What it does |
+|---------|--------------|
+| `devlens detect [path]` | Inspect a repo **before** analyzing: language, manifest, dependency count, source files |
+| `devlens analyze [path] [--summarize]` | Build the graph (optionally add AI summaries) |
+| `devlens summarize [path]` | (Re)generate summaries for an analyzed repo |
+| `devlens status` | Which repos are analyzed, their language + summary coverage |
+| `devlens doctor` | Environment health check — git, storage, LLM provider, and **all 4 extractor runtimes** |
 
-> **Full reference:** [`src/cli/README.md`](src/cli/README.md) — every command with examples and options.
+**Explore & understand**
 
-### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill (`@devlensio/skill`) — AI-Powered Understanding
+| Command | What it does |
+|---------|--------------|
+| `devlens overview` | Big picture — language, framework, stats, central nodes |
+| `devlens find-nodes <name>` | Search by name / type / file / severity (supports `-t ROUTE`, `-t CLASS`, `-t STRUCT` …) |
+| `devlens nodes-in-path <path>` / `get-node <id>` / `get-summaries <ids…>` / `node-code <id>` | Drill into nodes — summaries before source |
+| `devlens architecture` | One-call architecture brief — modules, routes, flows, health |
+
+**Impact & quality**
+
+| Command | What it does |
+|---------|--------------|
+| `devlens blast-radius <id>` | What breaks if I change this? (upstream dependents) |
+| `devlens khop <id>` | What does it depend on? (downstream) |
+| `devlens subgraph <seed>` | The cohesive cluster (module) a node belongs to |
+| `devlens cycles` | Circular dependencies |
+| `devlens security` / `security-brief` | Security findings, ranked with blast-radius reach |
+| `devlens diff <from> <to>` / `review-pr` | Compare analyzed commits / full PR review packet |
+| `devlens check-freshness` / `coverage` | Is the graph stale vs HEAD? What's summarized? |
+| `devlens guard` | Warn before editing high-value / high-blast-radius nodes |
+
+**Manage & integrate**
+
+| Command | What it does |
+|---------|--------------|
+| `devlens config` | View / set LLM provider config (`~/.devlens/config.json`) |
+| `devlens repos` | List analyzed repos |
+| `devlens graphs list | delete` | Manage stored graphs |
+| `devlens serve` | Start the HTTP API for the Web UI |
+| `devlens mcp` | Run the MCP server (see below) |
+
+> **Full reference:** [`src/cli/README.md`](src/cli/README.md) — every command with options and examples.
+
+### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill — AI-Powered Understanding
 
 *The most powerful way to use DevLens. Your AI agent normally reads files one at a time — the DevLens Skill teaches it to query the pre-built graph instead.*
 
@@ -271,26 +203,28 @@ Each command supports `--json` for piping into scripts and CI pipelines, `-v/--v
 npx @devlensio/skill install
 ```
 
-Then reload your tool and use `/devlens` in Claude Code, Cursor, or Kilo:
+Then reload your tool and use `/devlens` in Claude Code, Cursor, Kilo, opencode, pi, or any AI coding agent:
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `/devlens architecture` | Full system overview — stack, modules, routes, patterns | `/devlens architecture` → Returns structured report: framework, 12 routes, 3 modules, security posture |
-| `/devlens security-analysis` | Prioritized security findings with exploit notes | `/devlens security-analysis high` → "SQL injection in loginUser (reach: 14 nodes)" |
-| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? | `/devlens impact loginUser` → "14 dependents across 3 modules" |
-| `/devlens tech-debt` | Circular deps, coupling hotspots, god-files | `/devlens tech-debt` → "3 cycles, Navbar has 28 dependents" |
-| `/devlens guard [target]` | Warn before editing high-risk code | `/devlens guard` → "⚠️ authMiddleware affects 22 dependents" |
-| `/devlens onboard` | Generate `ONBOARDING.md` for new devs | `/devlens onboard` → Writes full onboarding doc to repo root |
-| `/devlens explain [path]` | Understand a module with callers/callees | `/devlens explain src/api/` → Walks through all API handlers |
-| `/devlens find <name>` | Locate any component, hook, or function | `/devlens find Button` → "3 matches across components and tests" |
-| `/devlens changes [range]` | Explain what changed and its impact | `/devlens changes yesterday` → "3 files, 2 features, 1 bug fix" |
-| `/devlens diagram [type]` | Mermaid diagrams of architecture or flows | `/devlens diagram architecture` → Generates layered module diagram |
+| Command | What it does |
+|---------|--------------|
+| `/devlens init` | Connect MCP, configure provider, analyze the repo |
+| `/devlens architecture` | Full system brief — stack, modules, routes, patterns, security posture |
+| `/devlens explain [path]` | Onboard to a module or the whole repo — callers, callees, reading path |
+| `/devlens diagram [type]` | Mermaid diagrams (architecture, cluster, flow, deps) with typed edges |
+| `/devlens security-analysis [level]` | Prioritized security report with reach + fix-order |
+| `/devlens impact <symbol>` | Blast radius — what breaks if you change this? |
+| `/devlens tech-debt` | Cycles, coupling hotspots, god-files |
+| `/devlens guard [target]` | Warn before editing high-risk code |
+| `/devlens onboard` | Write a saved `ONBOARDING.md` for new devs |
+| `/devlens find <name>` | Locate any component, class, function, struct, or route |
+| `/devlens summary <kind> <target>` | On-demand technical / functional / security summary |
+| `/devlens changes [range]` | Explain recent work or a merge conflict, by functionality |
 
-> **Full reference:** [`packages/skill-installer/README.md`](packages/skill-installer/README.md) — all subcommands with examples, install options, and supported tools.
+> **Full reference:** [`packages/skill-installer/README.md`](packages/skill-installer/README.md) — all subcommands, install options, and supported AI tools.
 
-### <img src="assets/mcp-icon.svg" width="20" style="vertical-align: middle" /> MCP Server — For Any MCP-Compatible AI Agent
+### <img src="assets/cli-icon.svg" width="16" style="vertical-align: middle" /> MCP Server — for Any MCP-Compatible AI Agent
 
-*Wire DevLens into any MCP client (Claude Desktop, IDE plugins, etc.). Bundled inside the CLI — exposes 14 tools over the Model Context Protocol.*
+*Wire DevLens into any MCP client (Claude Code, Claude Desktop, IDE agents, …). The server is bundled inside the CLI and exposes **21 tools** covering discovery, search, traversal, security, and one-call workflow summaries.*
 
 ```bash
 devlens mcp                       # stdio mode
@@ -298,26 +232,19 @@ claude mcp add devlens -- devlens mcp   # register in Claude Code
 devlens mcp http -p 7000          # HTTP mode
 ```
 
-Each MCP tool is a query into the pre-built graph — your agent can:
-- `list_analyzed_repos` — see what repos are already analyzed
-- `get_repo_overview` — framework, stats, route count at a glance
-- `find_nodes` — search by name, type, file, severity, or score
-- `get_blast_radius` — check impact before refactoring
-- `get_security_issues` — rank all security findings
-- `list_cycles` — find circular dependencies
-- `analyze_changes` — diff two analyzed commits
+Your agent can: list analyzed repos, get a repo overview (language + framework + stats), find nodes by name/type/severity, read summaries, trace blast radius / k-hop / subgraphs, find cycles, analyze a new repo, compare commits (`analyze_changes`), and generate whole-packet **architecture/security/PR-review/onboarding/context** outputs from one call.
 
-> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool reference, examples, registration, and configuration.
+> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool catalog, registration, configuration.
 
 ---
 
 ## Configuration
 
-Config lives in `~/.devlens/config.json` — set via `devlens init` or `devlens config`.
+Config lives in `~/.devlens/config.json` and is set via `devlens init` or `devlens config`.
 
 | Provider | Recommended model | Notes |
 | :-- | :-- | :-- |
-| Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8GB+ RAM |
+| Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8 GB+ RAM |
 | OpenAI | `gpt-4o-mini` | Fast, cost-effective |
 | Anthropic | `claude-haiku-4-5` | Best cost/quality for summaries |
 | DeepSeek | `deepseek-v4-flash` | Strong code model |
@@ -326,50 +253,96 @@ Config lives in `~/.devlens/config.json` — set via `devlens init` or `devlens 
 
 ```bash
 # Interactive setup — picks from a catalog and fetches live model lists
-devlens config set
+devlens config --set
 
 # Non-interactive scripting
 devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key <key>
 
 # Switch between saved providers without re-entering credentials
 devlens config --active openai:deepseek
+
+# Health check
+devlens doctor
 ```
 
-Models are discovered dynamically from each provider's `/models` endpoint — no hardcoded model lists. Custom OpenAI- or Anthropic-compatible endpoints can be added through the interactive flow.
+Models are discovered dynamically from each provider's `/models` endpoint — no hardcoded model lists. Custom OpenAI- or Anthropic-compatible endpoints can be added through the interactive flow. Summaries are **never generated silently** — the skill and CLI ask permission first; structure-only analysis needs no provider at all.
 
 ---
 
-## What DevLens Understands
+## What DevLens understands
 
-**Node types:** `COMPONENT`, `HOOK`, `FUNCTION`, `STATE_STORE`, `UTILITY`, `FILE`, `ROUTE`, `TEST`, `STORY`, `THIRD_PARTY`
+**Node types (per language — a graph is per-repo/per-language):**
 
-**Route types:** Next.js (app & pages), Express / Fastify / Koa, React Router / TanStack Router / wouter
+| Language | Node types in the graph |
+| :-- | :-- |
+| TS / JS | `COMPONENT`, `HOOK`, `STATE_STORE`, `UTILITY`, `CLASS`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `STORY`, `THIRD_PARTY` |
+| Python | `CLASS`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
+| Java | `CLASS`, `METHOD`, `INTERFACE`, `ENUM`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
+| Go | `STRUCT`, `INTERFACE`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
+| Rust | `ENUM`, `STRUCT`, `TRAIT`, `IMPL_BLOCK`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
 
-**Edge types:** `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`
+**Edge types (the connections the graph draws):**
+`CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`, `IMPLEMENTS` (class → interface / trait / ABC), `EXTENDS` (class → base class).
 
-**Per node:** Importance score + functional summary + technical summary + security assessment
+`EXPORTS` and `THROWS` + node types `MODULE`/`PACKAGE` are **reserved** for future languages.
+
+**Router awareness — routes are real graph nodes:**
+Next.js (app & pages), React Router / TanStack Router / wouter, Express / Fastify / Hono / Koa, Django URLconf / DRF, Flask blueprints, `@RestController` (Spring), Gin / Echo / chi / HTTP handlers, axum / actix / rocket.
+
+**Every node carries:** importance score + functional summary + technical summary + security assessment (when summarized).
 
 ---
 
-## Repository Layout
+## Benchmarks
+
+*Tested across real-world tasks — architecture understanding, feature implementation, and bug finding — comparing the same model (DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, Qwen 3.6) with and without DevLens.*
+
+### Architecture understanding (full DevLens MCP)
+
+<div align="center">
+<img src="assets/01_arch_metrics.png" alt="Architecture benchmark — cost, tokens, steps comparison" width="90%" />
+</div>
+
+| Metric | Without DevLens | With DevLens | Improvement |
+|--------|:--------------:|:------------:|:-----------:|
+| Avg cost per query | $0.163 | **$0.075** | **54% cheaper** |
+| Avg input tokens | 88,980 | **35,035** | **61% less** |
+| Avg output tokens | 9,549 | **3,233** | **66% less** |
+| Avg tool steps | 14.3 | **7.8** | **45% faster** |
+| Structured output | 50% | **100%** | **2× more reliable** |
+| Architectural debt found | 0% | **50%** | **Now discoverable** |
+
+> Even the strongest tested model was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
+
+---
+
+## Who is this for
+
+- **Developers & teams** — onboard devs in hours not weeks, review PRs with impact context, catch circular deps and god-files, keep living documentation.
+- **Engineering leaders** — bird's-eye architecture view, spot debt before it becomes a crisis, understand work across repos.
+- **AI-augmented developers** — stop letting your agent burn tokens re-reading files; it queries the graph instead.
+
+---
+
+## Repository layout
 
 ```
 devlensOSS/
 ├── src/
 │   ├── cli/                  # `devlens` CLI (commander program + commands)
 │   ├── core/                 # Shared query core (CLI + MCP — never drift)
-│   ├── mcp/                  # MCP server (stdio + HTTP), 14 tools
-│   └── server/               # Backend API for the Web UI
-├── frontend/                 # Next.js 15 graph visualizer (Cytoscape)
-├── plugins/devlens/          # Agent Skill (Claude plugin source)
-├── packages/skill-installer/ # @devlensio/skill — npx installer
-├── bin/                      # npm launcher
-├── npm/<platform>/           # 5 prebuilt binary packages
+│   ├── mcp/                  # MCP server (stdio + HTTP) — 21 tools
+│   └── server/               # HTTP API for the Web UI
+├── frontend/                 # Next.js graph visualizer (Cytoscape)
+├── plugins/devlens/          # Agent Skill source (Claude plugin)
+├── packages/skill-installer/ # @devlensio/skill — the npx installer
+├── bin/                      # Platform launcher
+├── npm/<platform>/           # 5 prebuilt binary packages (darwin/linux/windows × arm64)
 ├── scripts/                  # Release tooling
 └── server.json               # MCP registry manifest
 ```
 
-The analysis engine lives in the separate [`devlensio`](https://www.npmjs.com/package/devlensio) package.
+The analysis engine (“native parsers + graph build”) ships as the separate [`devlensio`](https://www.npmjs.com/package/devlensio) package.
 
 ---
 
@@ -379,7 +352,13 @@ A hosted version is in development:
 
 - **Shareable graphs** your whole team can access
 - **Cross-repo navigation** — understand your entire org
-- **Give graphical context to AI agents** for smarter code review and analysis
-- **No local setup required**
+- **Graphical context for AI agents** — smarter code review and analysis
+- **No local setup**
 
 **[Join the waitlist →](https://devlens.io)**
+
+---
+
+## License
+
+AGPL-3.0. Part of the [`devlensio`](https://github.com/devlensio) family of tools.

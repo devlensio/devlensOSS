@@ -1,12 +1,12 @@
 # DevLens MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the DevLens code graph to AI agents as **21 MCP tools**. Works with JavaScript, TypeScript, React, Next.js, and Node.js codebases. Bundled inside `@devlensio/cli` — no separate installation required.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the DevLens code graph to AI agents as **21 MCP tools**. Works with TypeScript, JavaScript, Python, Go, Rust, and Java codebases (React/Next.js/Node, FastAPI/Flask/Django, Spring Boot, Gin/Echo, axum/actix/rocket). Bundled inside `@devlensio/cli` — no separate installation required.
 
 ---
 
 ## Why use the MCP server?
 
-AI coding agents are powerful but blind — they read files one at a time with no sense of how your codebase fits together. The MCP server gives any MCP-compatible agent direct access to a pre-built, typed dependency graph of your JavaScript, TypeScript, React, Next.js, or Node.js codebase.
+AI coding agents are powerful but blind — they read files one at a time with no sense of how your codebase fits together. The MCP server gives any MCP-compatible agent direct access to a pre-built, typed dependency graph of your TypeScript, JavaScript, Python, Go, Rust, or Java codebase.
 
 Instead of your agent grepping and re-reading files every session, it queries the graph: "what depends on this?", "show me every route", "are there circular dependencies?", "what security issues exist?" — all answered in a few tokens.
 
