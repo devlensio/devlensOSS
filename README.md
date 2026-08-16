@@ -130,10 +130,10 @@ That's it. Want it in your AI agent instead? Jump to the [Agent Skill](#agent-sk
 <img src="assets/screenshot-graph.jpg" alt="Interactive graph explorer" width="48%" />
 <img src="assets/screenshot-node.jpg" alt="Node inspector with summaries & security risk" width="48%" />
 <br/><br/>
-<img src="assets/screenshot-dashboard.jpg" alt="Repo dashboard" width="48%" />
+<img src="assets/screenshot-subgraph.jpg" alt="Focused node subgraph" width="48%" />
 <img src="assets/screenshot-security.jpg" alt="Security findings" width="48%" />
 <br/>
-<em>Interactive graph explorer · node inspector with AI summaries & security risk · repo dashboard · security findings</em>
+<em>Interactive graph explorer · node inspector with AI summaries & security risk · focused node subgraph · security findings</em>
 </div>
 
 ---
