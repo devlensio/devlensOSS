@@ -1,6 +1,6 @@
 {
   "name": "devlens",
-  "description": "Codebase intelligence for AI agents. The /devlens skill teaches your agent to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) via the bundled DevLens MCP server instead of grepping and reading whole files — with subcommands for architecture, diagrams, security analysis, impact, summaries, and more.",
+  "description": "Codebase intelligence for AI agents. The /devlens skill teaches your agent to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) via the bundled DevLens MCP server instead of grepping and reading whole files — for TypeScript, JavaScript, Python, Go, Rust, and Java repos, with subcommands for architecture, diagrams, security analysis, impact, summaries, and more.",
   "version": "0.5.0",
   "mcpServers": {
     "devlens": {
@@ -25,6 +25,16 @@
     "typescript",
     "react",
     "nextjs",
+    "python",
+    "fastapi",
+    "django",
+    "flask",
+    "java",
+    "spring-boot",
+    "go",
+    "gin",
+    "rust",
+    "axum",
     "devlens",
     "agent-skill"
   ]

@@ -1,8 +1,10 @@
 # DevLens plugin — the `/devlens` Agent Skill
 
-This is the Claude Code plugin that ships the **DevLens Agent Skill**: one `/devlens` command (with subcommands) that teaches an AI agent how to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) for JavaScript, TypeScript, React, Next.js, and Node.js codebases — instead of grepping and reading whole files.
+This is the Claude Code plugin that ships the **DevLens Agent Skill**: one `/devlens` command (with subcommands) that teaches an AI agent how to query a precomputed code graph (nodes, typed edges, technical/business/security summaries) for **TypeScript, JavaScript, Python, Go, Rust, and Java** codebases — instead of grepping and reading whole files.
 
 The skill drives the **bundled DevLens MCP server** (registered automatically by this plugin) and orchestrates its tools — discovering real modules from graph clusters, tracing typed edges, and reading precomputed summaries.
+
+**Language coverage:** each repo is analyzed with a native parser for its language — React/Next.js/Express for TS/JS, FastAPI/Flask/Django for Python, Spring Boot for Java, Gin/Echo/chi/net-http for Go, axum/actix/rocket for Rust — with per-language node types (CLASS/METHOD/STRUCT/TRAIT/ENUM…) and typed edges (CALLS/IMPORTS/HANDLES/IMPLEMENTS/EXTENDS/READS_FROM…). See `skills/devlens/reference.md` → "Node & edge types by language" for the exact map.
 
 ---
 

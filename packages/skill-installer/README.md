@@ -3,13 +3,13 @@
 [![npm](https://img.shields.io/npm/v/@devlensio/skill?color=cb3837&logo=npm)](https://www.npmjs.com/package/@devlensio/skill)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-Teach your AI coding agent to understand your full JavaScript, TypeScript, React, Next.js, or Node.js codebase in one command.
+Teach your AI coding agent to understand your codebase — **TypeScript, JavaScript, Python, Go, Rust, or Java** (React/Next.js/Node, FastAPI/Flask/Django, Spring Boot, Gin/Echo/chi, axum/actix/rocket) — in one command.
 
 ---
 
 ## What it does for you
 
-**Without DevLens**, your AI agent reads files one at a time — it has no idea how components connect, what depends on what, or where security issues lurk. It burns tokens re-discovering the same connections every session.
+**Without DevLens**, your AI agent reads files one at a time — it has no idea how components/classes/structs connect, what depends on what, or where security issues lurk. It burns tokens re-discovering the same connections every session.
 
 **With the DevLens Skill**, your agent has a pre-built graph of every node in your codebase — with functional summaries, technical summaries, and security analysis. Type `/devlens` and get instant answers.
 
@@ -175,7 +175,7 @@ After installing, reload your AI tool and type `/devlens`:
 
 | Command | What it does | Example |
 |---------|-------------|---------|
-| `/devlens find <name>` | Locate any component, hook, or function | `/devlens find Button` → "Found 3 matches: `src/ui/Button.tsx` (COMPONENT, score 6.2), `src/ui/IconButton.tsx` (COMPONENT, score 4.1), `tests/Button.test.tsx` (TEST)" |
+| `/devlens find <name>` | Locate any component, class, function, struct, or route | `/devlens find Button` → "Found 3 matches: `src/ui/Button.tsx` (COMPONENT, score 6.2), `src/ui/IconButton.tsx` (COMPONENT, score 4.1), `tests/Button.test.tsx` (TEST)" |
 | `/devlens summary <target>` | On-demand technical + business + security summaries | `/devlens summary security Navbar` → "Security: Navbar reads user role from auth store — no privilege escalation risk, but exposes admin links" |
 
 ---

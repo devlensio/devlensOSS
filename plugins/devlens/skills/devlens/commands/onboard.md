@@ -8,7 +8,7 @@ This is graph-driven for *code understanding* (modules, flows, reading path) and
 
 1. Call `onboarding_tour`. This ONE call replaces steps 1–5 (overview+subgraph+find_nodes+khop+get_summaries). The result gives you the graph-derived skeleton: modules, entry points, state, key flows, a reading path, a domain glossary, and gotchas.
 
-2. Read `package.json`, `.env.example` (or `.env.sample`), and the repo `README` from disk for setup facts — the `needsDisk` field in the result tells you exactly what to read. Note the test/lint/build/dev commands.
+2. Read the repo's **manifest** — `package.json` (JS/TS), `pyproject.toml`/`requirements.txt` (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml`/`build.gradle` (Java) — plus `.env.example` (or `.env.sample`) and the repo `README` from disk for setup facts. The `needsDisk` field in the result tells you exactly what to read. Note the dependency manager (e.g. npm/pnpm/bun, pip/uv/poetry/conda, go mod, cargo, maven/gradle), the test/lint/build/dev commands, and the runtime (Node version, Python version, JVM, Go, Rust toolchain).
 
 3. Verify `result.schemaVersion === 1`. If not, stop and warn the user.
 
@@ -16,7 +16,7 @@ This is graph-driven for *code understanding* (modules, flows, reading path) and
 Save to the repo root as `ONBOARDING.md`. Keep it concrete — name real files and nodes, link `/devlens` follow-ups.
 
 1. **What this is** — 2–4 sentences on the product/domain (from business summaries) + the stack (framework, router, state, data, db).
-2. **Get it running** — prerequisites (Node/package manager from `package.json`), install command, the required env vars (names from `.env.example`, with a one-line purpose each — no values), and the dev / test / lint / build commands (from `scripts`).
+2. **Get it running** — prerequisites (language runtime + package manager from the manifest — e.g. Node/pnpm for JS/TS, Python/pip-uv-poetry for Python, Go toolchain, Rust toolchain + cargo, JDK 17+/maven-gradle for Java), install command, the required env vars (names from `.env.example`, with a one-line purpose each — no values), and the dev / test / lint / build commands (from the manifest's scripts — `scripts` for JS/TS, `[project.scripts]`/Makefile for Python, etc.).
 3. **Architecture at a glance** — the module model from step 2: each module → one line on what it owns + rough size. Point to `/devlens architecture` and `/devlens diagram architecture` for the full brief and visuals.
 4. **Key flows (end to end)** — the 2–4 journeys from step 4, each a numbered prose walkthrough: `name` (`filePath`) → what it does, in call order from entry to data and back; name the store/db/external each touches.
 5. **Read these first** — a ranked learning path of 8–12 nodes (top central + central routes/stores), each with `filePath` and a one-line "why it matters," ordered so the main flow makes sense.

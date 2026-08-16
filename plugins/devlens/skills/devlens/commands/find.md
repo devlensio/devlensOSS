@@ -4,7 +4,7 @@ Fast feature/code location. **Argument:** `<name-or-path>` plus optional filters
 
 ## Tools used
 - By name (substring): `find_nodes` with `name`.
-  - `nodeTypes` — COMPONENT, HOOK, FUNCTION, STATE_STORE, UTILITY, ROUTE, FILE, TEST, STORY, THIRD_PARTY (GHOST is an internal placeholder).
+  - `nodeTypes` — the full union: COMPONENT, HOOK, FUNCTION, STATE_STORE, UTILITY, CLASS, METHOD, INTERFACE, ENUM, STRUCT, TRAIT, IMPL_BLOCK, ROUTE, FILE, TEST, STORY, THIRD_PARTY (GHOST is an internal placeholder; MODULE/PACKAGE are reserved). **Which types actually exist depends on the repo's language** — see `reference.md` → "Node & edge types by language" (e.g. a Go repo has STRUCT/INTERFACE but no CLASS; a Java repo has CLASS/INTERFACE/ENUM but no FUNCTION; a Rust repo has TRAIT/IMPL_BLOCK but no CLASS/INTERFACE).
   - `filePath` — nodes in exactly that file; `dir` — nodes under a folder.
   - `severity` (low|medium|high) — only flagged nodes; `limit` — result cap (default 25).
 - In a file/folder: `get_nodes_in_path <path>` (optional `nodeTypes` filter).

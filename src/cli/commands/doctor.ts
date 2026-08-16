@@ -1,7 +1,8 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import type { Command } from "commander";
 import { resolveConfig, resolveAllProviders, loadCatalog, findProvider, listModels } from "devlensio";
 import { withGlobalFlags } from "../options.js";
@@ -107,6 +108,79 @@ export function registerDoctorCommand(program: Command): void {
           checks.ollama = { ok: r.ok, detail: r.ok ? "reachable" : "responded but not OK" };
         } catch {
           checks.ollama = { ok: false, detail: "not running (fine if using a cloud provider)" };
+        }
+
+        // ── Extractor runtimes (multi-language support) ─────────────────────
+        // The engine ships 4 subprocess extractors inside devlensio: a Python
+        // venv (created by postinstall), a Java fat jar, and Go/Rust static
+        // binaries (no runtime needed). bun blocks dependency postinstall by
+        // default, so the python venv is the one that silently goes missing.
+        // In a compiled binary `require.resolve` can't see node_modules, so we
+        // walk up from the cwd to find the devlensio package as well.
+        let engineRoot: string | null = null;
+        try {
+          engineRoot = path.dirname(createRequire(import.meta.url).resolve("devlensio/package.json"));
+        } catch {
+          let dir = path.resolve(process.cwd());
+          while (dir !== path.dirname(dir)) {
+            const nm = path.join(dir, "node_modules", "devlensio");
+            if (fs.existsSync(nm)) { engineRoot = nm; break; }
+            dir = path.dirname(dir);
+          }
+        }
+        const platformDir = `${process.platform}-${process.arch === "x64" ? "amd64" : process.arch}`;
+        const pyVenvPython = engineRoot ? path.join(
+          engineRoot, "extractors", "python", ".venv",
+          process.platform === "win32" ? "Scripts/python.exe" : "bin/python"
+        ) : null;
+        const javaJar = engineRoot ? path.join(engineRoot, "extractors", "java", "devlens_java_extractor.jar") : null;
+        const goBin = engineRoot ? path.join(engineRoot, "extractors", "go", "bin", platformDir, "devlens_go_extractor") : null;
+        const rustBin = engineRoot ? path.join(engineRoot, "extractors", "rust", "bin", platformDir, "devlens_rust_extractor") : null;
+
+        const VENV_HINT =
+          "run `bun pm trust devlensio && bun install` (or `npm install` which runs postinstall), " +
+          (engineRoot ? `or manually: node ${path.join(engineRoot, "extractors", "python", "setup.mjs")}` : "");
+
+        if (!engineRoot) {
+          checks["extractor.python"] = { ok: false, detail: "devlensio package not found (install it, or run from a project that has it)" };
+          checks["extractor.java"] = { ok: false, detail: "devlensio package not found" };
+          checks["extractor.go"] = { ok: false, detail: "devlensio package not found" };
+          checks["extractor.rust"] = { ok: false, detail: "devlensio package not found" };
+        } else {
+          if (pyVenvPython && fs.existsSync(pyVenvPython)) {
+            try {
+              execFileSync(pyVenvPython, ["-c", "import devlens_extractors_python"], { stdio: "pipe", timeout: 20000 });
+              checks["extractor.python"] = { ok: true, detail: "venv + module import OK (Python)" };
+            } catch {
+              checks["extractor.python"] = { ok: false, detail: `venv present but import failed — ${VENV_HINT}` };
+            }
+          } else {
+            checks["extractor.python"] = {
+              ok: false,
+              detail: `no Python venv (${pyVenvPython}) — postinstall was likely blocked by bun/npm. ${VENV_HINT}`,
+            };
+          }
+
+          checks["extractor.java"] = javaJar && fs.existsSync(javaJar)
+            ? (() => {
+                try {
+                  execFileSync("java", ["-version"], { stdio: "pipe", timeout: 10000 });
+                  return { ok: true, detail: "fat jar + JVM 17+ runtime OK (Java)" };
+                } catch {
+                  return { ok: false, detail: `jar present (${javaJar}) but no JVM on PATH — install Java 17+` };
+                }
+              })()
+            : { ok: false, detail: `missing java extractor jar (${javaJar}) — reinstall devlensio` };
+
+          checks["extractor.go"] = {
+            ok: !!goBin && fs.existsSync(goBin),
+            detail: goBin && fs.existsSync(goBin) ? `static binary OK (${goBin}) — no Go toolchain needed` : `missing go extractor binary (${goBin}) — reinstall devlensio`,
+          };
+
+          checks["extractor.rust"] = {
+            ok: !!rustBin && fs.existsSync(rustBin),
+            detail: rustBin && fs.existsSync(rustBin) ? `static binary OK (${rustBin}) — no Rust toolchain needed` : `missing rust extractor binary (${rustBin}) — reinstall devlensio`,
+          };
         }
 
         const ok = Object.values(checks).every((c) => c.ok);

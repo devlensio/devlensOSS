@@ -15,6 +15,7 @@ export function registerStatusCommand(program: Command): void {
           return {
             graphId: g.graphId,
             repoPath: g.repoPath,
+            language: g.language ?? null,
             framework: g.framework,
             commits: g.commitCount,
             latestCommit: g.latestCommit,

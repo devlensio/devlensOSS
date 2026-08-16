@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { Command } from "commander";
+import { storage } from "devlensio";
 import { withGlobalFlags } from "../options.js";
 import { emit, die, info, step } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
@@ -9,7 +10,7 @@ export function registerAnalyzeCommand(program: Command): void {
   withGlobalFlags(
     program
       .command("analyze")
-      .description("Analyze a repository into a DevLens graph. Add --summarize to also generate summaries.")
+      .description("Analyze a repository into a DevLens graph (TS/JS, Python, Go, Rust, Java). Add --summarize to also generate summaries.")
       .argument("[path]", "repository path", ".")
       .argument("[commitHash]", "commit to analyze (informational — engine analyzes the working tree)")
       .option("--summarize", "also generate technical/business/security summaries", false)
@@ -34,7 +35,17 @@ export function registerAnalyzeCommand(program: Command): void {
         );
 
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
-        emit({ graphId: res.graphId, status: res.status });
+
+        // Language/framework come from the persisted graph entry — cheap, exact,
+        // and lets agents know WHAT they're analyzing without another query.
+        const meta = res.graphId ? storage.listGraphs().find((g) => g.graphId === res.graphId) : undefined;
+        emit({
+          graphId: res.graphId,
+          status: res.status,
+          repoPath,
+          language: meta?.language ?? null,
+          framework: meta?.framework ?? "unknown",
+        });
       })
   );
 }

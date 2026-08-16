@@ -47,9 +47,12 @@ if (fs.existsSync(serverFile)) {
 // binary bundles this string at build time, so it must be patched BEFORE build.
 const cliFile = path.join(root, "src", "cli", "index.ts");
 if (fs.existsSync(cliFile)) {
-  const src = fs.readFileSync(cliFile, "utf8");
-  const patched = src.replace(/\.version\("[^"]*"\)/, `.version("${version}")`);
-  if (patched !== src) fs.writeFileSync(cliFile, patched);
+  let src = fs.readFileSync(cliFile, "utf8");
+  // Literal form: .version("x.y.z")  (older style)
+  const literal = src.replace(/\.version\("[^"]*"\)/, `.version("${version}")`);
+  // Constant form: const CLI_VERSION = "x.y.z" (current style)
+  const withConst = literal.replace(/(const CLI_VERSION = )"[^"]*"/, `$1"${version}"`);
+  if (withConst !== src) fs.writeFileSync(cliFile, withConst);
 }
 
 console.log(`Set version ${version} across main + ${PLATFORMS.length} platform packages + server.json + CLI.`);

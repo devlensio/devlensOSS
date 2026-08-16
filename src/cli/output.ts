@@ -208,7 +208,9 @@ function formatStatusResult(obj: { total: number; graphs: Array<Record<string, u
   lines.push("");
   for (const g of obj.graphs) {
     const hasSummary = (g.summarizedCommits as number) > 0 ? colors.green("✓") : colors.dim("○");
-    lines.push(`  ${hasSummary} ${colors.cyan(String(g.repoPath))}`);
+    const lang = g.language ? ` · ${colors.cyan(String(g.language))}` : "";
+    const fw = g.framework && g.framework !== "unknown" ? ` / ${colors.dim(String(g.framework))}` : "";
+    lines.push(`  ${hasSummary} ${colors.cyan(String(g.repoPath))}${lang}${fw}`);
     lines.push(`      ${colors.dim(`graph: ${g.graphId}`)}`);
     lines.push(`      ${colors.dim(`${g.commits} commits, ${g.summarizedCommits} summarized`)}`);
   }

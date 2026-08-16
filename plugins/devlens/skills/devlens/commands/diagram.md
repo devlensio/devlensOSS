@@ -13,17 +13,17 @@ Don't cram everything into one canvas. Produce a C4-style set, each readable on 
 - **(L3) Request-flow sequences** — for the top 2–4 routes/user journeys, a Mermaid `sequenceDiagram` tracing route → handler → service → store/db, built from each route's `get_khop` call graph. This is usually the most illuminating diagram and the one a raw LLM gets wrong.
 
 ### Build the model (work the graph, in order)
-1. `get_repo_overview` → stack + the exact counts (`routeCount`, totals) + top central nodes. These anchor coverage.
+1. `get_repo_overview` → language/framework + the exact counts (`routeCount`, totals) + top central nodes. These anchor coverage.
 2. **Modules from clusters:** `get_subgraph` on each top central node → merge into a deduped set of **modules**. Each module becomes one Mermaid `subgraph` block. (This is what makes the diagram reflect the real architecture, not folder names.)
-3. **Backbone in full:** `find_nodes` for **every** `ROUTE` (limit ≥ `routeCount`), **every** `STATE_STORE`, **every** `HOOK` → map each onto its module. These bounded sets are never sampled or dropped.
-4. **Route call graph:** for **each route**, `get_khop` → the functions/handlers it calls. Drives both the L2 route→handler edges and the L3 sequence diagrams.
+3. **Backbone in full:** `find_nodes` for **every** `ROUTE` (limit ≥ `routeCount`) plus the language's bounded sets — JS/TS: **every** `STATE_STORE` and **every** `HOOK`; Python/Java: top `CLASS`/`METHOD`/`FUNCTION`; Go: `STRUCT`/`INTERFACE`; Rust: `STRUCT`/`ENUM`/`TRAIT`/`IMPL_BLOCK` — map each onto its module. These bounded sets are never sampled or dropped.
+4. **Route call graph:** for **each route**, `get_khop` → the handlers/services/functions it calls. Drives both the L2 route→handler edges and the L3 sequence diagrams.
 5. **Module edges:** `get_khop`/`get_blast_radius` on each module's central node → cross-module connections with `viaEdge` types; also surface THIRD_PARTY/db dependencies for L1.
-6. **Labels & patterns:** `get_summaries -i business` for module centers + key routes/stores → label nodes by what they do; reflect the architectural/system-design patterns the `/devlens architecture` brief detects (layers, provider/context, guard chains, repository, etc.) as the subgraph grouping and edge semantics.
+6. **Labels & patterns:** `get_summaries -i business` for module centers + key routes + backbone nodes → label nodes by what they do; reflect the architectural/system-design patterns the `/devlens architecture` brief detects (layers, provider/context, guard chains, repository, etc.) as the subgraph grouping and edge semantics.
 7. **Overlays:** `list_cycles` (mark tangled members) and `get_security_issues` (badge risky nodes).
 
 ### Draw L2 (`flowchart LR`)
 - **One `subgraph` block per module** (from step 2), titled with the module name + a one-line purpose from its summary + node count.
-- **Include the whole backbone:** **every** route (split PAGE vs API where known), **every** store, and **every** custom hook, each inside its module subgraph — plus the **functions each route calls** (from step 4) on the important paths. Cite exact counts in the companion key (e.g. "Routes: 43/43, Stores: 7/7, Hooks: 5/5"). Only the *incidental* tail (low-score components, utilities, files) may collapse into a `+N more` node per module — never a route, store, hook, or a function on a route's path. Offer `/devlens diagram cluster <module>` to zoom in.
+- **Include the whole backbone:** **every** route, and the language's key bounded nodes — JS/TS: every store + hook; Python/Java/Go/Rust: the classes/methods/structs/traits on important paths — each inside its module subgraph, plus the **handlers/services each route calls** (from step 4). Cite exact counts in the companion key (e.g. "Routes: 43/43, Stores: 7/7" or "Routes: 21/21, Structs: 18/18"). Only the *incidental* tail (low-score functions, utilities, files) may collapse into a `+N more` node per module — never a route or a backbone node. Offer `/devlens diagram cluster <module>` to zoom in.
 - **Draw edges from the real `viaEdge` data** (steps 4–5): how routes reach handlers/components, how components read stores (READS_FROM), how modules depend on each other. Label each edge with its type. To control clutter, **aggregate** many parallel node-to-node edges between two modules into one module-to-module edge annotated with a count/the dominant type, while keeping individual edges for the key request paths.
 - Apply the node-type/edge styling, the severity overlay, and the legend below.
 
@@ -41,15 +41,17 @@ Participants = the route, its handler(s), services/utilities, and the store/db i
 - **deps** — top central nodes from `get_repo_overview`, then `get_node` on each to read `callees`/`viaEdge` (or `get_khop` r=1) → render the dependency graph among the hubs; overlay `list_cycles`.
 
 ## Visual encoding (pin this — keep output consistent)
-Map each **node type** to a fixed shape + `classDef`:
+Map each **node type** to a fixed shape + `classDef`. For non-JS repos the type set is CLASS/METHOD/STRUCT/INTERFACE/ENUM/TRAIT/IMPL_BLOCK/FUNCTION/ROUTE/… — use the same encoding, so a Python class and a Java class draw identically:
 | Node type | Mermaid shape | classDef style |
 | :-- | :-- | :-- |
-| COMPONENT | `id["name"]` (rect) | `fill:#dbeafe,stroke:#3b82f6` |
-| HOOK | `id(["name"])` (stadium) | `fill:#ede9fe,stroke:#8b5cf6` |
-| FUNCTION | `id("name")` (rounded) | `fill:#f3f4f6,stroke:#6b7280` |
+| COMPONENT / CLASS / STRUCT | `id["name"]` (rect) | `fill:#dbeafe,stroke:#3b82f6` |
+| HOOK / TRAIT / INTERFACE | `id(["name"])` (stadium) | `fill:#ede9fe,stroke:#8b5cf6` |
+| FUNCTION / METHOD | `id("name")` (rounded) | `fill:#f3f4f6,stroke:#6b7280` |
 | ROUTE | `id{{"name"}}` (hexagon) | `fill:#dcfce7,stroke:#22c55e` |
 | STATE_STORE | `id[("name")]` (cylinder) | `fill:#ffedd5,stroke:#f97316` |
 | UTILITY | `id["name"]` (rect) | `fill:#fef9c3,stroke:#ca8a04` |
+| ENUM | `id:::name` (rhombus) | `fill:#fce7f3,stroke:#db2777` |
+| IMPL_BLOCK | `id["impl"]` (rect, dashed) | `fill:#f1f5f9,stroke:#64748b,dashed` |
 | FILE | `id[/"name"/]` (parallelogram) | `fill:#f1f5f9,stroke:#94a3b8` |
 | other (TEST/STORY/THIRD_PARTY/GHOST) | `id["name"]` (rect) | `fill:#ffffff,stroke:#9ca3af` |
 
@@ -59,6 +61,7 @@ Map each **edge type** (`viaEdge`); always label the edge with the exact type, l
 | control / call | CALLS, USES, HANDLES, GUARDS, WRAPPED_BY | `-->|CALLS|` (solid) |
 | import / structure | IMPORTS | `-.->|IMPORTS|` (dotted) |
 | data | READS_FROM, WRITES_TO | `==>|READS_FROM|` (thick) |
+| inheritance | EXTENDS, IMPLEMENTS | `==>|IMPLEMENTS|` (thick, open head) |
 | events / props | EMITS, LISTENS, PROP_PASS | `--o|EMITS|` (circle-end) |
 | tests | TESTS | `-.->|TESTS|` (dotted) |
 

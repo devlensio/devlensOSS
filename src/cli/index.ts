@@ -12,15 +12,20 @@ import { registerMcpCommand } from "./commands/mcp.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerInitCommand } from "./commands/init.js";
+import { registerDetectCommand } from "./commands/detect.js";
 import { banner } from "./output.js";
 
 const program = new Command();
 
-const CLI_VERSION = "0.2.8";
+// Keep in sync with the `version` field in package.json.
+const CLI_VERSION = "0.3.0";
 
 program
   .name("devlens")
-  .description("DevLens — codebase intelligence for TS/JS/React/Next.js/Node repositories")
+  .description(
+    "DevLens — codebase intelligence for TypeScript, JavaScript, Python, Go, Rust, and Java repos " +
+      "(query a precomputed graph of nodes + typed edges instead of reading whole files)"
+  )
   .version(CLI_VERSION);
 
 // Show banner on startup (unless piped or quiet)
@@ -34,6 +39,7 @@ registerConfigCommand(program);
 registerServeCommand(program);
 // Discovery
 registerReposCommand(program);
+registerDetectCommand(program);
 // Query (mirror the MCP tools)
 registerQueryCommands(program);
 registerGraphsCommand(program);

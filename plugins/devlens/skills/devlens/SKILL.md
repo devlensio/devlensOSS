@@ -1,13 +1,25 @@
 ---
 name: devlens
-description: Understand a Typescript/Javascript/React/Next.js/Node codebase with the DevLens MCP — query a precomputed graph of nodes (components, hooks, functions, routes) and typed edges, each carrying technical/business/security summaries, instead of grepping and reading whole files. Use PROACTIVELY — reach for this BEFORE grepping/Glob/reading files whenever you need to locate, understand, or assess the impact of TS/JS/React/Next.js/Node code, not only when DevLens is named. Triggers: exploring an unfamiliar repo, orienting before an edit, "where does X live", "what calls/uses X", "what breaks if I change Y", "how does X work", "explain this codebase", "draw the architecture", "is this secure", "find circular dependencies", or any impact/security/architecture/onboarding review.
+description: Understand a codebase with the DevLens MCP — TypeScript, JavaScript, Python, Go, Rust, or Java (incl. React/Next.js/Node, FastAPI/Flask/Django, Spring Boot, Gin/Echo/chi/net-http, axum/actix/rocket). Query a precomputed graph of nodes (components, hooks, functions, classes, methods, structs, traits, routes) and typed edges, each carrying technical/business/security summaries, instead of grepping and reading whole files. Use PROACTIVELY — reach for this BEFORE grepping/Glob/reading files whenever you need to locate, understand, or assess the impact of code in a supported language, not only when DevLens is named. Triggers: exploring an unfamiliar repo, orienting before an edit, "where does X live", "what calls/uses X", "what breaks if I change Y", "how does X work", "explain this codebase", "draw the architecture", "is this secure", "find circular dependencies", or any impact/security/architecture/onboarding review.
 argument-hint: "[init|architecture|diagram|summary|security-analysis|explain|onboard|tech-debt|impact|find|changes|guard]"
 allowed-tools: mcp__plugin_devlens_devlens__list_analyzed_repos, mcp__plugin_devlens_devlens__get_repo_overview, mcp__plugin_devlens_devlens__find_nodes, mcp__plugin_devlens_devlens__get_nodes_in_path, mcp__plugin_devlens_devlens__get_node, mcp__plugin_devlens_devlens__get_summaries, mcp__plugin_devlens_devlens__get_node_code, mcp__plugin_devlens_devlens__get_security_issues, mcp__plugin_devlens_devlens__get_blast_radius, mcp__plugin_devlens_devlens__get_khop, mcp__plugin_devlens_devlens__get_subgraph, mcp__plugin_devlens_devlens__list_cycles, mcp__plugin_devlens_devlens__analyze, mcp__plugin_devlens_devlens__analyze_changes, mcp__plugin_devlens_devlens__check_freshness, mcp__plugin_devlens_devlens__get_coverage, mcp__plugin_devlens_devlens__architecture_brief, mcp__plugin_devlens_devlens__security_brief, mcp__plugin_devlens_devlens__review_pr, mcp__plugin_devlens_devlens__onboarding_tour, mcp__plugin_devlens_devlens__get_context, Read, Write, Bash(git *)
 ---
 
 # DevLens — codebase intelligence via the DevLens MCP
 
-DevLens precomputes a structural graph of a repo: nodes (components, hooks, functions, routes, stores) joined by typed edges (CALLS, IMPORTS, READS_FROM, …), each carrying a **technical** summary, a **business/functional** summary, and a **security** assessment. You query it through the **DevLens MCP tools** — not by reading files.
+DevLens precomputes a structural graph of a repo: nodes (components, hooks, functions, routes, classes, methods, structs, traits, stores) joined by typed edges (CALLS, IMPORTS, READS_FROM, IMPLEMENTS, …), each carrying a **technical** summary, a **business/functional** summary, and a **security** assessment. You query it through the **DevLens MCP tools** — not by reading files.
+
+**Supported languages (analyzed with native parsers, not regex/tree-sitter):**
+
+| Language | Frameworks the graph understands | Typical node types |
+| :-- | :-- | :-- |
+| TypeScript / JavaScript | React, Next.js (app/pages/router), Express/Hono/Fastify, any Node | COMPONENT, HOOK, STATE_STORE, CLASS, METHOD, FUNCTION, ROUTE, … |
+| Python | FastAPI, Flask, Django (+DRF), SQLAlchemy/Django ORM, Celery, Pydantic | CLASS, METHOD, FUNCTION, ROUTE, … |
+| Java | Spring Boot (controllers, JPA, repositories) | CLASS, METHOD, INTERFACE, ENUM, ROUTE, … |
+| Go | net/http, Gin, Echo, chi, Fiber, GORM, database/sql | STRUCT, INTERFACE, METHOD, FUNCTION, ROUTE, … |
+| Rust | axum, actix-web, rocket, utoipa, Diesel | STRUCT, ENUM, TRAIT, IMPL_BLOCK, METHOD, FUNCTION, ROUTE, … |
+
+(Full per-language node/edge table in `reference.md` → "Node & edge types by language". A graph is **per-repo/per-language**: the node types you can query with `find_nodes nodeTypes` depend on the repo's language.)
 
 **Tool names.** The DevLens MCP server is bundled with this plugin and registers automatically. Its tools appear to you as `mcp__plugin_devlens_devlens__<name>`. Throughout these recipes a tool is named by its short `<name>` (e.g. `get_subgraph`, `find_nodes`, `get_blast_radius`); call the matching `mcp__plugin_devlens_devlens__…` tool. Every tool is keyed by a `graphId` (and optionally a `commitHash`); read each tool's own description for its parameters.
 
@@ -30,22 +42,23 @@ If `result.schemaVersion !== 1` on any composed tool result, stop and warn the u
 ---
 
 ## When to reach for DevLens vs. plain file tools (routing policy)
-On a TS/JS/React/Next.js/Node repo, **DevLens is the default way to understand code** — querying the graph is cheaper and more accurate than grepping. Reach for DevLens (don't `Grep`/`Glob`/`Read` first) whenever you need to:
-- **Locate** — "where is X", which file/component/route/hook/store handles something → `find_nodes` / `get_nodes_in_path`.
-- **Understand** — what a function/component/module does before relying on or editing it → `get_node` / `get_summaries` (summary first, source last).
+On a repo in a **supported language** (TS/JS, Python, Go, Rust, Java), **DevLens is the default way to understand code** — querying the graph is cheaper and more accurate than grepping. Reach for DevLens (don't `Grep`/`Glob`/`Read` first) whenever you need to:
+- **Locate** — "where is X", which file/component/class/handler/route does something → `find_nodes` / `get_nodes_in_path`.
+- **Understand** — what a function/class/module does before relying on or editing it → `get_node` / `get_summaries` (summary first, source last).
 - **Assess impact** — "what breaks if I change Y", who calls/uses X, what X depends on → `get_blast_radius` / `get_khop`.
 - **Orient before an edit** — getting your bearings in an unfamiliar area → `get_repo_overview` / `get_subgraph`.
 - **Review** — architecture, security, tech-debt, cycles, onboarding → the matching subcommand.
 
-This is the fix for "grepping for every little task": don't fan out `Grep`/`Read` to reconstruct what a node does or who depends on it — **one graph query (a ~50-token summary) replaces several greps and full-file reads.**
+This is the fix for "grepping for every little task": don't fan out `grep`/`Read` to reconstruct what a node does or who depends on it — **one graph query (a ~50-token summary) replaces several greps and full-file reads.**
 
-Use plain `Read`/`Grep`/`Glob` instead when:
+Use plain `Read`/`grep`/`Glob` instead when:
 - You already know the exact file and the task is small and localized (a typo, a one-liner, a rename in a known spot).
 - You need the **literal current bytes to edit** — once DevLens tells you *where* and *what*, pull the file to make the change (DevLens decides where/what; file tools make the edit).
-- The repo isn't TS/JS/React/Node, or no graph exists and the user doesn't want to analyze.
+- The repo is **not** in a supported language (plain C/C++/Ruby/Swift/… codebases aren't parsed yet), or no graph exists and the user doesn't want to analyze.
 - You're searching things the graph doesn't model (config, docs, generated output, non-code assets).
+- You need to confirm an empty blast radius (zero callers "in the graph" is not proof of safety) — a targeted `grep` here is the right tool.
 
-Rule of thumb: **DevLens to decide *where* and *what*; file tools to make the actual change.** If you catch yourself about to grep to understand a TS/JS/Node symbol, query the graph instead.
+Rule of thumb: **DevLens to decide *where* and *what*; file tools to make the actual change.** If you catch yourself about to grep a supported-language repo to understand a symbol, query the graph instead.
 
 ## Step 1 — Ensure the DevLens MCP is connected
 Call `list_analyzed_repos`. If it returns (even an empty list), the MCP is live — proceed. If the tool is **not available** (no `mcp__plugin_devlens_devlens__*` tools), the DevLens MCP isn't connected: tell the user and stop. To enable it, they can reinstall/enable this plugin, or register the server directly:
@@ -76,7 +89,7 @@ You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the sub
 - **Draw real connections** with `get_blast_radius` (upstream) and `get_khop` (downstream) — never invent edges.
 - **Describe by meaning** using `get_summaries` (business + technical) — label things by what they *do*, not by their names.
 - **Overlay health** with `list_cycles` and `get_security_issues`.
-- **Be comprehensive through hierarchy, not omission.** On a large repo, give a clean module-level answer that accounts for every route/store/module and represents long tails explicitly (e.g. "+N more"), with drill-down offered — rather than enumerating raw node lists you never synthesized. Cite the exact counts from `get_repo_overview`. A thorough, well-structured answer is the goal; a brute-force node dump is not.
+- **Be comprehensive through hierarchy, not omission.** On a large repo, give a clean module-level answer that accounts for every route and every bounded node set — for JS/TS that's routes/stores/hooks; for Python/Java/Go/Rust it's routes + classes/methods/structs/traits/functions — and represents long tails explicitly (e.g. "+N more"), with drill-down offered — rather than enumerating raw node lists you never synthesized. Cite the exact counts from `get_repo_overview`. A thorough, well-structured answer is the goal; a brute-force node dump is not.
 - **Scope to the question.** A scoped ask ("how does *streaming* work", a path) is not a whole-repo tour — seed from the named subsystem's cluster (`get_subgraph`) and stay there. Reserve the full sweep for genuinely whole-repo requests; over-traversing a scoped question drains the budget the write-up needs.
 - **Output discipline — the data is wasted if the write-up is garbled.** (1) **Lead with the exclusives** a raw LLM can't produce: in-scope **security severity flags are a mandatory call-out**, describe relationships by their **edge type**, and rank by **centrality**. (2) **No hand-drawn ASCII diagrams** — they break and truncate; use Markdown tables or Mermaid blocks, or defer to `/devlens diagram`. (3) **Protect the synthesis budget**: collect efficiently (batch `get_summaries`, don't over-traverse), then write deliberately — a few sections written cleanly beats every section truncated.
 

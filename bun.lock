@@ -6,7 +6,7 @@
       "name": "@devlensio/cli",
       "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "devlensio": "^1.0.0",
+        "devlensio": "^1.0.1",
       },
       "devDependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
@@ -60,6 +60,7 @@
   },
   "trustedDependencies": [
     "sharp",
+    "devlensio",
     "unrs-resolver",
   ],
   "packages": {
@@ -617,7 +618,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "devlensio": ["devlensio@1.0.0", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-LBo2Uvrdrgc9z8pF47bX3lu1uhhZ0lts6HQ4DPWYiCHypgJkzW4ou2Xh1MHJ0xz0fzjsWOcUnpJtr7mzs5mZIg=="],
+    "devlensio": ["devlensio@1.0.1", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-vfoCAh0hwsX1hHbmm6+96+3y+sl3rybbDCHIAPxgooF9Nk2/C5PlnrNa1+kJObkDbeM3yrway0W+FgO4Att1Uw=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
 

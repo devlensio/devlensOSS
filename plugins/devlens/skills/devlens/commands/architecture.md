@@ -4,7 +4,7 @@ Produce a thorough architecture document grounded in the graph — the kind of b
 
 This is not a node-dump. You build a **module model from the graph's own clustering**, label it from summaries, wire it with real traversal edges, and overlay health. Account for the whole repo (cite exact counts), but synthesize — don't paste raw lists.
 
-**Completeness floor (the architectural backbone — always cover in full):** routes, state stores, and custom hooks are bounded, high-value sets — **enumerate every one of them**, no sampling. For **each route**, also trace the functions/handlers it calls (its downstream call graph) — that entry-point flow is the core of the architecture. The long tail that may be summarized as "+N more" is the *incidental* nodes (low-score components, utilities, files), never a route, store, hook, or a function on a route's path.
+**Completeness floor (the architectural backbone — always cover in full):** routes are the universal backbone, plus the language's bounded node sets — for JS/TS that's state stores and custom hooks; for Python/Java/Go/Rust it's the classes/methods/structs/traits/functions. **Enumerate every one of them**, no sampling. For **each route**, also trace the handlers/functions it calls (its downstream call graph) — that entry-point flow is the core of the architecture. The long tail that may be summarized as "+N more" is the *incidental* nodes (low-score utilities, files), never a route, a store/hook, or a class/method/struct on a route's path. When in doubt about a node type's meaning for this repo's language, check `reference.md` → "Node & edge types by language".
 
 ## Method — one call, then format
 
@@ -23,6 +23,8 @@ From the fingerprint + module model + dominant edge mix + route call graph, name
 - **System-design patterns** — how the system behaves: client–server split, API design (REST route handlers, RPC, GraphQL), persistence & caching (Firebase, Redis/Upstash, ISR/SWR), background/async work (queues, webhooks, cron), third-party integrations (THIRD_PARTY edges), and recognizable design patterns where they appear (provider/context, repository, adapter/wrapper via WRAPPED_BY, middleware/guard chains, observer via EMITS/LISTENS, singleton stores).
 
 For each named pattern, say *how the app is structured around it and where it shows up* (cite the modules/routes/edges that evidence it) — don't just list libraries.
+
+**Adapt the patterns to the language.** The lists above are JS/React-flavored (stores, hooks, RSC, ISR). Read the fingerprint's `language` + framework and name the *actual* pattern vocabulary: Python → FastAPI routers/Flask blueprints/Django apps+URLs, SQLAlchemy `session`/Django ORM, Celery tasks, ASGI middleware; Java → Spring layered architecture (`@Controller`/`@Service`/`@Repository`), DI/beans, filter chains; Go → handler funcs + middleware chains, `HandlerFunc` composition, interface-based service layers, goroutines/channels; Rust → `trait`-based polymorphism, axum middleware/`FromRef`, `impl` blocks as services, `std::sync`/tokio patterns. The graph gives you the raw material (edge types, HANDLES chains, IMPLEMENTS); map it onto the language's idioms.
 
 ## Output discipline (read before writing)
 A rich traversal is wasted if the write-up is rushed, garbled, or truncated. Hold these:
@@ -110,18 +112,21 @@ This is the section a plain LLM cannot write. Draw findings from summaries, edge
 ---
 
 **§5 — Complete inventories** *(reference — enumerate fully, format compactly)*
-*Format: three compact grouped lists. Never prose.*
+*Format: three compact grouped lists. Never prose. Adapt the list titles to the language: the JS/TS inventory below (stores, hooks) becomes classes/methods for Python/Java, structs/interfaces for Go, structs/enums/traits for Rust — always PLUS the routes, which are universal.*
 
-**Routes** (grouped PAGE vs API, then by module):
+**Routes** (grouped PAGE vs API where known, else by module):
 - `GET /path/to/route` — one-line purpose — → calls: HandlerA, HandlerB
 
-**State stores**:
+**State stores** (JS/TS only):
 - `StoreName` (`filePath`) — what state it owns — read by: X, Y — written by: A, B
 
-**Custom hooks**:
+**Custom hooks** (JS/TS only):
 - `useHookName` (`filePath`) — one-line job
 
-Every route, every store, every hook — no sampling. Count them and confirm they match the totals from `get_repo_overview`.
+**Classes / Structs / Traits** (Python/Java/Go/Rust substitute this for the JS store/hook inventories):
+- `ClassName` (`filePath`) — role — extends/implements: X — methods: M1, M2
+
+Every route, every store/hook (JS/TS) or class/struct/trait (others) — no sampling. Count them and confirm they match the totals from `get_repo_overview`.
 
 ---
 
@@ -170,10 +175,10 @@ If no medium/high issues exist, say so explicitly — a clean bill is signal too
 |---|---|
 | Total nodes | N |
 | Total edges | N |
-| Routes (PAGE / API) | N / N |
-| Components | N |
-| Hooks | N |
-| Stores | N |
+| Routes | N (PAGE / API where known) |
+| Components / Classes / Structs | N *(language-dependent)* |
+| Hooks / Methods / Traits / IMPL_BLOCKs | N *(language-dependent)* |
+| Stores (JS/TS) | N |
 | Functions | N |
 | Security flags (high / med / low) | N / N / N |
 

@@ -33,6 +33,9 @@
     "@devlensio/cli-linux-arm64": "0.3.0",
     "@devlensio/cli-windows-x64": "0.3.0"
   },
+  "trustedDependencies": [
+    "devlensio"
+  ],
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/bun": "^1.3.14",
@@ -46,6 +49,6 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
-    "devlensio": "^1.0.0"
+    "devlensio": "^1.0.1"
   }
 }
