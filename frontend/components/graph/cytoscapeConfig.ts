@@ -16,7 +16,11 @@ export const EDGE_TYPES: EdgeType[] = [
   "TESTS",
   "USES",
   "NEXTJS_API_CALL",
-  "NAVIGATES_TO"
+  "NAVIGATES_TO",
+  "IMPLEMENTS",
+  "EXTENDS",
+  "EXPORTS",
+  "THROWS"
 ];
 
 export const NODE_TYPES: NodeType[] = [
@@ -31,6 +35,15 @@ export const NODE_TYPES: NodeType[] = [
   "TEST",
   "STORY",
   "THIRD_PARTY",
+  "CLASS",
+  "METHOD",
+  "INTERFACE",
+  "ENUM",
+  "STRUCT",
+  "MODULE",
+  "TRAIT",
+  "IMPL_BLOCK",
+  "PACKAGE",
 ];
 
 export const DEFAULT_NODE_TYPES: NodeType[] = [
@@ -43,16 +56,38 @@ export const DEFAULT_NODE_TYPES: NodeType[] = [
   "ROUTE",
   "TEST",
   "STORY",
+  // OOP / new-language defaults — they usually exist only when relevant,
+  // but we include the high-signal structural types so Python/Java/Go/Rust
+  // graphs show their core constructs immediately after analysis.
+  "CLASS",
+  "METHOD",
+  "INTERFACE",
+  "ENUM",
+  "STRUCT",
+  "TRAIT",
+  "MODULE",
+  "PACKAGE",
 ];
 
 export const DEFAULT_EDGE_TYPES: EdgeType[] = [
   "CALLS", "PROP_PASS", "READS_FROM", "WRITES_TO",
-  "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS", "TESTS", "USES", "HANDLES", "NEXTJS_API_CALL", "NAVIGATES_TO"
+  "EMITS", "LISTENS", "WRAPPED_BY", "GUARDS", "TESTS", "USES", "HANDLES", "NEXTJS_API_CALL", "NAVIGATES_TO",
+  "IMPLEMENTS", "EXTENDS", "EXPORTS", "THROWS",
 ];
 
 // ─── Node colors ──────────────────────────────────────────────────────────────
+//
+// Palette notes:
+//   • The 11 original node types keep their committed colors — those read well
+//     and the user is happy with them.
+//   • The 9 newer OOP/structural types (CLASS, METHOD, INTERFACE, ENUM, STRUCT,
+//     MODULE, TRAIT, IMPL_BLOCK, PACKAGE) are reassigned here so they no longer
+//     collide with each other or with the originals. The worst offenders were
+//     TRAIT===THIRD_PARTY (both #e879f9) and PACKAGE===FILE (both #f472b6).
+//   • GHOST stays neutral by design (it is the "unknown" type).
 
 export const NODE_COLORS: Record<string, string> = {
+  // ── Original 11 (unchanged) ─────────────────────────────────────────────────
   COMPONENT:   "#2dd4bf",
   HOOK:        "#c084fc",
   FUNCTION:    "#60a5fa",
@@ -64,10 +99,24 @@ export const NODE_COLORS: Record<string, string> = {
   TEST:        "#f97316",
   STORY:       "#a78bfa",
   THIRD_PARTY: "#e879f9",
+  // ── Newer OOP / structural types (reassigned for distinctness) ────────────
+  CLASS:       "#4ade80", // green-400   — classic class colour
+  METHOD:      "#22d3ee", // cyan-400    — distinct from teal COMPONENT
+  INTERFACE:   "#facc15", // yellow-400
+  ENUM:        "#fb7185", // rose-400
+  STRUCT:      "#34d399", // emerald-400
+  MODULE:      "#a3e635", // lime-400
+  TRAIT:       "#d946ef", // fuchsia-500 — deeper shade, distinct from THIRD_PARTY (#e879f9)
+  IMPL_BLOCK:  "#38bdf8", // sky-400
+  PACKAGE:     "#f43f5e", // rose-500    — distinct from FILE (#f472b6) and ENUM (#fb7185)
 };
 
+// Bright accent used for chip dots / detail-panel swatches. With the bright
+// fill palette above, the accent is simply the fill colour itself.
+export const NODE_ACCENTS: Record<string, string> = NODE_COLORS;
+
 export const NODE_SHAPES: Record<string, string> = {
-  COMPONENT:   "roundrectangle",
+  COMPONENT:   "round-rectangle",
   HOOK:        "ellipse",
   FUNCTION:    "hexagon",
   STATE_STORE: "star",
@@ -78,6 +127,16 @@ export const NODE_SHAPES: Record<string, string> = {
   TEST:        "triangle",
   STORY:       "round-triangle",
   THIRD_PARTY: "hexagon",
+  // OOP / structural
+  CLASS:       "round-rectangle",
+  METHOD:      "round-rectangle",
+  INTERFACE:   "round-diamond",
+  ENUM:        "diamond",
+  STRUCT:      "round-rectangle",
+  MODULE:      "round-rectangle",
+  TRAIT:       "round-diamond",
+  IMPL_BLOCK:  "ellipse",
+  PACKAGE:     "rectangle",
 };
 
 export const EDGE_COLORS: Record<string, string> = {
@@ -87,7 +146,7 @@ export const EDGE_COLORS: Record<string, string> = {
   WRITES_TO: "#f85149",
   PROP_PASS: "#2dd4bf",
   EMITS: "#c084fc",
-  LISTENS: "#c084fc",
+  LISTENS: "#a78bfa", // distinct lighter violet (was duplicate of EMITS #c084fc)
   WRAPPED_BY: "#3fb950",
   GUARDS: "#d29922",
   HANDLES:    "#8286bb",
@@ -95,6 +154,11 @@ export const EDGE_COLORS: Record<string, string> = {
   USES:      "#a78bfa",
   NEXTJS_API_CALL: "#ec4899",
   NAVIGATES_TO: "#22d3ee",
+  // Structural / new edge types
+  IMPLEMENTS: "#4ade80",
+  EXTENDS:    "#facc15",
+  EXPORTS:    "#a3e635",
+  THROWS:     "#fb7185", // rose — distinct from red WRITES_TO (#f85149)
 };
 
 // ─── Layout config ────────────────────────────────────────────────────────────
@@ -178,7 +242,7 @@ export function getCytoscapeStyles(
         "background-color":   "#1e293b",
         "border-color":       "#6b7280",
         color:                "#94a3b8",
-      },
+      } as any,
     },
 
     // ── Root node — distinct highlight ───────────────────────────────────────

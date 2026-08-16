@@ -460,6 +460,7 @@ export default function GraphPage({ params }: Props) {
         {/* FilterBar */}
         {graph && meta && (
           <FilterBar
+            graph={graph}
             activeNodeTypes={activeNodeTypes}
             activeEdgeTypes={activeEdgeTypes}
             scoreThreshold={scoreThreshold}
@@ -643,6 +644,9 @@ export default function GraphPage({ params }: Props) {
                 commitHash={graph.gitInfo.commitHash}
                 nodesById={graph.nodesById}
                 edges={graph.edges}
+                graphLanguage={
+                  graph.fingerprint?.language as string | undefined
+                }
                 onClose={() => {
                   setFocusedNodeId(null);
                   clearHighlight();

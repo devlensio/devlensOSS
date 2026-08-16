@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useImperativeHandle, forwardRef, us
 import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { toElements } from "./cytoscopeUtils";
-import { getCytoscapeStyles, getLayoutConfig } from "./cytoscapeConfig";
+import { getCytoscapeStyles, getLayoutConfig, NODE_ACCENTS } from "./cytoscapeConfig";
 import { sanitizeSummary } from "@/lib/sanitize";
 
 cytoscape.use(fcose);
@@ -25,18 +25,16 @@ export interface TooltipInfo {
   businessSummary?:  string;
 }
 
-const TOOLTIP_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
-  HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
-  FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },
-  UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
-  FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-  GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
-  ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
-  TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
-  STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },
-};
+// Tooltip type colours are derived from NODE_ACCENTS (the single source of
+// truth in cytoscapeConfig) so the tooltip always matches the canvas node
+// fill and the detail-panel badges.
+function tooltipTriple(hex: string) {
+  return { bg: hex + "18", text: hex, border: hex + "30" };
+}
+const TOOLTIP_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> =
+  Object.fromEntries(
+    Object.entries(NODE_ACCENTS).map(([type, hex]) => [type, tooltipTriple(hex)]),
+  );
 
 export function NodeTooltip({
   t,

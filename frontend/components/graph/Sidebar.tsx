@@ -46,6 +46,16 @@ const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: strin
   ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
   TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
   STORY:       { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
+  THIRD_PARTY: { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
+  CLASS:       { bg: "#4ade8018", text: "#4ade80", border: "#4ade8030" },
+  METHOD:      { bg: "#22d3ee18", text: "#22d3ee", border: "#22d3ee30" },
+  INTERFACE:   { bg: "#facc1518", text: "#facc15", border: "#facc1530" },
+  ENUM:        { bg: "#fb718518", text: "#fb7185", border: "#fb718530" },
+  STRUCT:      { bg: "#34d39918", text: "#34d399", border: "#34d39930" },
+  MODULE:      { bg: "#a3e63518", text: "#a3e635", border: "#a3e63530" },
+  TRAIT:       { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
+  IMPL_BLOCK:  { bg: "#38bdf818", text: "#38bdf8", border: "#38bdf830" },
+  PACKAGE:     { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
 };
 
 

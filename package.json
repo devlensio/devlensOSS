@@ -46,6 +46,6 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
-    "devlensio": "^0.6.1"
+    "devlensio": "^1.0.0"
   }
 }

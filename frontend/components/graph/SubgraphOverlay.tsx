@@ -20,7 +20,7 @@ import { NodeTooltip, TooltipInfo } from "./GraphCanvas";
 
 cytoscape.use(fcose);
 
-const DEFAULT_INITIAL_DEPTH = 3; //When a node is selected this is the depth upto which initially the subgraph will be shown.
+const DEFAULT_INITIAL_DEPTH = 6; //When a node is selected this is the depth upto which initially the subgraph will be shown.
 
 interface SubgraphOverlayProps {
   stack: OverlayGraph[];

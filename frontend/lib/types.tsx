@@ -14,7 +14,17 @@ export type NodeType =
   | "ROUTE"
   | "TEST"
   | "STORY"
-  | "THIRD_PARTY";
+  | "THIRD_PARTY"
+  // ── New general-purpose / OOP types (Python, Java, Go, Rust) ──
+  | "CLASS"
+  | "METHOD"
+  | "INTERFACE"
+  | "ENUM"
+  | "STRUCT"
+  | "MODULE"
+  | "TRAIT"
+  | "IMPL_BLOCK"
+  | "PACKAGE";
 
 export interface ThirdPartyLibEntry {
   name:     string;
@@ -41,7 +51,12 @@ export type EdgeType =
   | "TESTS"
   | "USES"
   | "NEXTJS_API_CALL"
-  | "NAVIGATES_TO";
+  | "NAVIGATES_TO"
+  // ── New edges (Python, Java, Go, Rust) ──
+  | "IMPLEMENTS"
+  | "EXTENDS"
+  | "EXPORTS"
+  | "THROWS";
 
   export type RouteNodeType =
   | "PAGE"

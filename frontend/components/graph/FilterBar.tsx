@@ -1,52 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { NodeType, EdgeType, CommitSummary, RenderingBoundary } from "@/lib/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  NodeType,
+  EdgeType,
+  CommitSummary,
+  RenderingBoundary,
+  GraphResponse,
+} from "@/lib/types";
 import {
   HiOutlineChevronDown,
-  HiOutlineInformationCircle,
-  HiOutlineGlobeAlt,
   HiOutlineCheck,
   HiOutlineArrowPath,
   HiOutlineAdjustmentsHorizontal,
+  HiOutlineMagnifyingGlass,
+  HiOutlineXMark,
+  HiOutlineGlobeAlt,
+  HiOutlineCubeTransparent,
+  HiOutlineCodeBracket,
 } from "react-icons/hi2";
 import { MdFullscreen, MdFullscreenExit } from "react-icons/md";
 import { EDGE_COLORS, EDGE_TYPES, NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const NODE_TYPE_LABELS: Record<NodeType, string> = {
-  COMPONENT:   "Component",
-  HOOK:        "Hook",
-  FUNCTION:    "Function",
-  STATE_STORE: "Store",
-  UTILITY:     "Utility",
-  FILE:        "File",
-  GHOST:       "Ghost",
-  ROUTE:       "Route",
-  TEST:        "Test",
-  STORY:       "Storybook",
-  THIRD_PARTY: "Library",
-};
-
-const EDGE_LABELS: Record<EdgeType, string> = {
-  CALLS:      "Calls",
-  IMPORTS:    "Imports",
-  READS_FROM: "Reads From",
-  WRITES_TO:  "Writes To",
-  PROP_PASS:  "Prop Pass",
-  EMITS:      "Emits",
-  LISTENS:    "Listens",
-  WRAPPED_BY: "Wrapped By",
-  GUARDS:     "Guards",
-  HANDLES:    "Handles",
-  TESTS:      "Tests",
-  USES:       "Uses",
-  NEXTJS_API_CALL: "NEXTJS API Call",
-  NAVIGATES_TO: "Navigates To",
-};
-
-const HOP_OPTIONS = [1, 2, 3, 4, 5, Infinity];
+import { TypeGlyph } from "./TypeGlyph";
+import {
+  NODE_TYPE_DEFS,
+  EDGE_TYPE_DEFS,
+  NODE_GROUPS,
+  EDGE_GROUPS,
+} from "./componentRegistry";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -70,9 +51,21 @@ const BOUNDARY_OPTIONS: Array<{ value: RenderingBoundary | "unset"; label: strin
   { value: "unset",  label: "Unset",  color: C.textDim },
 ];
 
+const HOP_OPTIONS = [1, 2, 3, 4, 5, Infinity];
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: C.textSub,
+  letterSpacing: "0.03em",
+};
+
+type TabId = "nodes" | "edges" | "langs";
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface FilterBarProps {
+  graph:            GraphResponse | undefined;
   activeNodeTypes:  NodeType[];
   activeEdgeTypes:  EdgeType[];
   scoreThreshold:   number;
@@ -92,10 +85,10 @@ interface FilterBarProps {
   onReset:          () => void;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Main component ────────────────────────────────────────────────────────────
 
 export default function FilterBar({
-  activeNodeTypes, activeEdgeTypes, scoreThreshold,
+  graph, activeNodeTypes, activeEdgeTypes, scoreThreshold,
   onApply,
   showRouteNodes, onRouteToggle, hasRoutes, routeHopDepth, onHopDepthChange,
   activeBoundaries, onBoundaryChange,
@@ -107,10 +100,22 @@ export default function FilterBar({
   const [draftNodes, setDraftNodes] = useState<NodeType[]>(activeNodeTypes);
   const [draftEdges, setDraftEdges] = useState<EdgeType[]>(activeEdgeTypes);
   const [draftScore, setDraftScore] = useState<number>(scoreThreshold);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setDraftNodes([...activeNodeTypes]); }, [activeNodeTypes]);
   useEffect(() => { setDraftEdges([...activeEdgeTypes]); }, [activeEdgeTypes]);
   useEffect(() => { setDraftScore(scoreThreshold);       }, [scoreThreshold]);
+
+  // Close panel on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node))
+        setPanelOpen(false);
+    }
+    if (panelOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [panelOpen]);
 
   const isDirty =
     draftScore !== scoreThreshold ||
@@ -119,108 +124,122 @@ export default function FilterBar({
     draftEdges.length !== activeEdgeTypes.length ||
     draftEdges.some(t => !activeEdgeTypes.includes(t));
 
-  function toggleDraftNode(type: NodeType) {
-    setDraftNodes(prev =>
-      prev.includes(type)
-        ? prev.length === 1 ? prev : prev.filter(t => t !== type)
-        : [...prev, type]
-    );
-  }
+  const nodeCount = NODE_TYPES.length;
+  const activeNodeCount = draftNodes.length;
+  const edgeCount = EDGE_TYPES.length;
+  const activeEdgeCount = draftEdges.length;
 
-  function toggleDraftEdge(type: EdgeType) {
-    setDraftEdges(prev =>
-      prev.includes(type)
-        ? prev.length === 1 ? prev : prev.filter(t => t !== type)
-        : [...prev, type]
-    );
+  function handleApply() {
+    onApply(draftNodes, draftEdges, draftScore);
+    setPanelOpen(false);
   }
 
   return (
-    <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className="flex items-center gap-2 flex-1 min-w-0" ref={panelRef}>
 
-      {/* ── Node type dropdown ────────────────────────────────── */}
-      <MultiSelectDropdown
-        label="Nodes"
-        allTypes={NODE_TYPES}
-        activeTypes={draftNodes}
-        colors={NODE_COLORS}
-        labels={NODE_TYPE_LABELS}
-        onToggle={toggleDraftNode}
-        onSetAll={setDraftNodes}
-      />
-
-      {/* ── Edge type dropdown ────────────────────────────────── */}
-      <MultiSelectDropdown
-        label="Edges"
-        allTypes={EDGE_TYPES}
-        activeTypes={draftEdges}
-        colors={EDGE_COLORS}
-        labels={EDGE_LABELS}
-        onToggle={toggleDraftEdge}
-        onSetAll={setDraftEdges}
-      />
-
-      {/* ── More filters (Score · Boundary · Entry Points) ────── */}
-      <MoreFilters
-        draftScore={draftScore}
-        onScoreChange={setDraftScore}
-        activeBoundaries={activeBoundaries}
-        onBoundaryChange={onBoundaryChange}
-        hasRoutes={hasRoutes}
-        showRouteNodes={showRouteNodes}
-        onRouteToggle={onRouteToggle}
-        routeHopDepth={routeHopDepth}
-        onHopDepthChange={onHopDepthChange}
-      />
-
-      {/* ── Apply ─────────────────────────────────────────────── */}
-      {isDirty && (
+      {/* ── Control Center trigger ─────────────────────────────────── */}
+      <div className="relative shrink-0">
         <button
-          onClick={() => onApply(draftNodes, draftEdges, draftScore)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs
-                     font-semibold transition-all shrink-0 animate-pulse"
+          onClick={() => setPanelOpen(o => !o)}
+          className="flex items-center gap-2 px-3 py-1 rounded-lg border
+                     text-xs font-semibold transition-all"
           style={{
-            background:  `${C.teal}20`,
-            border:      `1px solid ${C.teal}50`,
-            color:       C.teal,
+            background:  panelOpen ? C.surface   : C.elevated,
+            borderColor: panelOpen ? C.teal+"60" : C.borderSub,
+            color:       panelOpen ? C.text      : C.textSub,
           }}
           onMouseEnter={e => {
+            if (panelOpen) return;
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = `${C.teal}30`;
-            el.style.borderColor   = C.teal;
-            el.style.animationName = "none";
+            el.style.color = C.text;
+            el.style.borderColor = C.teal + "40";
           }}
           onMouseLeave={e => {
+            if (panelOpen) return;
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = `${C.teal}20`;
-            el.style.borderColor   = `${C.teal}50`;
-            el.style.animationName = "";
+            el.style.color = C.textSub;
+            el.style.borderColor = C.borderSub;
           }}
         >
-          Apply
+          <HiOutlineAdjustmentsHorizontal size={13} />
+          <span>Filters</span>
+          <span className="flex items-center gap-1 font-mono">
+            <span style={{ color: C.teal }}>{activeNodeCount}</span>
+            <span style={{ color: C.textGhost }}>/</span>
+            <span style={{ color: C.textGhost }}>{nodeCount}</span>
+          </span>
+          <HiOutlineChevronDown
+            size={10}
+            style={{
+              transform: panelOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 150ms",
+              color: C.textGhost,
+            }}
+          />
         </button>
-      )}
 
-      {/* ── Right side ────────────────────────────────────────── */}
+        {panelOpen && (
+          <ControlCenterPanel
+            graph={graph}
+            draftNodes={draftNodes}
+            setDraftNodes={setDraftNodes}
+            draftEdges={draftEdges}
+            setDraftEdges={setDraftEdges}
+            draftScore={draftScore}
+            onScoreChange={setDraftScore}
+            activeBoundaries={activeBoundaries}
+            onBoundaryChange={onBoundaryChange}
+            hasRoutes={hasRoutes}
+            showRouteNodes={showRouteNodes}
+            onRouteToggle={onRouteToggle}
+            routeHopDepth={routeHopDepth}
+            onHopDepthChange={onHopDepthChange}
+            onApply={handleApply}
+            isDirty={isDirty}
+            onClose={() => setPanelOpen(false)}
+          />
+        )}
+      </div>
+
+      {/* ── Active summary chips ───────────────────────────────────── */}
+      <div className="hidden lg:flex items-center gap-1 min-w-0">
+        {draftNodes.slice(0, 6).map(t => (
+          <span
+            key={t}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px]
+                       font-mono shrink-0"
+            style={{
+              background: (NODE_COLORS[t] ?? C.textDim) + "18",
+              color: NODE_COLORS[t] ?? C.textDim,
+              border: `1px solid ${(NODE_COLORS[t] ?? C.textDim)}33`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: NODE_COLORS[t] ?? C.textDim }} />
+            {t}
+          </span>
+        ))}
+        {draftNodes.length > 6 && (
+          <span className="text-[10px] font-mono shrink-0" style={{ color: C.textGhost }}>
+            +{draftNodes.length - 6}
+          </span>
+        )}
+      </div>
+
+      {/* ── Right side ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 ml-auto shrink-0">
-
         {commits.length > 1 && (
           <select
             value={activeCommit}
             onChange={e => onCommitChange(e.target.value)}
             className="text-xs font-mono rounded-lg px-2 py-1.5
                        focus:outline-none transition-colors max-w-40"
-            style={{
-              background:  C.elevated,
-              border:      `1px solid ${C.borderSub}`,
-              color:       C.textSub,
-            }}
+            style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.textSub }}
             onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
             onBlur={e  => (e.currentTarget.style.borderColor = C.borderSub)}
           >
             {commits.map(c => (
-              <option key={c.commitHash} value={c.commitHash}
-                      style={{ background: C.elevated }}>
+              <option key={c.commitHash} value={c.commitHash} style={{ background: C.elevated }}>
                 {c.commitHash.slice(0, 7)} · {c.branch} · {c.message?.slice(0, 22) || "No message"}
                 {c.isSummarized ? " ✦" : ""}
               </option>
@@ -272,38 +291,569 @@ export default function FilterBar({
   );
 }
 
-// ─── MoreFilters ──────────────────────────────────────────────────────────────
+// ─── Group row types ──────────────────────────────────────────────────────────
 
-function MoreFilters({
-  draftScore, onScoreChange,
-  activeBoundaries, onBoundaryChange,
+interface NodeGroupView {
+  id: string;
+  label: string;
+  defs: { type: NodeType; label: string; description: string; languages: string[] }[];
+}
+
+interface EdgeGroupView {
+  id: string;
+  label: string;
+  defs: { type: EdgeType; label: string; description: string; languages: string[]; icon?: string }[];
+}
+
+// ─── Control Center Panel ─────────────────────────────────────────────────────
+
+function ControlCenterPanel({
+  graph, draftNodes, setDraftNodes, draftEdges, setDraftEdges,
+  draftScore, onScoreChange, activeBoundaries, onBoundaryChange,
   hasRoutes, showRouteNodes, onRouteToggle, routeHopDepth, onHopDepthChange,
+  onApply, isDirty, onClose,
 }: {
-  draftScore:       number;
-  onScoreChange:    (v: number) => void;
+  graph: GraphResponse | undefined;
+  draftNodes: NodeType[];
+  setDraftNodes: (t: NodeType[]) => void;
+  draftEdges: EdgeType[];
+  setDraftEdges: (t: EdgeType[]) => void;
+  draftScore: number;
+  onScoreChange: (v: number) => void;
   activeBoundaries: Array<RenderingBoundary | "unset">;
   onBoundaryChange: (v: Array<RenderingBoundary | "unset">) => void;
-  hasRoutes:        boolean;
-  showRouteNodes:   boolean;
-  onRouteToggle:    () => void;
-  routeHopDepth:    number;
-  onHopDepthChange: (depth: number) => void;
+  hasRoutes: boolean;
+  showRouteNodes: boolean;
+  onRouteToggle: () => void;
+  routeHopDepth: number;
+  onHopDepthChange: (d: number) => void;
+  onApply: () => void;
+  isDirty: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref             = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<TabId>("nodes");
+  const [query, setQuery] = useState("");
+  const [showEmpty, setShowEmpty] = useState(true);
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  // Live counts from the actual graph (0 count → dimmed, hidden unless showEmpty)
+  const nodeCounts = useMemo(() => {
+    const m = new Map<NodeType, number>();
+    if (!graph) return m;
+    for (const n of graph.nodes) m.set(n.type, (m.get(n.type) ?? 0) + 1);
+    return m;
+  }, [graph]);
 
-  const hasActive =
-    draftScore > 0 ||
-    activeBoundaries.length < 3 ||
-    showRouteNodes;
+  const edgeCounts = useMemo(() => {
+    const m = new Map<EdgeType, number>();
+    if (!graph) return m;
+    for (const e of graph.edges) m.set(e.type, (m.get(e.type) ?? 0) + 1);
+    return m;
+  }, [graph]);
+
+  const q = query.trim().toLowerCase();
+
+  // Filtered node defs (respect search + showEmpty)
+  const visibleNodeGroups = useMemo(() => {
+    return NODE_GROUPS
+      .map(g => ({
+        ...g,
+        defs: NODE_TYPE_DEFS.filter(d => {
+          if (d.group !== g.id) return false;
+          if (q && !(d.label.toLowerCase().includes(q) || d.type.toLowerCase().includes(q))) return false;
+          if (!showEmpty && (nodeCounts.get(d.type) ?? 0) === 0) return false;
+          return true;
+        }),
+      }))
+      .filter(g => g.defs.length > 0);
+  }, [q, showEmpty, nodeCounts]);
+
+  // Filtered edge defs
+  const visibleEdgeGroups = useMemo(() => {
+    return EDGE_GROUPS
+      .map(g => ({
+        ...g,
+        defs: EDGE_TYPE_DEFS.filter(d => {
+          if (d.group !== g.id) return false;
+          if (q && !(d.label.toLowerCase().includes(q) || d.type.toLowerCase().includes(q))) return false;
+          if (!showEmpty && (edgeCounts.get(d.type) ?? 0) === 0) return false;
+          return true;
+        }),
+      }))
+      .filter(g => g.defs.length > 0);
+  }, [q, showEmpty, edgeCounts]);
+
+  function toggleNode(t: NodeType) {
+    const next = draftNodes.includes(t)
+      ? (draftNodes.length === 1 ? draftNodes : draftNodes.filter(x => x !== t))
+      : [...draftNodes, t];
+    setDraftNodes(next);
+  }
+
+  function toggleEdge(t: EdgeType) {
+    const next = draftEdges.includes(t)
+      ? (draftEdges.length === 1 ? draftEdges : draftEdges.filter(x => x !== t))
+      : [...draftEdges, t];
+    setDraftEdges(next);
+  }
+
+  const allNodesOn = draftNodes.length === NODE_TYPES.length;
+  const allEdgesOn = draftEdges.length === EDGE_TYPES.length;
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10, fontWeight: 600, color: C.textSub,
+    letterSpacing: "0.03em",
+  };
+
+  return (
+    <div
+      className="absolute top-full left-0 mt-1.5 rounded-2xl shadow-2xl z-50
+                 flex flex-col overflow-hidden"
+      style={{
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        width: 580,
+        maxHeight: "min(680px, calc(100vh - 120px))",
+        boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+      }}
+    >
+      {/* Panel header */}
+      <div className="shrink-0 px-4 pt-3 pb-2" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+        {/* Tabs */}
+        <div className="flex items-center gap-1">
+          {([
+            { id: "nodes" as TabId, label: `Nodes`, icon: <HiOutlineCubeTransparent size={13} />, active: draftNodes.length, total: NODE_TYPES.length },
+            { id: "edges" as TabId, label: `Edges`, icon: <HiOutlineCodeBracket size={13} />, active: draftEdges.length, total: EDGE_TYPES.length },
+            { id: "langs" as TabId, label: `Languages`, icon: <HiOutlineGlobeAlt size={13} />, active: 0, total: 0 },
+          ]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px]
+                         font-semibold transition-colors"
+              style={{
+                background: tab === t.id ? `${C.teal}15` : "transparent",
+                color: tab === t.id ? C.teal : C.textSub,
+                border: `1px solid ${tab === t.id ? `${C.teal}40` : "transparent"}`,
+              }}
+            >
+              {t.icon}
+              {t.label}
+              {t.total > 0 && (
+                <span className="font-mono text-[11px]"
+                      style={{ color: tab === t.id ? C.teal : C.textDim }}>
+                  {t.active}/{t.total}
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            className="w-6 h-6 flex items-center justify-center rounded-lg transition-colors"
+            style={{ color: C.textGhost }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = C.text)}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.textGhost)}
+          >
+            <HiOutlineXMark size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        {tab === "nodes" && (
+          <NodesTab
+            visibleGroups={visibleNodeGroups}
+            draftNodes={draftNodes}
+            nodeCounts={nodeCounts}
+            onToggle={toggleNode}
+            allOn={allNodesOn}
+            onAll={() => setDraftNodes(NODE_TYPES)}
+            onNone={() => setDraftNodes([draftNodes[0]])}
+            graphLanguage={(graph?.fingerprint?.language as string | undefined) ?? ""}
+          />
+        )}
+        {tab === "edges" && (
+          <EdgesTab
+            visibleGroups={visibleEdgeGroups}
+            draftEdges={draftEdges}
+            edgeCounts={edgeCounts}
+            onToggle={toggleEdge}
+            allOn={allEdgesOn}
+            onAll={() => setDraftEdges(EDGE_TYPES)}
+            onNone={() => setDraftEdges([draftEdges[0]])}
+            graphLanguage={(graph?.fingerprint?.language as string | undefined) ?? ""}
+          />
+        )}
+        {tab === "langs" && (
+          <LangsTab graph={graph} />
+        )}
+
+        {/* Search + show-empty (visible on nodes/edges tabs) */}
+        {(tab === "nodes" || tab === "edges") && (
+          <div className="px-4 py-3" style={{ borderTop: `1px solid ${C.borderSub}` }}>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <HiOutlineMagnifyingGlass size={12}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: C.textGhost }} />
+                <input
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder={`Search ${tab === "nodes" ? "node" : "edge"} types…`}
+                  className="w-full text-xs py-1.5 pl-8 pr-7 rounded-lg outline-none transition-colors"
+                  style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.text }}
+                  onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
+                  onBlur={e => (e.currentTarget.style.borderColor = C.borderSub)}
+                />
+                {query && (
+                  <button onClick={() => setQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                    style={{ color: C.textGhost }}>
+                    <HiOutlineXMark size={11} />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setShowEmpty(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md
+                           transition-colors shrink-0"
+                style={{
+                  background: showEmpty ? `${C.teal}14` : "transparent",
+                  border: `1px solid ${showEmpty ? `${C.teal}33` : C.borderSub}`,
+                  color:      showEmpty ? C.teal : C.textSub,
+                }}
+              >
+                {showEmpty ? "Showing empty" : "Hide empty"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Score + boundary + entry points (always available) */}
+        <div className="px-4 py-3" style={{ borderTop: `1px solid ${C.borderSub}` }}>
+          <ScoreBoundaryRow
+            draftScore={draftScore}
+            onScoreChange={onScoreChange}
+            activeBoundaries={activeBoundaries}
+            onBoundaryChange={onBoundaryChange}
+            hasRoutes={hasRoutes}
+            showRouteNodes={showRouteNodes}
+            onRouteToggle={onRouteToggle}
+            routeHopDepth={routeHopDepth}
+            onHopDepthChange={onHopDepthChange}
+          />
+        </div>
+      </div>
+
+      {/* Footer: status + apply (only shown when there are pending changes) */}
+      <div className="shrink-0 px-4 py-3 flex items-center justify-between"
+           style={{ borderTop: `1px solid ${C.borderSub}`, background: C.bg }}>
+        <span className="text-[11px]" style={{ color: C.textGhost }}>
+          {isDirty ? "Unapplied changes" : "All changes applied"}
+        </span>
+        {isDirty && (
+          <button
+            onClick={onApply}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[12px]
+                       font-semibold transition-colors"
+            style={{
+              background: `${C.teal}20`,
+              border: `1px solid ${C.teal}50`,
+              color: C.teal,
+              cursor: "pointer",
+            }}
+          >
+            <HiOutlineCheck size={13} />
+            Apply
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Nodes tab ────────────────────────────────────────────────────────────────
+
+function NodesTab({
+  visibleGroups, draftNodes, nodeCounts, onToggle, allOn, onAll, onNone,
+  graphLanguage,
+}: {
+  visibleGroups: NodeGroupView[];
+  draftNodes: NodeType[];
+  nodeCounts: Map<NodeType, number>;
+  onToggle: (t: NodeType) => void;
+  allOn: boolean;
+  onAll: () => void;
+  onNone: () => void;
+  graphLanguage: string;
+}) {
+  return (
+    <div className="px-4 py-2">
+      <div className="flex items-center gap-2 mb-1">
+        <GroupQuickActions allOn={allOn} onAll={onAll} onNone={onNone} />
+      </div>
+      {visibleGroups.map(g => {
+        const groupActive = g.defs.filter(d => draftNodes.includes(d.type)).length;
+        return (
+          <div key={g.id} className="py-2.5" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12px] font-semibold" style={{ color: C.textSub }}>
+                {g.label}
+              </span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-md"
+                    style={{ background: C.elevated, color: C.textSub }}>
+                {groupActive}/{g.defs.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {g.defs.map(d => {
+                const active = draftNodes.includes(d.type);
+                const count = nodeCounts.get(d.type) ?? 0;
+                const color = NODE_COLORS[d.type] ?? C.textDim;
+                // A type is "supported" by the current repo's language when its
+                // languages list includes the detected language. When the
+                // language is unknown we assume everything is supported.
+                const supported =
+                  !graphLanguage ||
+                  d.languages.includes(graphLanguage) ||
+                  d.languages.includes("*");
+                return (
+                  <button
+                    key={d.type}
+                    onClick={() => supported && onToggle(d.type)}
+                    disabled={!supported}
+                    title={
+                      supported
+                        ? d.description
+                        : `${d.label} isn't produced by ${graphLanguage || "this language"}`
+                    }
+                    className={"flex items-center gap-1.5 px-2.5 py-2 rounded-md text-left "
+                      + "transition-colors "
+                      + (supported ? "cursor-pointer" : "cursor-not-allowed opacity-40")}
+                    style={{
+                      background:    active && supported ? `${color}12` : "transparent",
+                      color:         active && supported ? C.text : C.textSub,
+                    }}
+                    onMouseEnter={e => {
+                      if (active || !supported) return;
+                      (e.currentTarget as HTMLElement).style.background = C.elevated;
+                    }}
+                    onMouseLeave={e => {
+                      if (active || !supported) return;
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    <TypeGlyph type={d.type} size={14} color={color} />
+                    <span className="text-[13px] font-medium truncate">{d.label}</span>
+                    {/* Language-specific indicator — show a tiny badge when this
+                        type is only produced by a subset of languages. */}
+                    {supported && d.languages.length > 0 && !d.languages.includes("*") && (
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded shrink-0"
+                            style={{ background: C.elevated, color: C.textGhost }}
+                            title={`Languages: ${d.languages.join(", ")}`}>
+                        {d.languages.length <= 2
+                          ? d.languages.map(l => l.slice(0, 2).toUpperCase()).join("/")
+                          : `${d.languages.length} langs`}
+                      </span>
+                    )}
+                    {count > 0 && (
+                      <span className="ml-auto text-[11px] font-mono shrink-0"
+                            style={{ color: active && supported ? color : C.textGhost }}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Edges tab ────────────────────────────────────────────────────────────────
+
+function EdgesTab({
+  visibleGroups, draftEdges, edgeCounts, onToggle, allOn, onAll, onNone,
+  graphLanguage,
+}: {
+  visibleGroups: EdgeGroupView[];
+  draftEdges: EdgeType[];
+  edgeCounts: Map<EdgeType, number>;
+  onToggle: (t: EdgeType) => void;
+  allOn: boolean;
+  onAll: () => void;
+  onNone: () => void;
+  graphLanguage: string;
+}) {
+  return (
+    <div className="px-4 py-2">
+      <div className="flex items-center gap-2 mb-1">
+        <GroupQuickActions allOn={allOn} onAll={onAll} onNone={onNone} />
+      </div>
+      {visibleGroups.map(g => {
+        const groupActive = g.defs.filter(d => draftEdges.includes(d.type)).length;
+        return (
+          <div key={g.id} className="py-2.5" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12px] font-semibold" style={{ color: C.textSub }}>
+                {g.label}
+              </span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-md"
+                    style={{ background: C.elevated, color: C.textSub }}>
+                {groupActive}/{g.defs.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {g.defs.map(d => {
+                const active = draftEdges.includes(d.type);
+                const count = edgeCounts.get(d.type) ?? 0;
+                const color = EDGE_COLORS[d.type] ?? C.textDim;
+                const supported =
+                  !graphLanguage ||
+                  d.languages.includes(graphLanguage) ||
+                  d.languages.includes("*");
+                return (
+                  <button
+                    key={d.type}
+                    onClick={() => supported && onToggle(d.type)}
+                    disabled={!supported}
+                    title={
+                      supported
+                        ? d.description
+                        : `${d.label} isn't produced by ${graphLanguage || "this language"}`
+                    }
+                    className={"flex items-center gap-1.5 px-2.5 py-2 rounded-md text-left "
+                      + "transition-colors "
+                      + (supported ? "cursor-pointer" : "cursor-not-allowed opacity-40")}
+                    style={{
+                      background:    active && supported ? `${color}12` : "transparent",
+                      color:         active && supported ? C.text : C.textSub,
+                    }}
+                    onMouseEnter={e => {
+                      if (active || !supported) return;
+                      (e.currentTarget as HTMLElement).style.background = C.elevated;
+                    }}
+                    onMouseLeave={e => {
+                      if (active || !supported) return;
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    <span className="text-[13px]" style={{ color }}>{d.icon ?? "→"}</span>
+                    <span className="text-[13px] font-medium truncate">{d.label}</span>
+                    {supported && d.languages.length > 0 && !d.languages.includes("*") && (
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded shrink-0"
+                            style={{ background: C.elevated, color: C.textGhost }}
+                            title={`Languages: ${d.languages.join(", ")}`}>
+                        {d.languages.length <= 2
+                          ? d.languages.map(l => l.slice(0, 2).toUpperCase()).join("/")
+                          : `${d.languages.length} langs`}
+                      </span>
+                    )}
+                    {count > 0 && (
+                      <span className="ml-auto text-[11px] font-mono shrink-0"
+                            style={{ color: active && supported ? color : C.textGhost }}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Languages tab ────────────────────────────────────────────────────────────
+
+function LangsTab({ graph }: { graph: GraphResponse | undefined }) {
+  const defs = useMemo(() => {
+    const langs = ["TypeScript/JavaScript", "Python", "Java", "Go", "Rust"];
+    return langs.map(l => {
+      const lower = (graph?.fingerprint?.language as string) ?? "";
+      const active = lower.toLowerCase().includes(l.toLowerCase().split("/")[0]);
+      return { label: l, active };
+    });
+  }, [graph]);
+  return (
+    <div className="px-4 py-3">
+      <p className="text-xs mb-3" style={{ color: C.textDim }}>
+        Languages the engine can analyze. Each drives which node/edge types
+        appear in the Nodes and Edges tabs above.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {defs.map(d => (
+          <div key={d.label}
+               className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
+               style={{
+                 background: d.active ? `${C.teal}12` : C.elevated,
+                 border: `1px solid ${d.active ? `${C.teal}35` : C.borderSub}`,
+               }}>
+            <HiOutlineCodeBracket size={14}
+              style={{ color: d.active ? C.teal : C.textDim }} />
+            <span className="text-xs font-medium" style={{ color: d.active ? C.teal : C.textSub }}>
+              {d.label}
+            </span>
+            <span className="ml-auto text-[10px]" style={{ color: C.textGhost }}>
+              {d.active ? "Detected" : "Available"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Group quick actions ──────────────────────────────────────────────────────
+
+function GroupQuickActions({ allOn, onAll, onNone }: {
+  allOn: boolean;
+  onAll: () => void;
+  onNone: () => void;
+}) {
+  const label: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: C.textSub, letterSpacing: "0.04em" };
+  return (
+    <div className="flex items-center gap-3">
+      <button onClick={onAll} className="text-[12px] font-medium transition-colors"
+              style={{ color: C.teal }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = "#5eead4")}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.teal)}>
+        Select All
+      </button>
+      <span style={{ color: C.border }}>·</span>
+      <button onClick={onNone} className="text-[12px] font-medium transition-colors"
+              style={{ color: C.textDim }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = C.textSub)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.textDim)}>
+        None
+      </button>
+    </div>
+  );
+}
+
+// ─── Score + Boundary + Entry rows ────────────────────────────────────────────
+
+function ScoreBoundaryRow({
+  draftScore, onScoreChange, activeBoundaries, onBoundaryChange,
+  hasRoutes, showRouteNodes, onRouteToggle, routeHopDepth, onHopDepthChange,
+}: {
+  draftScore: number;
+  onScoreChange: (v: number) => void;
+  activeBoundaries: Array<RenderingBoundary | "unset">;
+  onBoundaryChange: (v: Array<RenderingBoundary | "unset">) => void;
+  hasRoutes: boolean;
+  showRouteNodes: boolean;
+  onRouteToggle: () => void;
+  routeHopDepth: number;
+  onHopDepthChange: (d: number) => void;
+}) {
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10, fontWeight: 600, color: C.textSub, letterSpacing: "0.03em",
+  };
 
   function toggleBoundary(value: RenderingBoundary | "unset") {
     if (activeBoundaries.includes(value)) {
@@ -314,379 +864,85 @@ function MoreFilters({
     }
   }
 
-  const sectionLabel: React.CSSProperties = {
-    fontSize: 10, fontWeight: 600, color: C.textDim,
-    marginBottom: 8, letterSpacing: "0.02em",
-  };
-
   return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all"
-        style={{
-          background:  open ? C.surface   : C.elevated,
-          borderColor: open ? C.teal+"60" : C.borderSub,
-          color:       open ? C.text      : C.textSub,
-        }}
-        onMouseEnter={e => {
-          if (open) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.text;
-          el.style.borderColor = C.teal + "40";
-        }}
-        onMouseLeave={e => {
-          if (open) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.textSub;
-          el.style.borderColor = C.borderSub;
-        }}
-      >
-        <HiOutlineAdjustmentsHorizontal size={12} />
-        Filters
-        {hasActive && (
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: C.teal }}
-          />
-        )}
-        <HiOutlineChevronDown
-          size={10}
-          style={{
-            transform:  open ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 150ms",
-            color:      C.textGhost,
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          className="absolute top-full left-0 mt-1.5 rounded-xl shadow-2xl z-50"
-          style={{
-            background: C.surface,
-            border:     `1px solid ${C.border}`,
-            width:      272,
-            boxShadow:  "0 16px 40px rgba(0,0,0,0.5)",
-          }}
-        >
-          {/* Score */}
-          <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${C.borderSub}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={sectionLabel}>Score</span>
-              <span style={{ fontSize: 11, fontFamily: "monospace", color: C.teal }}>
-                {draftScore === 0 ? "all" : `≥ ${draftScore.toFixed(1)}`}
-              </span>
-            </div>
-            <div style={{ position: "relative" }}>
-              <input
-                type="range"
-                min={0} max={10} step={0.2}
-                value={draftScore}
-                onChange={e => onScoreChange(Number(e.target.value))}
-                style={{ width: "100%", accentColor: C.teal, cursor: "pointer" }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                <span style={{ fontSize: 9, fontFamily: "monospace", color: C.textGhost }}>0</span>
-                <span style={{ fontSize: 9, fontFamily: "monospace", color: C.textGhost }}>10</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Boundary */}
-          <div style={{ padding: "12px 16px", borderBottom: hasRoutes ? `1px solid ${C.borderSub}` : undefined }}>
-            <div style={sectionLabel}>Boundary</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {BOUNDARY_OPTIONS.map(({ value, label, color }) => {
-                const on = activeBoundaries.includes(value);
-                return (
-                  <button
-                    key={String(value)}
-                    onClick={() => toggleBoundary(value)}
-                    style={{
-                      flex:         1,
-                      padding:      "5px 0",
-                      borderRadius: 7,
-                      fontSize:     11,
-                      fontWeight:   500,
-                      cursor:       "pointer",
-                      transition:   "all 0.15s",
-                      background:   on ? `${color}18` : C.elevated,
-                      color:        on ? color        : C.textGhost,
-                      border:       `1px solid ${on ? `${color}45` : C.borderSub}`,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Entry Points */}
-          {hasRoutes && (
-            <div style={{ padding: "12px 16px" }}>
-              <div style={sectionLabel}>Entry Points</div>
-              <EntryPointsContent
-                active={showRouteNodes}
-                onToggle={onRouteToggle}
-                hopDepth={routeHopDepth}
-                onHopDepthChange={onHopDepthChange}
-              />
-            </div>
-          )}
+    <div className="flex flex-col gap-3">
+      {/* Score */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span style={sectionLabel}>Score</span>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: C.teal }}>
+            {draftScore === 0 ? "all" : `≥ ${draftScore.toFixed(1)}`}
+          </span>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─── EntryPointsContent ───────────────────────────────────────────────────────
-
-function EntryPointsContent({
-  active, onToggle, hopDepth, onHopDepthChange,
-}: {
-  active:           boolean;
-  onToggle:         () => void;
-  hopDepth:         number;
-  onHopDepthChange: (depth: number) => void;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Toggle row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button
-          onClick={onToggle}
-          style={{
-            display:      "flex",
-            alignItems:   "center",
-            gap:          6,
-            padding:      "5px 10px",
-            borderRadius: 7,
-            fontSize:     11,
-            fontWeight:   500,
-            cursor:       "pointer",
-            transition:   "all 0.15s",
-            background:   active ? "#818cf818" : C.elevated,
-            borderColor:  active ? "#818cf860" : C.borderSub,
-            border:       `1px solid ${active ? "#818cf860" : C.borderSub}`,
-            color:        active ? "#818cf8"   : C.textSub,
-          }}
-        >
-          <HiOutlineGlobeAlt size={12} />
-          {active ? "On" : "Off"}
-        </button>
-        <span style={{ fontSize: 11, color: C.textDim, lineHeight: 1.4 }}>
-          Show route nodes and their connections
-        </span>
+        <input type="range" min={0} max={10} step={0.2}
+               value={draftScore} onChange={e => onScoreChange(Number(e.target.value))}
+               style={{ width: "100%", accentColor: C.teal, cursor: "pointer" }} />
       </div>
 
-      {/* Hop depth row — only when active */}
-      {active && (
-        <div>
-          <div style={{ fontSize: 10, color: C.textGhost, marginBottom: 6 }}>Hop depth</div>
-          <div
-            style={{
-              display:      "flex",
-              borderRadius: 7,
-              overflow:     "hidden",
-              border:       "1px solid #818cf830",
-              background:   "#818cf808",
-            }}
-          >
-            {HOP_OPTIONS.map(n => (
-              <button
-                key={n}
-                onClick={() => onHopDepthChange(n)}
-                style={{
-                  flex:        1,
-                  padding:     "5px 0",
-                  fontSize:    11,
-                  fontFamily:  "monospace",
-                  fontWeight:  500,
-                  cursor:      "pointer",
-                  transition:  "all 0.15s",
-                  background:  hopDepth === n ? "#818cf8"   : "transparent",
-                  color:       hopDepth === n ? C.bg        : "#818cf870",
-                  borderRight: n !== Infinity ? "1px solid #818cf820" : "none",
-                }}
-                onMouseEnter={e => {
-                  if (hopDepth === n) return;
-                  (e.currentTarget as HTMLElement).style.color = "#818cf8";
-                }}
-                onMouseLeave={e => {
-                  if (hopDepth === n) return;
-                  (e.currentTarget as HTMLElement).style.color = "#818cf870";
-                }}
-              >
-                {n === Infinity ? "∞" : n}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── MultiSelectDropdown ──────────────────────────────────────────────────────
-
-function MultiSelectDropdown<T extends string>({
-  label, allTypes, activeTypes, colors, labels, onToggle, onSetAll,
-}: {
-  label:       string;
-  allTypes:    T[];
-  activeTypes: T[];
-  colors:      Record<string, string>;
-  labels:      Record<string, string>;
-  onToggle:    (type: T) => void;
-  onSetAll:    (types: T[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref             = useRef<HTMLDivElement>(null);
-  const allActive       = allTypes.every(t => activeTypes.includes(t));
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  function handleToggle(type: T) {
-    if (activeTypes.includes(type) && activeTypes.length === 1) return;
-    onToggle(type);
-  }
-
-  function handleSelectAll() {
-    if (allActive) onSetAll([allTypes[0]]);
-    else onSetAll([...allTypes]);
-  }
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
-                   text-xs font-medium transition-all"
-        style={{
-          background:  open ? C.surface   : C.elevated,
-          borderColor: open ? C.teal+"60" : C.borderSub,
-          color:       open ? C.text      : C.textSub,
-        }}
-        onMouseEnter={e => {
-          if (open) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.text;
-          el.style.borderColor = C.teal + "40";
-        }}
-        onMouseLeave={e => {
-          if (open) return;
-          const el = e.currentTarget as HTMLElement;
-          el.style.color = C.textSub;
-          el.style.borderColor = C.borderSub;
-        }}
-      >
-        <div className="flex items-center gap-0.5">
-          {activeTypes.slice(0, 4).map(t => (
-            <span
-              key={t}
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: colors[t] ?? C.textDim }}
-            />
-          ))}
-          {activeTypes.length > 4 && (
-            <span className="text-xs" style={{ color: C.textGhost }}>
-              +{activeTypes.length - 4}
-            </span>
-          )}
-        </div>
-        <span>{label}</span>
-        <span style={{ color: C.textGhost }}>
-          {activeTypes.length}/{allTypes.length}
-        </span>
-        <HiOutlineChevronDown
-          size={10}
-          style={{
-            transform:  open ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 150ms",
-            color:      C.textGhost,
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          className="absolute top-full left-0 mt-1.5 rounded-xl shadow-2xl
-                     z-50 py-1 min-w-44"
-          style={{ background: C.surface, border: `1px solid ${C.border}` }}
-        >
-          <button
-            onClick={handleSelectAll}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs
-                       transition-colors text-left"
-            style={{ color: allActive ? C.teal : C.textDim }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = C.elevated)}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
-          >
-            <span
-              className="w-3.5 h-3.5 rounded border flex items-center
-                         justify-center shrink-0"
-              style={{
-                background:  allActive ? C.teal : "transparent",
-                borderColor: allActive ? C.teal : C.border,
-              }}
-            >
-              {allActive && <HiOutlineCheck size={9} color={C.bg} />}
-            </span>
-            <span className="font-medium">
-              {allActive ? "Deselect All" : "Select All"}
-            </span>
-          </button>
-
-          <div className="my-1 mx-3" style={{ height: 1, background: C.borderSub }} />
-
-          {allTypes.map(type => {
-            const active = activeTypes.includes(type);
-            const color  = colors[type] ?? C.textDim;
-            const isLast = active && activeTypes.length === 1;
-
+      {/* Boundary */}
+      <div>
+        <div style={{ ...sectionLabel, marginBottom: 6 }}>Boundary</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {BOUNDARY_OPTIONS.map(({ value, label, color }) => {
+            const on = activeBoundaries.includes(value);
             return (
-              <button
-                key={type}
-                onClick={() => handleToggle(type)}
-                disabled={isLast}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs
-                           transition-colors text-left
-                           disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: active ? color : C.textDim }}
-                onMouseEnter={e => {
-                  if (isLast) return;
-                  (e.currentTarget as HTMLElement).style.background = C.elevated;
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = "transparent";
-                }}
-              >
-                <span
-                  className="w-3.5 h-3.5 rounded border flex items-center
-                             justify-center shrink-0 transition-all"
-                  style={{
-                    background:  active ? color : "transparent",
-                    borderColor: active ? color : C.border,
-                  }}
-                >
-                  {active && <HiOutlineCheck size={9} color={C.bg} />}
-                </span>
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: color }}
-                />
-                <span className="font-medium">{labels[type] ?? type}</span>
+              <button key={String(value)} onClick={() => toggleBoundary(value)}
+                style={{
+                  flex: 1, padding: "5px 0", borderRadius: 7, fontSize: 11, fontWeight: 500,
+                  cursor: "pointer", transition: "all 0.15s",
+                  background: on ? `${color}18` : C.elevated,
+                  color: on ? color : C.textGhost,
+                  border: `1px solid ${on ? `${color}45` : C.borderSub}`,
+                }}>
+                {label}
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Entry points */}
+      {hasRoutes && (
+        <div>
+          <div style={{ ...sectionLabel, marginBottom: 6 }}>Entry Points</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={onRouteToggle}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
+                borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+                background: showRouteNodes ? "#818cf818" : C.elevated,
+                border: `1px solid ${showRouteNodes ? "#818cf860" : C.borderSub}`,
+                color: showRouteNodes ? "#818cf8" : C.textSub,
+              }}>
+              <HiOutlineGlobeAlt size={12} />
+              {showRouteNodes ? "On" : "Off"}
+            </button>
+            <span style={{ fontSize: 11, color: C.textDim, lineHeight: 1.4 }}>
+              Show routes and their connections
+            </span>
+          </div>
+          {showRouteNodes && (
+            <div className="mt-2">
+              <div style={{ fontSize: 10, color: C.textGhost, marginBottom: 6 }}>Hop depth</div>
+              <div style={{
+                display: "flex", borderRadius: 7, overflow: "hidden",
+                border: "1px solid #818cf830", background: "#818cf808",
+              }}>
+                {HOP_OPTIONS.map(n => (
+                  <button key={n} onClick={() => onHopDepthChange(n)}
+                    style={{
+                      flex: 1, padding: "5px 0", fontSize: 11, fontFamily: "monospace",
+                      fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+                      background: routeHopDepth === n ? "#818cf8" : "transparent",
+                      color: routeHopDepth === n ? C.bg : "#818cf870",
+                      borderRight: n !== Infinity ? "1px solid #818cf820" : "none",
+                    }}>
+                    {n === Infinity ? "∞" : n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

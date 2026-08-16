@@ -8,7 +8,72 @@ import { bfsReachable, blastRadius, buildAdjacency } from "@/lib/graphAlgo";
 import hljs from "highlight.js/lib/core";
 import typescript from "highlight.js/lib/languages/typescript";
 import javascript from "highlight.js/lib/languages/javascript";
+import python from "highlight.js/lib/languages/python";
+import java from "highlight.js/lib/languages/java";
+import go from "highlight.js/lib/languages/go";
+import rust from "highlight.js/lib/languages/rust";
+import bash from "highlight.js/lib/languages/bash";
+import json from "highlight.js/lib/languages/json";
+import yaml from "highlight.js/lib/languages/yaml";
+import xml from "highlight.js/lib/languages/xml";
+import css from "highlight.js/lib/languages/css";
 import "highlight.js/styles/github-dark.css";
+
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("go", go);
+hljs.registerLanguage("rust", rust);
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("css", css);
+
+// Languages we hand to highlight.js highlightAuto() when rendering source
+// code. Listed in priority order — the repo's detected language is always
+// preferred, then common fallbacks. highlightAuto picks the best match.
+const HIGHLIGHT_LANGS = [
+  "typescript", "javascript", "python", "java", "go", "rust",
+  "bash", "json", "yaml", "xml", "css",
+];
+
+/**
+ * Map a graph fingerprint language + node file extension to a highlight.js
+ * language name. Returns undefined when no specific language is known so
+ * the caller can fall back to highlightAuto.
+ */
+function nodeLanguage(
+  graphLanguage: string | undefined,
+  filePath: string | undefined,
+): string | undefined {
+  // 1. Prefer the repo's detected language (from graph.fingerprint.language)
+  const lang = (graphLanguage ?? "").toLowerCase();
+  if (lang.includes("typescript") || lang.includes("javascript")) return "typescript";
+  if (lang.includes("python")) return "python";
+  if (lang.includes("java")) return "java";
+  if (lang.includes("go") || lang === "golang") return "go";
+  if (lang.includes("rust")) return "rust";
+
+  // 2. Fall back to file extension
+  const ext = filePath?.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "ts": case "tsx": return "typescript";
+    case "js": case "jsx": case "mjs": case "cjs": return "javascript";
+    case "py": return "python";
+    case "java": return "java";
+    case "go": return "go";
+    case "rs": return "rust";
+    case "sh": case "bash": case "zsh": return "bash";
+    case "json": return "json";
+    case "yaml": case "yml": return "yaml";
+    case "xml": case "html": case "svg": return "xml";
+    case "css": case "scss": return "css";
+    default: return undefined;
+  }
+}
+
 import {
   HiOutlineXMark,
   HiOutlineCodeBracket,
@@ -30,9 +95,16 @@ import {
   HiOutlineChevronDown,
   HiOutlineBeaker,
   HiOutlineBookOpen,
+  HiOutlineSquares2X2,
+  HiOutlineCube,
+  HiOutlineVariable,
+  HiOutlineQueueList,
+  HiOutlineViewColumns,
+  HiOutlineRectangleGroup,
 } from "react-icons/hi2";
 import { GrDocumentTest } from "react-icons/gr";
 import { sanitizeSummary, sanitizeHighlightedCode } from "@/lib/sanitize";
+import { NODE_ACCENTS } from "./cytoscapeConfig";
 
 hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("javascript", javascript);
@@ -55,34 +127,41 @@ const C = {
 };
 
 // ─── Type colours ─────────────────────────────────────────────────────────────
+//
+// These are derived from NODE_ACCENTS in cytoscapeConfig (the bright accent
+// variant of each type's hue). Keeping a single source of truth means the
+// panel, the chips, the tooltip, and the canvas all agree on what colour
+// represents a given node type. Each entry stores a tinted background, the
+// accent text, and a tinted border — all computed with a hex alpha suffix.
+
+function accentTriple(hex: string) {
+  return { bg: hex + "1f", text: hex, border: hex + "40" };
+}
 
 const TYPE_COLORS: Record<NodeType, { bg: string; text: string; border: string }> = {
-  COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
-  HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
-  FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#fb923c18", text: "#fb923c", border: "#fb923c30" },
-  UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
-  FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-  GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
-  ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
-  TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
-  STORY:       { bg: "#a78bfa18", text: "#a78bfa", border: "#a78bfa30" },
-  THIRD_PARTY: { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
+  COMPONENT:   accentTriple(NODE_ACCENTS.COMPONENT),
+  HOOK:        accentTriple(NODE_ACCENTS.HOOK),
+  FUNCTION:    accentTriple(NODE_ACCENTS.FUNCTION),
+  STATE_STORE: accentTriple(NODE_ACCENTS.STATE_STORE),
+  UTILITY:     accentTriple(NODE_ACCENTS.UTILITY),
+  FILE:        accentTriple(NODE_ACCENTS.FILE),
+  GHOST:       accentTriple(NODE_ACCENTS.GHOST),
+  ROUTE:       accentTriple(NODE_ACCENTS.ROUTE),
+  TEST:        accentTriple(NODE_ACCENTS.TEST),
+  STORY:       accentTriple(NODE_ACCENTS.STORY),
+  THIRD_PARTY: accentTriple(NODE_ACCENTS.THIRD_PARTY),
+  CLASS:       accentTriple(NODE_ACCENTS.CLASS),
+  METHOD:      accentTriple(NODE_ACCENTS.METHOD),
+  INTERFACE:   accentTriple(NODE_ACCENTS.INTERFACE),
+  ENUM:        accentTriple(NODE_ACCENTS.ENUM),
+  STRUCT:      accentTriple(NODE_ACCENTS.STRUCT),
+  MODULE:      accentTriple(NODE_ACCENTS.MODULE),
+  TRAIT:       accentTriple(NODE_ACCENTS.TRAIT),
+  IMPL_BLOCK:  accentTriple(NODE_ACCENTS.IMPL_BLOCK),
+  PACKAGE:     accentTriple(NODE_ACCENTS.PACKAGE),
 };
 
-const TYPE_DOT: Record<string, string> = {
-  COMPONENT:   "#2dd4bf",
-  HOOK:        "#c084fc",
-  FUNCTION:    "#60a5fa",
-  STATE_STORE: "#fb923c",
-  UTILITY:     "#94a3b8",
-  FILE:        "#f472b6",
-  GHOST:       "#6b7280",
-  ROUTE:       "#818cf8",
-  TEST:        "#f97316",
-  STORY:       "#a78bfa",
-  THIRD_PARTY: "#e879f9",
-};
+const TYPE_DOT: Record<string, string> = NODE_ACCENTS;
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   COMPONENT:   <HiOutlineRectangleStack size={16} />,
@@ -96,6 +175,15 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   TEST:        <HiOutlineBeaker size={16} />,
   STORY:       <HiOutlineBookOpen size={16} />,
   THIRD_PARTY: <HiOutlineArrowDownTray size={16} />,
+  CLASS:       <HiOutlineSquares2X2 size={16} />,
+  METHOD:      <HiOutlineVariable size={16} />,
+  INTERFACE:   <HiOutlineViewColumns size={16} />,
+  ENUM:        <HiOutlineQueueList size={16} />,
+  STRUCT:      <HiOutlineCube size={16} />,
+  MODULE:      <HiOutlineRectangleGroup size={16} />,
+  TRAIT:       <HiOutlineArrowsRightLeft size={16} />,
+  IMPL_BLOCK:  <HiOutlineCube size={16} />,
+  PACKAGE:     <HiOutlineSquares2X2 size={16} />,
 };
 
 const SEV_COLORS: Record<string, { bg: string; text: string; border: string }> =
@@ -120,6 +208,10 @@ const EDGE_COLORS: Record<string, string> = {
   USES: "#a78bfa",
   NEXTJS_API_CALL: "#ec4899",
   NAVIGATES_TO: "#22d3ee",
+  IMPLEMENTS: "#4ade80",
+  EXTENDS: "#facc15",
+  EXPORTS: "#a3e635",
+  THROWS: "#fb7185",
 };
 
 const METHOD_COLORS: Record<
@@ -183,10 +275,10 @@ function Label({
 }) {
   return (
     <div className="flex items-center gap-1.5 mb-2.5">
-      {icon && <span style={{ color: C.textGhost }}>{icon}</span>}
+      {icon && <span style={{ color: C.textDim }}>{icon}</span>}
       <p
-        className="text-sm font-semibold uppercase tracking-widest"
-        style={{ color: C.textGhost }}
+        className="text-[11px] font-semibold tracking-wide"
+        style={{ color: C.textSub }}
       >
         {children}
       </p>
@@ -365,7 +457,7 @@ function ThirdPartyMetaSection({
       {/* Score */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <div className="text-sm uppercase tracking-wider" style={{ color: C.textGhost }}>Score</div>
+          <div className="text-sm tracking-wide" style={{ color: C.textGhost }}>Score</div>
           <span className="text-sm font-mono font-semibold" style={{ color: C.teal }}>
             {score.toFixed(1)}<span style={{ color: C.textGhost }}> / 10</span>
           </span>
@@ -404,7 +496,7 @@ function SignatureSection({ node }: { node: CodeNode }) {
       {/* Parameters */}
       {hasParams && (
         <div className="mb-3">
-          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+          <div className="text-sm tracking-wide mb-2" style={{ color: C.textGhost }}>
             Parameters
           </div>
           <div className="flex flex-col gap-1">
@@ -427,7 +519,7 @@ function SignatureSection({ node }: { node: CodeNode }) {
       {/* Return type */}
       {hasReturn && (
         <div className="mb-3">
-          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+          <div className="text-sm tracking-wide mb-2" style={{ color: C.textGhost }}>
             Returns
           </div>
           <span className="font-mono text-sm px-2.5 py-1 rounded-lg border"
@@ -440,7 +532,7 @@ function SignatureSection({ node }: { node: CodeNode }) {
       {/* Prop types (COMPONENT only) */}
       {hasProps && (
         <div className="mb-3">
-          <div className="text-sm uppercase tracking-wider mb-2" style={{ color: C.textGhost }}>
+          <div className="text-sm tracking-wide mb-2" style={{ color: C.textGhost }}>
             Props
           </div>
           <div className="flex flex-col gap-1">
@@ -470,7 +562,7 @@ function SignatureSection({ node }: { node: CodeNode }) {
               size={10}
               style={{ transform: refOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}
             />
-            <span className="uppercase tracking-wider text-sm" style={{ color: C.textGhost }}>
+            <span className="tracking-wide text-sm" style={{ color: C.textGhost }}>
               Types ({Object.keys(refTypes!).length})
             </span>
           </button>
@@ -500,6 +592,361 @@ function SignatureSection({ node }: { node: CodeNode }) {
       )}
     </div>
   );
+}
+
+// ─── Node metadata section ────────────────────────────────────────────────────
+//
+// Renders the engine's per-language node metadata so nothing is lost in the
+// UI. Known keys (CLASS/STRUCT fields, decorators/annotations, implements /
+// extends / traits, ORM flags, method signatures, handler info) get rich,
+// labeled treatments, while EVERYTHING else falls back to a generic key→value
+// list — so new metadata added by future extractors is surfaced automatically
+// without a UI change.
+
+const META_IGNORE = new Set([
+  "calls", "imports", "uses", "importPath", "filePath",
+  "category", "packageVersion", "isThirdParty", "isDynamic",
+  // Internal engine / bookkeeping keys — not useful to end users reading the
+  // panel, so we suppress them from the generic "Other" fallback.
+  "resolvedCalls", "hookCalls", "apiCalls", "contextRefs",
+  "childNodeIds", "nodeCount", "lineCount", "hasErrorHandling",
+  "referencedTypes", "parameters", // duplicates of calls / params / returnType
+  "isUnresolved", "isInlineHandler", "isHttpHandler",
+  "renderingBoundary", // already shown as a badge in the header
+  "language", // redundant with the repo-level language indicator
+]);
+
+function NodeMetaSection({ node }: { node: CodeNode }) {
+  const meta = node.metadata ?? {};
+  const keys = Object.keys(meta);
+  if (keys.length === 0) return null;
+
+  const fields = meta.fields as Array<{ name?: string; type?: string } | string> | undefined;
+  const decorators = asStringArray(meta.decorators);
+  const annotations = asStringArray(meta.annotations);
+  const calls = asStringArray(meta.calls);
+  const implementsTypes = asStringArray(meta.implementsTypes)
+    .concat(asStringArray(meta.traitPath) ? [meta.traitPath as string] : [])
+    .concat(asStringArray(meta.implTarget));
+  const supertraits = asStringArray(meta.supertraits);
+  const extendsType = asStringArray(meta.extendsType).concat(
+    asString(meta.parentClass),
+    asString(meta.parentStruct),
+    asString(meta.extends),
+  );
+  const params = asStringArray(meta.params);
+  const returnType = asString(meta.returnType);
+  const methodName = asString(meta.methodName);
+  const modelType = asString(meta.modelType);
+  const ormType = asString(meta.ormType);
+
+  const flags: { label: string; color: string }[] = [];
+  const flagColors: Record<string, string> = {
+    isModel: "#4ade80", isRepository: "#34d399", isSchema: "#22d3ee",
+    isTask: "#f59e0b", isAbstract: "#facc15", isStatic: "#818cf8",
+    isAsync: "#22d3ee", isConstructor: "#fb7185", isEnum: "#fb7185",
+    isHandler: "#f97316", isExceptionHandler: "#f85149", hasState: "#2dd4bf",
+    isDerived: "#a3e635",
+  };
+  for (const [k, v] of Object.entries(meta)) {
+    if (typeof v === "boolean" && v === true && k in flagColors) {
+      flags.push({ label: k.replace(/^is/, "").toLowerCase(), color: flagColors[k] });
+    }
+  }
+  if (modelType) flags.push({ label: `orm: ${modelType}`, color: "#4ade80" });
+  else if (ormType) flags.push({ label: `orm: ${ormType}`, color: "#4ade80" });
+
+  // Any metadata key neither handled above nor ignored → generic fallback
+  const handled = new Set([
+    "fields", "decorators", "annotations", "calls", "imports", "uses",
+    "implementsTypes", "traitPath", "implTarget", "supertraits",
+    "extendsType", "parentClass", "parentStruct", "extends",
+    "params", "returnType", "methodName", "modelType", "ormType",
+    "httpMethod", "handlerName", "handlerKind", "routeKind", "framework",
+    // User-relevant keys we render explicitly below (so they don't fall into
+    // the generic "Other" dump):
+    "throws", "hooks", "dependencies", "urlPath", "exportType", "propTypes",
+    ...META_IGNORE, ...keys.filter(k => flagColors[k]),
+  ]);
+  const extraKeys = keys.filter(k => !handled.has(k));
+
+  const nodeColor = TYPE_DOT[node.type] ?? C.teal;
+  const accent = TYPE_COLORS[node.type] ?? TYPE_COLORS.GHOST;
+
+  return (
+    <div className="px-5 py-4" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
+      <Label icon={<HiOutlineCircleStack size={14} />}>Metadata</Label>
+
+      {/* Flag badges */}
+      {flags.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-3">
+          {flags.map((f, i) => (
+            <span key={i} className="text-[11px] px-2 py-0.5 rounded-md border font-medium"
+              style={{ background: `${f.color}15`, color: f.color, borderColor: `${f.color}33` }}>
+              {f.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Definition list of rich metadata */}
+      <dl className="flex flex-col">
+        {/* Decorators / annotations */}
+        {(decorators.length > 0 || annotations.length > 0) && (
+          <MetaRow label="Decorators" items={(decorators.length ? decorators : annotations).map(d => ({ text: d, color: "#22d3ee" }))} />
+        )}
+
+        {/* Fields / struct members — tabular name:type rows */}
+        {fields && fields.length > 0 && (
+          <MetaTable
+            label="Members"
+            rows={fields.map(fld => {
+              const name = typeof fld === "string" ? fld : (fld as any)?.name ?? "?";
+              const type = typeof fld === "string" ? null : (fld as any)?.type;
+              return { name, value: type ?? null, keyColor: nodeColor };
+            })}
+          />
+        )}
+
+        {/* Implements / traits */}
+        {(implementsTypes.length > 0 || supertraits.length > 0) && (
+          <MetaRow
+            label="Implements / traits"
+            items={[
+              ...implementsTypes.filter(Boolean).map(t => ({ text: t, color: "#4ade80" })),
+              ...supertraits.filter(Boolean).map(t => ({ text: t, color: "#d946ef" })),
+            ]}
+          />
+        )}
+
+        {/* Extends */}
+        {extendsType.filter(Boolean).length > 0 && (
+          <MetaRow
+            label="Extends"
+            items={extendsType.filter(Boolean).map(t => ({ text: t, color: "#facc15" }))}
+          />
+        )}
+
+        {/* Method signature */}
+        {((methodName && methodName !== node.name) || params.length > 0 || returnType) && (
+          <div className="flex items-baseline gap-2 py-1.5 border-b border-transparent">
+            <dt className="text-[11px] font-medium shrink-0 w-28 truncate" style={{ color: C.textGhost }}>
+              Signature
+            </dt>
+            <dd className="font-mono text-[13px] break-words" style={{ color: C.textSub }}>
+              {methodName && methodName !== node.name ? methodName : node.name}
+              <span style={{ color: C.textGhost }}>(</span>
+              {params.length > 0 ? (
+                <span style={{ color: nodeColor }}>{params.join(", ")}</span>
+              ) : (
+                <span style={{ color: C.textGhost }}>…</span>
+              )}
+              <span style={{ color: C.textGhost }}>)</span>
+              {returnType && (
+                <>
+                  <span style={{ color: C.textGhost }}> → </span>
+                  <span style={{ color: returnTypeColor(returnType) }}>{returnType}</span>
+                </>
+              )}
+            </dd>
+          </div>
+        )}
+
+        {/* Calls */}
+        {calls.length > 0 && (
+          <MetaRow
+            label="Calls"
+            items={calls.slice(0, 40).map(c => ({ text: c, color: C.blue }))}
+            overflow={calls.length > 40 ? calls.length - 40 : 0}
+          />
+        )}
+
+        {/* Throws — exceptions raised by this function/method */}
+        {asStringArray(meta.throws).length > 0 && (
+          <MetaRow
+            label="Throws"
+            items={asStringArray(meta.throws).map(t => ({ text: t, color: "#fb7185" }))}
+          />
+        )}
+
+        {/* Hooks — React hooks used by this component/hook node */}
+        {asStringArray(meta.hooks).length > 0 && (
+          <MetaRow
+            label="Hooks"
+            items={asStringArray(meta.hooks).map(h => ({ text: h, color: "#c084fc" }))}
+          />
+        )}
+
+        {/* Dependencies — imported modules / packages for this node */}
+        {asStringArray(meta.dependencies).length > 0 && (
+          <MetaRow
+            label="Dependencies"
+            items={asStringArray(meta.dependencies).slice(0, 30).map(d => ({ text: d, color: C.textSub }))}
+            overflow={(() => {
+              const dl = asStringArray(meta.dependencies).length;
+              return dl > 30 ? dl - 30 : 0;
+            })()}
+          />
+        )}
+
+        {/* Route URL — shown for ROUTE nodes when present */}
+        {asString(meta.urlPath) && (
+          <div className="flex items-start gap-2 py-1.5" style={{ borderBottom: `1px solid ${C.borderSub}40` }}>
+            <dt className="text-[11px] font-medium shrink-0 w-28 truncate pt-0.5" style={{ color: C.textGhost }}>
+              Route
+            </dt>
+            <dd className="font-mono text-[12px] break-all" style={{ color: C.teal }}>
+              {asString(meta.urlPath)}
+            </dd>
+          </div>
+        )}
+
+        {/* Export type — named vs default export */}
+        {asString(meta.exportType) && (
+          <div className="flex items-start gap-2 py-1.5" style={{ borderBottom: `1px solid ${C.borderSub}40` }}>
+            <dt className="text-[11px] font-medium shrink-0 w-28 truncate pt-0.5" style={{ color: C.textGhost }}>
+              Export
+            </dt>
+            <dd className="text-[12px]" style={{ color: C.textSub }}>
+              {asString(meta.exportType)}
+            </dd>
+          </div>
+        )}
+
+        {/* Prop types — shown for COMPONENT nodes */}
+        {asString(meta.propTypes) && (
+          <div className="flex items-start gap-2 py-1.5" style={{ borderBottom: `1px solid ${C.borderSub}40` }}>
+            <dt className="text-[11px] font-medium shrink-0 w-28 truncate pt-0.5" style={{ color: C.textGhost }}>
+              Props
+            </dt>
+            <dd className="font-mono text-[11px] break-words" style={{ color: C.textDim }}>
+              {asString(meta.propTypes)}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {/* Generic fallback — surface anything the engine added that we don't
+          explicitly render above. The pretty-printer now handles nested
+          arrays/objects instead of dumping "[object Object]". Internal
+          engine bookkeeping keys are filtered out via META_IGNORE so only
+          user-relevant fields stay. */}
+      {extraKeys.length > 0 && (
+        <MetaTable
+          label="Other"
+          rows={extraKeys
+            .filter(k => meta[k] != null)
+            .map(k => ({ name: k, value: prettyValue(meta[k]), keyColor: accent.text }))}
+        />
+      )}
+    </div>
+  );
+}
+
+// Definition-list row: label + comma-separated chips
+function MetaRow({
+  label, items, overflow = 0,
+}: {
+  label: string;
+  items: { text: string; color: string }[];
+  overflow?: number;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="flex items-start gap-2 py-1.5" style={{ borderBottom: `1px solid ${C.borderSub}40` }}>
+      <dt className="text-[11px] font-medium shrink-0 w-28 truncate pt-0.5" style={{ color: C.textGhost }}>
+        {label}
+      </dt>
+      <dd className="flex items-center gap-1 flex-wrap flex-1 min-w-0">
+        {items.map((it, i) => <Chip key={i} color={it.color}>{it.text}</Chip>)}
+        {overflow > 0 && (
+          <span className="text-[11px] font-mono" style={{ color: C.textGhost }}>
+            +{overflow} more
+          </span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+// Definition-list table: label + stacked name:value rows (for members etc.)
+function MetaTable({
+  label, rows,
+}: {
+  label: string;
+  rows: { name: string; value: string | null; keyColor: string }[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="py-1.5" style={{ borderBottom: `1px solid ${C.borderSub}40` }}>
+      <dt className="text-[11px] font-medium mb-1.5" style={{ color: C.textGhost }}>
+        {label}
+      </dt>
+      <dd className="flex flex-col">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-start gap-2 font-mono text-[12px] py-0.5">
+            <span className="shrink-0" style={{ color: r.keyColor }}>{r.name}</span>
+            {r.value && (
+              <>
+                <span style={{ color: C.textGhost }}>:</span>
+                <span className="break-words" style={{ color: C.textDim }}>{r.value}</span>
+              </>
+            )}
+          </div>
+        ))}
+      </dd>
+    </div>
+  );
+}
+
+function Chip({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-md border"
+      style={{ background: `${color}14`, color, borderColor: `${color}33` }}>
+      {children}
+    </span>
+  );
+}
+
+// Pretty-print metadata values for the generic "Other" fallback.
+// Handles strings, numbers, booleans, arrays, and plain objects — never emits
+// the literal "[object Object]" that the old version did.
+function prettyValue(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "";
+    return v.map(item =>
+      typeof item === "object" && item !== null ? prettyValue(item) : String(item),
+    ).join(", ");
+  }
+  if (typeof v === "object") {
+    const entries = Object.entries(v as Record<string, unknown>)
+      .filter(([, val]) => val != null);
+    if (entries.length === 0) return "";
+    return entries
+      .map(([k, val]) => `${k}=${typeof val === "object" ? prettyValue(val) : String(val)}`)
+      .join(", ");
+  }
+  return String(v);
+}
+
+function asStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  if (typeof v === "string") return [v];
+  return [];
+}
+function asString(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+function returnTypeColor(t: string): string {
+  if (/void|None/.test(t)) return C.textGhost;
+  if (/int|float|number|long|double/.test(t)) return "#60a5fa";
+  if (/str|string|char/.test(t)) return "#f59e0b";
+  if (/bool/.test(t)) return "#a78bfa";
+  if (/\[|list|vec|array|map/.test(t)) return "#22d3ee";
+  return C.teal;
 }
 
 // ─── Route metadata section ───────────────────────────────────────────────────
@@ -640,7 +1087,7 @@ function RouteMetaSection({
       {params && params.length > 0 && (
         <div className="mb-3">
           <div
-            className="text-sm uppercase tracking-wider mb-1.5"
+            className="text-sm tracking-wide mb-1.5"
             style={{ color: C.textGhost }}
           >
             Params
@@ -667,7 +1114,7 @@ function RouteMetaSection({
       {rendersComponent && (
         <div className="mb-3">
           <div
-            className="text-sm uppercase tracking-wider mb-1.5"
+            className="text-sm tracking-wide mb-1.5"
             style={{ color: C.textGhost }}
           >
             Renders
@@ -689,7 +1136,7 @@ function RouteMetaSection({
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <div
-            className="text-sm uppercase tracking-wider"
+            className="text-sm tracking-wide"
             style={{ color: C.textGhost }}
           >
             Score
@@ -800,12 +1247,16 @@ function CodeComparison({
   previousHash,
   nodeId,
   diffStatus,
+  filePath,
+  graphLanguage,
 }: {
   graphId: string;
   currentHash: string;
   previousHash: string;
   nodeId: string;
   diffStatus?: string;
+  filePath?: string;
+  graphLanguage?: string;
 }) {
   const [showCurrent, setShowCurrent] = useState(true);
   const [showPrevious, setShowPrevious] = useState(true);
@@ -821,12 +1272,19 @@ function CodeComparison({
     diffStatus !== "added" ? nodeId : null,
   );
 
+  // Pick the highlight.js language for this node. When we can identify the
+  // language confidently we pass a single-element list so highlight.js uses
+  // that grammar directly; otherwise we fall back to auto-detection over all
+  // registered languages.
+  const hlLang = nodeLanguage(graphLanguage, filePath);
+  const hlSubset = hlLang ? [hlLang] : HIGHLIGHT_LANGS;
+
   const currentHighlighted = currentNode?.rawCode
-    ? hljs.highlightAuto(currentNode.rawCode, ["typescript", "javascript"])
+    ? hljs.highlightAuto(currentNode.rawCode, hlSubset)
         .value
     : null;
   const previousHighlighted = previousNode?.rawCode
-    ? hljs.highlightAuto(previousNode.rawCode, ["typescript", "javascript"])
+    ? hljs.highlightAuto(previousNode.rawCode, hlSubset)
         .value
     : null;
 
@@ -864,6 +1322,7 @@ interface NodeDetailPanelProps {
   commitHash: string;
   nodesById: Record<string, CodeNode>;
   edges: CodeEdge[];
+  graphLanguage?: string;
   onClose: () => void;
   onNodeFocus: (nodeId: string) => void;
   onHighlight: (nodeIds: string[]) => void;
@@ -881,6 +1340,7 @@ export default function NodeDetailPanel({
   commitHash,
   nodesById,
   edges,
+  graphLanguage,
   onClose,
   onNodeFocus,
   onHighlight,
@@ -999,8 +1459,14 @@ export default function NodeDetailPanel({
     // onHighlight([nodeId, ...Array.from(blastRadius(nodeId, radj, blastK))]);
   }
 
+  // Pick the highlight.js language subset for this node — prefer the node's
+  // file extension, then the repo's detected language, then fall back to
+  // auto-detection across all registered languages.
+  const _hlLang = nodeLanguage(graphLanguage, node?.filePath);
+  const _hlSubset = _hlLang ? [_hlLang] : HIGHLIGHT_LANGS;
+
   const highlighted = nodeWithCode?.rawCode
-    ? hljs.highlightAuto(nodeWithCode.rawCode, ["typescript", "javascript"])
+    ? hljs.highlightAuto(nodeWithCode.rawCode, _hlSubset)
         .value
     : null;
 
@@ -1072,7 +1538,7 @@ export default function NodeDetailPanel({
                 return (
                   <span
                     className="flex items-center gap-1 text-xs px-2 py-0.5
-                               rounded-full border font-medium uppercase tracking-wide"
+                               rounded-full border font-medium"
                     style={{
                       background: isClient ? "#06b6d418" : "#f59e0b18",
                       color:      isClient ? "#06b6d4"   : "#f59e0b",
@@ -1207,7 +1673,7 @@ export default function NodeDetailPanel({
               <div className="flex items-start gap-6 mb-3">
                 <div>
                   <div
-                    className="text-sm uppercase tracking-wider mb-1"
+                    className="text-sm tracking-wide mb-1"
                     style={{ color: C.textGhost }}
                   >
                     Lines
@@ -1229,7 +1695,7 @@ export default function NodeDetailPanel({
 
                 <div>
                   <div
-                    className="text-sm uppercase tracking-wider mb-1"
+                    className="text-sm tracking-wide mb-1"
                     style={{ color: C.textGhost }}
                   >
                     Score
@@ -1282,7 +1748,7 @@ export default function NodeDetailPanel({
                 {node.summarizedAt && (
                   <div className="ml-auto text-right">
                     <div
-                      className="text-sm uppercase tracking-wider mb-1"
+                      className="text-sm tracking-wide mb-1"
                       style={{ color: C.textGhost }}
                     >
                       Analyzed
@@ -1319,7 +1785,7 @@ export default function NodeDetailPanel({
               <div className="flex items-center gap-2 mb-1.5">
                 <HiOutlineShieldExclamation size={12} color={sevC.text} />
                 <span
-                  className="text-sm font-semibold uppercase tracking-wider"
+                  className="text-sm font-semibold tracking-wide"
                   style={{ color: sevC.text }}
                 >
                   {sev} risk
@@ -1332,24 +1798,27 @@ export default function NodeDetailPanel({
               />
             </div>
           )}
+          {/* Rich per-language metadata (surfaces engine metadata in the UI) */}
+          {!isRoute && !isThirdParty && <NodeMetaSection node={node} />}
+
           {/* Summaries */}
           {(node.businessSummary || node.technicalSummary) && (
             <div
-              className="px-5 py-4 my-8 space-y-6"
+              className="px-5 py-4 space-y-4"
               style={{ borderBottom: `1px solid ${C.borderSub}` }}
             >
               {node.businessSummary && (
                 <div
-                  className="rounded-xl px-4 py-3"
+                  className="rounded-lg px-3.5 py-3"
                   style={{
-                    background: `${C.teal}50`,
-                    border: `1px solid ${C.teal}15`,
+                    background: `${C.teal}0e`,
+                    border: `1px solid ${C.teal}22`,
                   }}
                 >
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <HiOutlineRectangleStack size={16} color={C.teal} />
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <HiOutlineRectangleStack size={14} color={C.teal} />
                     <span
-                      className="text-base font-semibold uppercase tracking-widest"
+                      className="text-[11px] font-semibold tracking-wide"
                       style={{ color: C.teal }}
                     >
                       What it does
@@ -1361,16 +1830,16 @@ export default function NodeDetailPanel({
 
               {node.technicalSummary && (
                 <div
-                  className="rounded-xl px-4 py-3"
+                  className="rounded-lg px-3.5 py-3"
                   style={{
-                    background: `${C.blue}50`,
-                    border: `1px solid ${C.blue}15`,
+                    background: `${C.blue}0e`,
+                    border: `1px solid ${C.blue}22`,
                   }}
                 >
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <HiOutlineCommandLine size={16} color={C.blue} />
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <HiOutlineCommandLine size={14} color={C.blue} />
                     <span
-                      className="text-base font-semibold uppercase tracking-widest"
+                      className="text-[11px] font-semibold tracking-wide"
                       style={{ color: C.blue }}
                     >
                       Technical
@@ -1436,7 +1905,7 @@ export default function NodeDetailPanel({
                   <div className="flex items-center gap-1.5 mb-3">
                     <HiOutlineArrowRight size={16} color={C.blue} />
                     <span
-                      className="text-sm font-semibold uppercase tracking-widest"
+                      className="text-sm font-semibold tracking-wide"
                       style={{ color: C.textGhost }}
                     >
                       {isRoute ? "Handles" : "Calls / Uses"}
@@ -1462,7 +1931,7 @@ export default function NodeDetailPanel({
                   <div className="flex items-center gap-1.5 mb-3">
                     <HiOutlineArrowLeft size={16} color={C.textSub} />
                     <span
-                      className="text-sm font-semibold uppercase tracking-widest"
+                      className="text-sm font-semibold tracking-wide"
                       style={{ color: C.textGhost }}
                     >
                       Used By
@@ -1487,7 +1956,7 @@ export default function NodeDetailPanel({
 
           {/* Graph tools */}
           <div
-            className="px-5 py-4 my-8 flex flex-col gap-3"
+            className="px-5 py-4 flex flex-col gap-3"
             style={{ borderBottom: `1px solid ${C.borderSub}` }}
           >
             <Label icon={<HiOutlineCpuChip size={16} />}>Graph Tools</Label>
@@ -1597,6 +2066,8 @@ export default function NodeDetailPanel({
                   previousHash={diffFromHash}
                   nodeId={nodeId}
                   diffStatus={diffInfo?.status}
+                  filePath={node?.filePath}
+                  graphLanguage={graphLanguage}
                 />
               ) : /* Normal single-version code view */
               !showCode ? (
@@ -1807,7 +2278,7 @@ function ConnectionGroup({
       >
         <EdgeIcon type={type} color={color} />
         <span
-          className="text-sm font-semibold uppercase tracking-wider"
+          className="text-sm font-semibold tracking-wide"
           style={{ color }}
         >
           {type.replace(/_/g, " ")}
