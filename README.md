@@ -83,7 +83,10 @@ Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, 
 npm install -g @devlensio/cli
 ```
 
-> **No Node.js?** Use the standalone binary installer (zero dependencies):
+> **No Node.js?** Use the standalone binary installer (zero dependencies). Both
+> installers are verbose — they print progress, warnings, errors, and next steps,
+> and **automatically add `devlens` to your `PATH`** (your shell's rc file on
+> macOS/Linux, your user `PATH` on Windows).
 >
 > **Linux / macOS:**
 > ```bash
@@ -94,6 +97,10 @@ npm install -g @devlensio/cli
 > ```powershell
 > irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
 > ```
+>
+> Customize with environment variables: `DEVLENS_VERSION` (e.g. `v0.5.1`),
+> `DEVLENS_INSTALL_DIR` (install folder), or `DEVLENS_NO_PATH=1` to skip the
+> automatic PATH setup.
 
 **2. Configure your AI provider** *(only needed if you want AI summaries — structure-only works offline)*
 

@@ -11,7 +11,6 @@ export function registerInitCommand(program: Command): void {
       .description("First-time setup: configure your LLM provider for summarization")
       .action(async () => {
         info("Welcome to DevLens. Let's configure summarization.");
-        info("(Using Ollama? Provider 'ollama' needs no API key.)");
         await configInteractive();
       })
   );

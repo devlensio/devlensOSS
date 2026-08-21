@@ -1,6 +1,6 @@
 {
   "name": "@devlensio/cli",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "DevLens CLI — turn any TypeScript, JavaScript, Python, Go, Rust, or Java codebase into a queryable graph of nodes and typed edges, with per-node functional, technical, and security summaries. Commands: detect, analyze, summarize, overview, top-nodes, find-nodes, nodes-in-path, get-node, get-summaries, node-code, blast-radius, khop, subgraph, cycles, diff, check-freshness, coverage, security, security-brief, architecture, review-pr, onboard-tour, get-context, config, init, repos, graphs, status, doctor, serve, mcp.",
   "keywords": [
     "codebase",
@@ -47,11 +47,11 @@
     "postinstall": "node scripts/postinstall.mjs"
   },
   "optionalDependencies": {
-    "@devlensio/cli-darwin-arm64": "0.5.1",
-    "@devlensio/cli-darwin-x64": "0.5.1",
-    "@devlensio/cli-linux-x64": "0.5.1",
-    "@devlensio/cli-linux-arm64": "0.5.1",
-    "@devlensio/cli-windows-x64": "0.5.1"
+    "@devlensio/cli-darwin-arm64": "0.5.2",
+    "@devlensio/cli-darwin-x64": "0.5.2",
+    "@devlensio/cli-linux-x64": "0.5.2",
+    "@devlensio/cli-linux-arm64": "0.5.2",
+    "@devlensio/cli-windows-x64": "0.5.2"
   },
   "trustedDependencies": [
     "devlensio"

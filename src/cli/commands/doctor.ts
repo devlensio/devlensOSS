@@ -99,17 +99,6 @@ export function registerDoctorCommand(program: Command): void {
           checks.apiKey = { ok: false, detail: "N/A — config incomplete" };
         }
 
-        // ollama reachability (best effort; only a problem if you intend to use it)
-        try {
-          const ctrl = new AbortController();
-          const t = setTimeout(() => ctrl.abort(), 1500);
-          const r = await fetch("http://localhost:11434", { signal: ctrl.signal });
-          clearTimeout(t);
-          checks.ollama = { ok: r.ok, detail: r.ok ? "reachable" : "responded but not OK" };
-        } catch {
-          checks.ollama = { ok: false, detail: "not running (fine if using a cloud provider)" };
-        }
-
         // ── Extractor runtimes (multi-language support) ─────────────────────
         // Standalone binary: go/rust static binaries + java jar are embedded
         // and materialised (see src/cli/extractors.ts). Python is resolved

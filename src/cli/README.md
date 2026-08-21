@@ -293,7 +293,6 @@ All providers are sourced from the built-in catalog — no hardcoded lists in th
 
 | Provider | Protocol | Notes |
 | :-- | :-- | :-- |
-| Ollama (local) | openai | `devlens config --provider openai --provider-name ollama --model qwen2.5-coder:7b --base-url http://localhost:11434/v1` |
 | OpenAI | openai | `devlens config --provider openai --provider-name openai --model gpt-4o-mini --api-key <key>` |
 | Anthropic | anthropic | `devlens config --provider anthropic --provider-name anthropic --model claude-haiku-4-5 --api-key <key>` |
 | DeepSeek | openai | `devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key <key>` |
