@@ -1,10 +1,12 @@
 # `frontend` — the DevLens Web UI
 
-An interactive codebase-graph visualizer built with **Next.js 15** and **Cytoscape**. It talks to the DevLens backend API (`src/server`, started by `devlens serve` or `bun run dev`) and renders the analyzed graph: a force-directed canvas with per-node detail, search/filter, commit-diff overlay, and a security panel.
+An interactive codebase-graph visualizer built with **Next.js 16** and **Cytoscape**. It talks to the DevLens backend API (`src/server`) and renders the analyzed graph: a force-directed canvas with per-node detail, search/filter, commit-diff overlay, and a security panel.
+
+The graph view lives under a **dynamic route** (`/graph/[graphId]`), because a user analyzes new repos after installing DevLens — the graph id isn't known at build time. So the frontend is built and run as a **live Next.js server** (`next build` → `next start`), which renders *any* `/graph/<id>` on demand. `devlens serve-ui` / `bun start` run that live server on a single port (via a Bun proxy): `/api/*` is handled by the DevLens API router, and everything else is proxied to the Next server — so the UI and API stay on one port and graph navigation works for graphs created after startup.
 
 ## Stack
 
-- **Next.js 15** (App Router) + **React 19**
+- **Next.js 16** (App Router) + **React 19**
 - **Cytoscape** + `cytoscape-fcose` — graph canvas & force-directed layout
 - **@tanstack/react-query** — server state / data fetching
 - **highlight.js** + `html-react-parser` + `dompurify` — safe rendered source & summaries
@@ -31,30 +33,42 @@ frontend/
 
 ## Run
 
-From the repo root (recommended — starts the backend **and** the frontend together):
+**Production — one command from the repo root** (`bun start` builds the frontend *only when there's no existing build*, then serves UI + API together on a single port; it auto-increments if busy):
 
 ```bash
 bun install
-bun run dev
+bun start                # builds on first run, then serves API + Web UI on :3000
+# → Web UI:  http://localhost:3000
 ```
 
-Or run just the frontend (expects the backend already running):
+`bun start` is **fast on repeat runs**: it skips the Next.js build when `frontend/.next` already exists (use `bun run start -- --rebuild` to force a fresh build, or `-- --port 4100` to pick a starting port).
+
+Equivalently, `devlens serve-ui` (from source, after `bun run build:ui`) serves the same live web UI + API on one port.
+
+> Because the UI is a *live* Next server, opening `/graph/<any-new-graph-id>` (from the **Analyzed Repositories** cards, or directly) always renders the graph — even for repos analyzed after the server started.
+
+**Development — hot-reloading** (backend on :3000, frontend on :3001):
 
 ```bash
-cd frontend
-bun run dev        # next dev
+# from the repo root (recommended): backend + frontend together
+bun install && bun run dev
+
+# or run just the frontend dev server (expects the backend already running)
+cd frontend && bun run dev   # next dev
 ```
 
 Open the printed URL, paste the **absolute path** to a repo (it must have a root `package.json`), and click **Analyze**.
+
+> **API base URL:** in production the UI calls the API on the **same origin** (whatever port `serve-ui`/`bun start` chose), so no config is needed. In `next dev` it targets `http://localhost:3000` by default. Override with `NEXT_PUBLIC_ENGINE_URL` if the UI and API are on different origins.
 
 ## Scripts
 
 | Script | Does |
 | :-- | :-- |
-| `bun run dev` | `next dev` — hot-reloading dev server |
-| `bun run build` | `next build` — production build |
-| `bun run start` | `next start` — serve the production build |
+| `bun run dev` | `next dev` — hot-reloading dev server (dev only) |
+| `bun run build` | `next build` — production build (server mode, `frontend/.next`); served by `bun start` / `devlens serve-ui` via a live Next server |
 | `bun run lint` | `eslint` |
+| *(repo root)* `bun run build:ui` | alias for `cd frontend && bun run build` |
 
 ## Backend
 

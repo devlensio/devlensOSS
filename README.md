@@ -29,14 +29,16 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 
 - [What is DevLens?](#what-is-devlens)
 - [Supported languages](#supported-languages)
+- [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Screenshots](#screenshots)
-- [Why it's faster & cheaper](#why-its-faster--cheaper)
+- [Why it's fast & cheaper](#why-its-fast--cheaper)
 - [Ways to use DevLens](#ways-to-use-devlens)
-  - [Web UI](#web-ui--visual-exploration)
-  - [CLI](#cli--terminal-power)
-  - [Agent Skill — AI-Powered Understanding](#agent-skill--ai-powered-understanding)
+  - [Web UI — visual exploration](#web-ui--visual-exploration)
+  - [CLI — terminal power](#cli--terminal-power)
+  - [Agent Skill — AI-powered understanding](#agent-skill--ai-powered-understanding)
   - [MCP Server — for any MCP-compatible AI agent](#mcp-server--for-any-mcp-compatible-ai-agent)
+- [How to summarize](#how-to-summarize)
 - [Configuration](#configuration)
 - [What DevLens understands](#what-devlens-understands)
 - [Benchmarks](#benchmarks)
@@ -57,6 +59,14 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 
 This is the difference between an AI that re-reads your whole repo every session and an AI that already knows the architecture — architecture reviews, impact analysis, security audits, and onboarding take **seconds, not hours**.
 
+**Typical use cases:**
+
+- **Onboarding** — a new developer sees the architecture, modules, and gotchas in minutes, not weeks.
+- **Impact analysis** — *before* touching a symbol, see its blast radius: what breaks if you change it?
+- **Security reviews** — every node carries a severity-ranked security assessment with real reach.
+- **PR review** — a review packet that explains the diff's impact, tests, and security delta.
+- **AI agents** — give Claude/Cursor/Kilo an MCP server + skill that queries the graph instead of re-reading files.
+
 ---
 
 ## Supported languages
@@ -75,59 +85,74 @@ Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, 
 
 ---
 
+## Prerequisites
+
+| Requirement | Needed for | Notes |
+| :-- | :-- | :-- |
+| [Bun](https://bun.sh) ≥ 1.x | Build & run from source (`bun install`, `bun run dev`, `bun start`) | macOS/Linux/Windows |
+| [Node.js](https://nodejs.org) ≥ 18 | `npm install -g @devlensio/cli` (optional path) | not needed for the standalone binary |
+| `git` | analyzing a repo (DevLens shells out to `git`) | required on all install paths |
+| A JVM 17+ | Java analysis | only when analyzing Java repos |
+| `python3` 3.11+ | Python analysis | only when analyzing Python repos |
+| An LLM provider API key | AI summaries (optional) | needed only for `--summarize`; structure-only analysis works offline |
+
+Summaries are **never generated silently** — the CLI and skill ask permission first, and structure-only analysis needs no provider at all.
+
+---
+
 ## Quick Start
 
-**1. Install**
+The fastest way to try the **full experience (Web UI + CLI + hot reload)** is to clone and run from source. The one-line installers give you the CLI with zero build time.
+
+### Option A — Clone & develop (Web UI + CLI together, recommended)
+
+```bash
+git clone https://github.com/devlensio/devlensOSS.git
+cd devlensOSS
+bun install
+
+# Development (backend on :3000, hot-reloaded frontend on :3001)
+bun run dev
+
+# OR production — one command, API + Web UI on a single port (:3000)
+bun run start
+```
+
+Production `bun start` builds the frontend **only the first time** (later runs skip the rebuild unless you pass `-- --rebuild`) and serves the Web UI *and* the backend API on one port. Open the printed URL, paste an absolute repo path, and click **Analyze**.
+
+### Option B — Install the CLI from npm
 
 ```bash
 npm install -g @devlensio/cli
 ```
 
-> **No Node.js?** Use the standalone binary installer (zero dependencies). Both
-> installers are verbose — they print progress, warnings, errors, and next steps,
-> and **automatically add `devlens` to your `PATH`** (your shell's rc file on
-> macOS/Linux, your user `PATH` on Windows).
->
-> **Linux / macOS:**
-> ```bash
-> curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
-> ```
->
-> **Windows (PowerShell):**
-> ```powershell
-> irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
-> ```
->
-> Customize with environment variables: `DEVLENS_VERSION` (e.g. `v0.5.1`),
-> `DEVLENS_INSTALL_DIR` (install folder), or `DEVLENS_NO_PATH=1` to skip the
-> automatic PATH setup.
+### Option C — Install the standalone binary (no Node.js required)
 
-**2. Configure your AI provider** *(only needed if you want AI summaries — structure-only works offline)*
+The installers are verbose — they print progress, warnings, errors, and next steps, and **automatically add `devlens` to your `PATH`** (your shell's rc file on macOS/Linux, your user `PATH` on Windows).
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
+```
+
+Customize with environment variables: `DEVLENS_VERSION` (e.g. `v0.5.1`), `DEVLENS_INSTALL_DIR` (install folder), or `DEVLENS_NO_PATH=1` to skip the automatic PATH setup.
+
+### Using any install — summarize, then explore
 
 ```bash
 cd your-project
-devlens init
+devlens init                       # optional — configure your AI provider for summaries
+devlens analyze . --summarize      # build the graph + generate AI summaries
+devlens overview                   # language, framework, stats, central nodes
+devlens find-nodes -t ROUTE        # every route in the app
+devlens architecture               # one-command architecture brief
+devlens security                   # security flags across the codebase
 ```
 
-**3. Analyze**
-
-```bash
-devlens analyze . --summarize
-```
-
-DevLens detects the language (TS/JS, Python, Go, Rust, Java) from your manifests, builds the graph, and summarizes every node.
-
-**4. Explore**
-
-```bash
-devlens overview                # language, framework, stats, central nodes
-devlens detect                  # "what is this repo?" — language, manifest, deps
-devlens find-nodes -t ROUTE     # every route in the app
-devlens architecture            # one-command architecture brief
-devlens security                # security flags across the codebase
-```
-
-That's it. Want it in your AI agent instead? Jump to the [Agent Skill](#agent-skill--ai-powered-understanding).
+Want it in your AI agent instead? Jump to [Agent Skill](#agent-skill--ai-powered-understanding).
 
 ---
 
@@ -155,18 +180,21 @@ A node summary is **~50 tokens**. The file it describes is **~2,000**. Querying 
 
 Pick the interface that fits your workflow:
 
-### <img src="assets/web-icon.svg" width="20" style="vertical-align: middle" /> Web UI — Visual Exploration
+### <img src="assets/web-icon.svg" width="20" style="vertical-align: middle" /> Web UI — visual exploration
 
 *For when you want to see your codebase laid out as an interactive graph.*
 
-Open the Web UI, paste your repo path, and explore a force-directed canvas — click any node to see its summaries, callers, callees, and security flags. Search, filter, diff commits across versions.
+Open the Web UI, paste your repo path, and explore a force-directed canvas — click any node to see its summaries, callers, callees, and security flags. Search, filter, diff commits across versions. The UI runs on a **live server**, so opening `/graph/<any-new-id>` (e.g. clicking a repository card) always renders the graph — even for repos analyzed after the server started.
 
 ```bash
-git clone https://github.com/devlensio/devlensOSS.git
-cd devlensOSS && bun install && bun run dev
+# Production — one command, UI + API on one port (auto-increments if busy)
+devlens serve-ui
+# → Web UI:  http://localhost:3000
 ```
 
-### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — Terminal Power
+Or from source (see [Quick Start](#quick-start)): `bun run dev` (hot reload) or `bun run start` (production).
+
+### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — terminal power
 
 *For scripts, CI, and answers fast without leaving the terminal. Every command supports `--json` for piping into scripts, `-v/--verbose` for diagnostics, and `--quiet` for minimal output.*
 
@@ -183,6 +211,7 @@ npm install -g @devlensio/cli
 | `devlens summarize [target]` | (Re)generate technical/business/security summaries (`target` = repo path or graph id) |
 | `devlens status` | Which repos are analyzed, their language + summary coverage |
 | `devlens doctor` | Environment health check — git, storage, LLM provider, and **all 4 extractor runtimes** (go/rust/java/python) |
+| `devlens init` | First-time setup — configure the LLM provider interactively |
 
 **Explore & understand**
 
@@ -190,11 +219,14 @@ npm install -g @devlensio/cli
 |---------|--------------|
 | `devlens overview` | Big picture — language, framework, stats, central nodes |
 | `devlens top-nodes [-l <n>]` | Highest-scoring (most central) nodes |
-| `devlens find-nodes <name>` | Search by name / type / file / severity (supports `-t ROUTE`, `-t CLASS`, `-t STRUCT` …) |
-| `devlens nodes-in-path <path>` / `get-node <id>` / `get-summaries <ids…>` / `node-code <id>` | Drill into nodes — summaries before source |
+| `devlens find-nodes <name> [-t <type>]` | Search by name / type / file / severity (e.g. `-t ROUTE`, `-t CLASS`, `-t STRUCT`) |
+| `devlens nodes-in-path <path>` | All nodes in a file or folder |
+| `devlens get-node <id>` | Full detail for one node — summaries, callers, callees |
+| `devlens get-summaries <ids…>` | Batch-read summaries for multiple nodes |
+| `devlens node-code <id>` | Raw source for a node (expensive — prefer `get-node`) |
 | `devlens architecture` | One-call architecture brief — modules, routes, flows, health |
 | `devlens onboard-tour` | One-call onboarding skeleton — modules, routes, flows, glossary, gotchas |
-| `devlens get-context <query>` | Token-budgeted context packet for an agent (keyword-seeded retrieval + traversal) |
+| `devlens get-context <query>` | Token-budgeted context packet for an agent |
 
 **Impact & quality**
 
@@ -204,24 +236,39 @@ npm install -g @devlensio/cli
 | `devlens khop <id>` | What does it depend on? (downstream) |
 | `devlens subgraph <seed>` | The cohesive cluster (module) a node belongs to |
 | `devlens cycles` | Circular dependencies |
-| `devlens security` / `security-brief` | Security findings, ranked with blast-radius reach |
-| `devlens diff <from> <to>` / `review-pr` | Compare analyzed commits / full PR review packet |
+| `devlens security [--min-severity …]` | Security findings - severity + explanation |
+| `devlens security-brief` | Ranked security report with blast-radius reach |
+| `devlens diff <from> <to>` | Compare two analyzed commits |
+| `devlens review-pr <from> <to>` | Full PR review packet — diff + impact + tests + security delta |
 | `devlens check-freshness` / `coverage` | Is the graph stale vs HEAD? What's summarized? |
 
 **Manage & integrate**
 
 | Command | What it does |
 |---------|--------------|
-| `devlens init` | First-time setup — configure the LLM provider interactively |
 | `devlens config` | View / set LLM provider config (`~/.devlens/config.json`) |
 | `devlens repos` | List analyzed repos |
-| `devlens graphs list | delete` | Manage stored graphs |
-| `devlens serve` | Start the HTTP API for the Web UI |
+| `devlens graphs list \| delete` | Manage stored graphs |
+| `devlens serve` | Start the backend HTTP API only (used by MCP / skills / the Web UI) |
+| `devlens serve-ui` | Start the backend API **and** the Web UI together on one port |
 | `devlens mcp` | Run the MCP server (see below) |
+
+**Hands-on examples**
+
+```bash
+devlens detect ./my-app                      # what is this repo? (cheap)
+devlens analyze ./my-app --summarize         # build graph + AI summaries
+devlens find-nodes -t ROUTE                  # every route in the app
+devlens find-nodes Button                    # find a component by name
+devlens blast-radius "src/auth/login.ts::login"   # what breaks if I change it?
+devlens security --min-severity high         # critical security only
+devlens graphs list                          # stored graphs
+devlens graphs delete abc-123                # remove a graph
+```
 
 > **Full reference:** [`src/cli/README.md`](src/cli/README.md) — every command with options and examples.
 
-### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill — AI-Powered Understanding
+### <img src="assets/skill-icon.svg" width="20" style="vertical-align: middle" /> Agent Skill — AI-powered understanding
 
 *The most powerful way to use DevLens. Your AI agent normally reads files one at a time — the DevLens Skill teaches it to query the pre-built graph instead.*
 
@@ -248,7 +295,7 @@ Then reload your tool and use `/devlens` in Claude Code, Cursor, Kilo, opencode,
 
 > **Full reference:** [`packages/skill-installer/README.md`](packages/skill-installer/README.md) — all subcommands, install options, and supported AI tools.
 
-### <img src="assets/cli-icon.svg" width="16" style="vertical-align: middle" /> MCP Server — for Any MCP-Compatible AI Agent
+### <img src="assets/cli-icon.svg" width="16" style="vertical-align: middle" /> MCP Server — for any MCP-compatible AI agent
 
 *Wire DevLens into any MCP client (Claude Code, Claude Desktop, IDE agents, …). The server is bundled inside the CLI and exposes **21 tools** covering discovery, search, traversal, security, and one-call workflow summaries.*
 
@@ -258,9 +305,32 @@ claude mcp add devlens -- devlens mcp   # register in Claude Code
 devlens mcp http -p 7000          # HTTP mode
 ```
 
-Your agent can: list analyzed repos, get a repo overview (language + framework + stats), find nodes by name/type/severity, read summaries, trace blast radius / k-hop / subgraphs, find cycles, analyze a new repo, compare commits (`analyze_changes`), and generate whole-packet **architecture/security/PR-review/onboarding/context** outputs from one call.
+Your agent can: list analyzed repos, get a repo overview, find nodes by name/type/severity, read summaries, trace blast radius / k-hop / subgraphs, find cycles, analyze a new repo, compare commits, and generate whole-packet **architecture/security/PR-review/onboarding/context** outputs from one call.
 
 > **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) — tool catalog, registration, configuration.
+
+---
+
+## How to summarize
+
+Summaries are per-node AI descriptions that make querying much richer. To generate them:
+
+```bash
+# During analysis (recommended)
+devlens analyze . --summarize
+
+# Later, for a repo or a specific graph
+devlens summarize .               # summarize the current directory's repo
+devlens summarize <graphId>       # summarize a stored graph
+
+# Re-generate even if already summarized (force)
+devlens summarize . --force-summarize
+
+# Choose a model / provider per-run (overrides saved config)
+devlens summarize . --provider openai --provider-name deepseek --model deepseek-v4-flash
+```
+
+You'll be asked to confirm before tokens are spent — summaries are never generated silently. Configure your provider once with `devlens init` (or `devlens config`) and it's remembered for all future runs.
 
 ---
 
@@ -291,7 +361,7 @@ devlens config --active openai:deepseek
 devlens doctor
 ```
 
-Models are discovered dynamically from each provider's `/models` endpoint — no hardcoded model lists. Custom OpenAI- or Anthropic-compatible endpoints can be added through the interactive flow. Summaries are **never generated silently** — the skill and CLI ask permission first; structure-only analysis needs no provider at all.
+Models are discovered dynamically from each provider's `/models` endpoint — no hardcoded model lists. Custom OpenAI- or Anthropic-compatible endpoints can be added through the interactive flow.
 
 ---
 
@@ -307,6 +377,8 @@ Models are discovered dynamically from each provider's `/models` endpoint — no
 | Go | `STRUCT`, `INTERFACE`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
 | Rust | `ENUM`, `STRUCT`, `TRAIT`, `IMPL_BLOCK`, `METHOD`, `FUNCTION`, `ROUTE`, `FILE`, `TEST`, `THIRD_PARTY` |
 
+Every node carries: importance score + functional summary + technical summary + security assessment (when summarized).
+
 **Edge types (the connections the graph draws):**
 `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`, `IMPLEMENTS` (class → interface / trait / ABC), `EXTENDS` (class → base class).
 
@@ -314,8 +386,6 @@ Models are discovered dynamically from each provider's `/models` endpoint — no
 
 **Router awareness — routes are real graph nodes:**
 Next.js (app & pages), React Router / TanStack Router / wouter, Express / Fastify / Hono / Koa, Django URLconf / DRF, Flask blueprints, `@RestController` (Spring), Gin / Echo / chi / HTTP handlers, axum / actix / rocket.
-
-**Every node carries:** importance score + functional summary + technical summary + security assessment (when summarized).
 
 ---
 
@@ -387,13 +457,13 @@ devlensOSS/
 │   ├── cli/                  # `devlens` CLI (commander program + commands)
 │   ├── core/                 # Shared query core (CLI + MCP — never drift)
 │   ├── mcp/                  # MCP server (stdio + HTTP) — 21 tools
-│   └── server/               # HTTP API for the Web UI
+│   └── server/               # HTTP API for the Web UI + live Next.js web UI proxy
 ├── frontend/                 # Next.js graph visualizer (Cytoscape)
 ├── plugins/devlens/          # Agent Skill source (Claude plugin)
 ├── packages/skill-installer/ # @devlensio/skill — the npx installer
 ├── bin/                      # Platform launcher
 ├── npm/<platform>/           # 5 prebuilt binary packages (darwin/linux/windows × arm64)
-├── scripts/                  # Release tooling
+├── scripts/                  # Release tooling + `start.mjs` (bun start build-or-skip)
 └── server.json               # MCP registry manifest
 ```
 
