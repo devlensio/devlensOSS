@@ -2,7 +2,7 @@
 
 An interactive codebase-graph visualizer built with **Next.js 16** and **Cytoscape**. It talks to the DevLens backend API (`src/server`) and renders the analyzed graph: a force-directed canvas with per-node detail, search/filter, commit-diff overlay, and a security panel.
 
-The graph view lives under a **dynamic route** (`/graph/[graphId]`), because a user analyzes new repos after installing DevLens — the graph id isn't known at build time. So the frontend is built and run as a **live Next.js server** (`next build` → `next start`), which renders *any* `/graph/<id>` on demand. `devlens serve-ui` / `bun start` run that live server on a single port (via a Bun proxy): `/api/*` is handled by the DevLens API router, and everything else is proxied to the Next server — so the UI and API stay on one port and graph navigation works for graphs created after startup.
+The graph view lives under a **dynamic route** (`/graph/[graphId]`), because a user analyzes new repos after installing DevLens — the graph id isn't known at build time. So the frontend is built and run as a **live Next.js server** (`next build` → `next start`), which renders *any* `/graph/<id>` on demand. `bun start` runs that live server on a single port (via a Bun proxy): `/api/*` is handled by the DevLens API router, and everything else is proxied to the Next server — so the UI and API stay on one port and graph navigation works for graphs created after startup.
 
 ## Stack
 
@@ -43,7 +43,7 @@ bun start                # builds on first run, then serves API + Web UI on :300
 
 `bun start` is **fast on repeat runs**: it skips the Next.js build when `frontend/.next` already exists (use `bun run start -- --rebuild` to force a fresh build, or `-- --port 4100` to pick a starting port).
 
-Equivalently, `devlens serve-ui` (from source, after `bun run build:ui`) serves the same live web UI + API on one port.
+The Web UI runs from the source tree via `bun start` — it is **not** bundled into the installed CLI binary (`devlens serve` is API-only; the Web UI is not part of the CLI distribution).
 
 > Because the UI is a *live* Next server, opening `/graph/<any-new-graph-id>` (from the **Analyzed Repositories** cards, or directly) always renders the graph — even for repos analyzed after the server started.
 
@@ -59,14 +59,14 @@ cd frontend && bun run dev   # next dev
 
 Open the printed URL, paste the **absolute path** to a repo (it must have a root `package.json`), and click **Analyze**.
 
-> **API base URL:** in production the UI calls the API on the **same origin** (whatever port `serve-ui`/`bun start` chose), so no config is needed. In `next dev` it targets `http://localhost:3000` by default. Override with `NEXT_PUBLIC_ENGINE_URL` if the UI and API are on different origins.
+> **API base URL:** in production the UI calls the API on the **same origin** (whatever port `bun start` chose), so no config is needed. In `next dev` it targets `http://localhost:3000` by default. Override with `NEXT_PUBLIC_ENGINE_URL` if the UI and API are on different origins.
 
 ## Scripts
 
 | Script | Does |
 | :-- | :-- |
 | `bun run dev` | `next dev` — hot-reloading dev server (dev only) |
-| `bun run build` | `next build` — production build (server mode, `frontend/.next`); served by `bun start` / `devlens serve-ui` via a live Next server |
+| `bun run build` | `next build` — production build (server mode, `frontend/.next`); served by `bun start` via a live Next server |
 | `bun run lint` | `eslint` |
 | *(repo root)* `bun run build:ui` | alias for `cd frontend && bun run build` |
 

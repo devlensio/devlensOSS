@@ -192,7 +192,7 @@ export function makeNextHandler(next: NextServerHandle): (req: Request) => Promi
       // Next responses here are normal HTML/RSC/static — safe to return as-is.
       return response;
     } catch (err) {
-      console.error("[serve-ui] proxy to Next failed:", err);
+      console.error("[devlens web UI] proxy to Next failed:", err);
       return Response.json(
         { success: false, error: "web UI backend unavailable" },
         { status: 502, headers: { "Access-Control-Allow-Origin": "*" } }

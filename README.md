@@ -187,12 +187,12 @@ Pick the interface that fits your workflow:
 Open the Web UI, paste your repo path, and explore a force-directed canvas — click any node to see its summaries, callers, callees, and security flags. Search, filter, diff commits across versions. The UI runs on a **live server**, so opening `/graph/<any-new-id>` (e.g. clicking a repository card) always renders the graph — even for repos analyzed after the server started.
 
 ```bash
-# Production — one command, UI + API on one port (auto-increments if busy)
-devlens serve-ui
+# Production — one command, UI + API on one port (from the source repo)
+bun run start
 # → Web UI:  http://localhost:3000
 ```
 
-Or from source (see [Quick Start](#quick-start)): `bun run dev` (hot reload) or `bun run start` (production).
+Or from source (see [Quick Start](#quick-start)): `bun run dev` (hot reload) or `bun run start` (production). The Web UI runs from the source tree — it is **not** bundled into the installed CLI binary.
 
 ### <img src="assets/cli-icon.svg" width="20" style="vertical-align: middle" /> CLI (`@devlensio/cli`) — terminal power
 
@@ -250,7 +250,6 @@ npm install -g @devlensio/cli
 | `devlens repos` | List analyzed repos |
 | `devlens graphs list \| delete` | Manage stored graphs |
 | `devlens serve` | Start the backend HTTP API only (used by MCP / skills / the Web UI) |
-| `devlens serve-ui` | Start the backend API **and** the Web UI together on one port |
 | `devlens mcp` | Run the MCP server (see below) |
 
 **Hands-on examples**

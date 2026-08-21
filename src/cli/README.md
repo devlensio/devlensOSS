@@ -113,8 +113,7 @@ devlens find-nodes -t COMPONENT
 |---------|--------------|
 | `devlens mcp` | Run the MCP server over stdio (for editor / MCP-client integration) |
 | `devlens mcp http -p <port>` | Run the MCP server over Streamable HTTP (default port 7000) |
-| `devlens serve -p <port>` | Start the backend API only (default port 3000) — used by MCP / skills / the Web UI |
-| `devlens serve-ui -p <port>` | Start the backend API **and** the Web UI together on one port (auto-increments if the port is busy) |
+| `devlens serve -p <port>` | Start the backend API only (default port 3000) — used by MCP / skills / the Web UI. The Web UI itself runs from the source repo via `bun run start` |
 
 ---
 
@@ -385,7 +384,7 @@ src/cli/
     ├── status.ts       # Analyzed / summarized graphs
     ├── repos.ts        # repos
     ├── graphs.ts       # graphs list|delete
-    ├── serve.ts        # backend API server (devlens serve) + web UI (devlens serve-ui)
+    ├── serve.ts        # backend API server (devlens serve)
     ├── mcp.ts          # mcp stdio|http
     └── query.ts        # all read/query commands (overview, find-nodes, …, get-context)
 ```

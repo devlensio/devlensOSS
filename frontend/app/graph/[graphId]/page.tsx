@@ -4,7 +4,7 @@ import GraphView from "./GraphView";
 // Static export requires at least one concrete route for a dynamic segment.
 // Graph IDs are created at runtime (each analyze), so we can't enumerate them
 // at build time. Instead we emit a single placeholder template: the client view
-// reads the real graphId from the URL at runtime, and the `serve-ui` server's
+// reads the real graphId from the URL at runtime, and the `bun start` server's
 // SPA fallback serves this same app shell for *any* /graph/<id>. So one
 // placeholder is enough — arbitrary graph IDs are resolved client-side.
 export function generateStaticParams() {

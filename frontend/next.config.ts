@@ -9,8 +9,8 @@ import type { NextConfig } from "next";
 // (Next would have no RSC payload for it). A live Next server renders every
 // `/graph/<id>` on demand, so graph clicks always work.
 //
-// `devlens serve` / `devlens serve-ui` / `bun start` run this server behind a
-// single Bun port: `/api/*` stays in the Bun router, and everything else is
+// `bun start` runs this server behind a single Bun port: `/api/*` stays in the
+// Bun router, and everything else is
 // proxied to this Next server (see src/server/next-proxy.ts and index.ts).
 const nextConfig: NextConfig = {
   // The Navbar uses next/image (logo.png). Keep image optimization off so the

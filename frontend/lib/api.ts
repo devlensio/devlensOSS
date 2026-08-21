@@ -15,7 +15,7 @@ import type {
 // The API base. Explicitly set NEXT_PUBLIC_ENGINE_URL to point at a specific
 // backend (e.g. if the UI and API are on different origins). Otherwise:
 //   • dev  (next dev, UI on :3001, backend on :3000) → http://localhost:3000
-//   • prod (served by `devlens serve-ui`, UI + API on the SAME port) → same-origin
+//   • prod (served by `bun start`, UI + API on the SAME port) → same-origin
 const ENGINE_URL =
   process.env.NEXT_PUBLIC_ENGINE_URL ??
   (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");

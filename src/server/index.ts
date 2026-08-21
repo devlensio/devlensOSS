@@ -20,7 +20,7 @@ export interface ServerOptions {
      *  same port alongside the API. Omit to run API-only (default). */
     uiDir?: string;
     /** Serve a LIVE Next.js server instead of a static bundle. This is the
-     *  recommended mode (`bun start` / `devlens serve-ui` from source): the
+     *  recommended mode (`bun start` from source): the
      *  frontend is built with `next build` and run with `next start`, so any
      *  dynamic route (e.g. `/graph/<id>`) renders on demand. `/api/*` still goes
      *  to the Bun router. Provide `frontendDir` (the frontend/ dir). */

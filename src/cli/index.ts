@@ -10,7 +10,7 @@ import { registerReposCommand } from "./commands/repos.js";
 import { registerAnalyzeCommand } from "./commands/analyze.js";
 import { registerSummarizeCommand } from "./commands/summarize.js";
 import { registerConfigCommand } from "./commands/config.js";
-import { registerServeCommand, registerServeUiCommand } from "./commands/serve.js";
+import { registerServeCommand } from "./commands/serve.js";
 import { registerQueryCommands } from "./commands/query.js";
 import { registerGraphsCommand } from "./commands/graphs.js";
 import { registerMcpCommand } from "./commands/mcp.js";
@@ -23,7 +23,7 @@ import { banner } from "./output.js";
 const program = new Command();
 
 // Keep in sync with the `version` field in package.json.
-const CLI_VERSION = "0.5.3";
+const CLI_VERSION = "0.5.4";
 
 program
   .name("devlens")
@@ -57,10 +57,6 @@ const EXAMPLES: Record<string, string> = {
   serve: `Examples:
   devlens serve                                 API only — backend for MCP / skills
   devlens serve -p 8080                         start the API on a specific port`,
-  "serve-ui": `Examples:
-  devlens serve-ui                              start the API + web UI together
-  devlens serve-ui -p 8080                      pick a starting port (auto-increments if busy)
-  then open the printed http://localhost:<port> URL`,
   repos: `Examples:
   devlens repos                                   list all analyzed repositories
   devlens repos --json                            list as JSON for automation`,
@@ -209,7 +205,6 @@ registerAnalyzeCommand(program);
 registerSummarizeCommand(program);
 registerConfigCommand(program);
 registerServeCommand(program);
-registerServeUiCommand(program);
 // Discovery
 registerReposCommand(program);
 registerDetectCommand(program);
