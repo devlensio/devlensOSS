@@ -171,20 +171,23 @@ npm install -g @devlensio/cli
 
 | Command | What it does |
 |---------|--------------|
-| `devlens detect [path]` | Inspect a repo **before** analyzing: language, manifest, dependency count, source files |
-| `devlens analyze [path] [--summarize]` | Build the graph (optionally add AI summaries) |
-| `devlens summarize [path]` | (Re)generate summaries for an analyzed repo |
+| `devlens detect [path] [--deps]` | Inspect a repo **before** analyzing: language, manifest, dependency count, source files |
+| `devlens analyze [path] [--summarize] [--force-summarize]` | Build the graph (optionally add AI summaries) |
+| `devlens summarize [target]` | (Re)generate technical/business/security summaries (`target` = repo path or graph id) |
 | `devlens status` | Which repos are analyzed, their language + summary coverage |
-| `devlens doctor` | Environment health check — git, storage, LLM provider, and **all 4 extractor runtimes** |
+| `devlens doctor` | Environment health check — git, storage, LLM provider, and **all 4 extractor runtimes** (go/rust/java/python) |
 
 **Explore & understand**
 
 | Command | What it does |
 |---------|--------------|
 | `devlens overview` | Big picture — language, framework, stats, central nodes |
+| `devlens top-nodes [-l <n>]` | Highest-scoring (most central) nodes |
 | `devlens find-nodes <name>` | Search by name / type / file / severity (supports `-t ROUTE`, `-t CLASS`, `-t STRUCT` …) |
 | `devlens nodes-in-path <path>` / `get-node <id>` / `get-summaries <ids…>` / `node-code <id>` | Drill into nodes — summaries before source |
 | `devlens architecture` | One-call architecture brief — modules, routes, flows, health |
+| `devlens onboard-tour` | One-call onboarding skeleton — modules, routes, flows, glossary, gotchas |
+| `devlens get-context <query>` | Token-budgeted context packet for an agent (keyword-seeded retrieval + traversal) |
 
 **Impact & quality**
 
@@ -197,12 +200,12 @@ npm install -g @devlensio/cli
 | `devlens security` / `security-brief` | Security findings, ranked with blast-radius reach |
 | `devlens diff <from> <to>` / `review-pr` | Compare analyzed commits / full PR review packet |
 | `devlens check-freshness` / `coverage` | Is the graph stale vs HEAD? What's summarized? |
-| `devlens guard` | Warn before editing high-value / high-blast-radius nodes |
 
 **Manage & integrate**
 
 | Command | What it does |
 |---------|--------------|
+| `devlens init` | First-time setup — configure the LLM provider interactively |
 | `devlens config` | View / set LLM provider config (`~/.devlens/config.json`) |
 | `devlens repos` | List analyzed repos |
 | `devlens graphs list | delete` | Manage stored graphs |
