@@ -10,8 +10,8 @@
 // previous false positive). Importing the binary FILE directly is what
 // actually bundles it.
 //
-// The absolute path below is a BUILD-TIME reference only: it must exist when
+// The relative path below is a BUILD-TIME reference only: it must exist when
 // `bun build` runs, but is never read at runtime in a compiled binary, so the
 // binary stays self-contained on machines where that path does not exist.
-import bin from "/home/shivang/Folder E/DevLens Workspace/DevLens OSS/node_modules/devlensio/extractors/go/bin/darwin-amd64/devlens_go_extractor";
+import bin from "../../../../node_modules/devlensio/extractors/go/bin/darwin-amd64/devlens_go_extractor";
 export default bin;
