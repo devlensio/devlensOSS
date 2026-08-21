@@ -14,7 +14,8 @@
     "devlens": "bin/devlens.cjs"
   },
   "files": [
-    "bin/devlens.cjs"
+    "bin/devlens.cjs",
+    "scripts/postinstall.mjs"
   ],
   "workspaces": [
     "frontend"
@@ -23,8 +24,9 @@
     "dev": "concurrently --names engine,frontend --prefix-colors cyan,magenta \"bun run dev:engine\" \"bun run dev:frontend\"",
     "dev:engine": "bun --watch src/server/index.ts",
     "dev:frontend": "cd frontend && bun run dev",
-    "build:binaries": "bun build src/cli/index.ts --compile --target=bun-darwin-arm64 --outfile dist/bin/devlens-darwin-arm64 && bun build src/cli/index.ts --compile --target=bun-darwin-x64 --outfile dist/bin/devlens-darwin-x64 && bun build src/cli/index.ts --compile --target=bun-linux-x64 --outfile dist/bin/devlens-linux-x64 && bun build src/cli/index.ts --compile --target=bun-linux-arm64 --outfile dist/bin/devlens-linux-arm64 && bun build src/cli/index.ts --compile --target=bun-windows-x64 --outfile dist/bin/devlens-windows-x64.exe",
-    "stage:binaries": "node scripts/stage-binaries.mjs"
+    "build:binaries": "node scripts/build-binaries.mjs",
+    "stage:binaries": "node scripts/stage-binaries.mjs",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "optionalDependencies": {
     "@devlensio/cli-darwin-arm64": "0.4.0",

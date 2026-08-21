@@ -1,5 +1,10 @@
 #!/usr/bin/env bun
 /// <reference types="bun" />
+// IMPORT ORDER MATTERS: preload.ts must be the FIRST import. It synchronously
+// materialises the embedded extractors and sets DEVLENS_EXTRACTORS_DIR before
+// any module below pulls in `devlensio` (which resolves extractor paths at
+// module-load time).
+import "./preload.js";
 import { Command } from "commander";
 import { registerReposCommand } from "./commands/repos.js";
 import { registerAnalyzeCommand } from "./commands/analyze.js";
