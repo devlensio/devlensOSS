@@ -476,14 +476,14 @@ The analysis engine (“native parsers + graph build”) ships as the separate [
 
 A hosted version is in development:
 
-- **Shareable graphs** Share your graphs to the world.
-- **Team Support** Create your team, and share same graph all across your team members.
-- **Live Documentation** every commit holds summaries to each Node, thus maintaing live documentation of every commit / PR.
-- **PR analysis** Detailed Analysis of the PRs raised as github comments including info like summary, impact analysis, security report etc
-- **Graphical context for AI agents** — smarter code review and analysis with Devlens MCP to use with your agents
-- **Commit Diff** - See the Commit diff, what nodes are modified/added/deleted with the diff and summary.
-- **Interactive AI native chat interface** - Ask anything about your codebase to AI. Graphical context, and functional summaries provide accurate answers in seconds.
-- **More interactive UI** The UI will be more human friendly and easy to Navigate. 
+- **Shareable graphs** : Share your graphs to the world.
+- **Team Support** : Create your team, and share same graph all across your team members.
+- **Live Documentation** : every commit holds summaries to each Node, thus maintaing live documentation of every commit / PR.
+- **PR analysis** : Detailed Analysis of the PRs raised as github comments including info like summary, impact analysis, security report etc
+- **Graphical context for AI agents** : smarter code review and analysis with Devlens MCP to use with your agents
+- **Commit Diff** : See the Commit diff, what nodes are modified/added/deleted with the diff and summary.
+- **Interactive AI native chat interface** : Ask anything about your codebase to AI. Graphical context, and functional summaries provide accurate answers in seconds.
+- **More interactive UI** : The UI will be more human friendly and easy to Navigate. 
 - **No local setup**
 
 **[Join the waitlist →](https://devlens.io)**
