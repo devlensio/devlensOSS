@@ -35,18 +35,28 @@ export function isVerboseMode(): boolean {
 
 const isTTY = process.stdout.isTTY;
 
-// ANSI helpers — drop colors when piped
-const wrap = (code: string) => (s: string) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
-export const colors = {
-  dim:     wrap("2"),
-  red:     wrap("31"),
-  green:   wrap("32"),
-  yellow:  wrap("33"),
-  blue:    wrap("34"),
-  magenta: wrap("35"),
-  cyan:    wrap("36"),
-  bold:    wrap("1"),
-};
+// ANSI helpers — drop colors when piped. Colour support is decided PER-STREAM:
+// emit()/formatters write to stdout; diagnostics (info/verbose/success/warn/
+// die/banner/spinner) write to stderr. Probing one stream for both would leak
+// raw `\x1b[2m`-style escapes (garbled as e.g. "2e[") into whichever stream is
+// actually piped/redirected, so each stream carries its own toggle.
+function makeColors(on: boolean) {
+  const wrap = (code: string) => (s: string) => (on ? `\x1b[${code}m${s}\x1b[0m` : s);
+  return {
+    dim:     wrap("2"),
+    red:     wrap("31"),
+    green:   wrap("32"),
+    yellow:  wrap("33"),
+    blue:    wrap("34"),
+    magenta: wrap("35"),
+    cyan:    wrap("36"),
+    bold:    wrap("1"),
+  };
+}
+// colours for stdout-bound output (emit → humanFormat)
+export const colors = makeColors(!!process.stdout.isTTY);
+// colours for stderr-bound diagnostics (info/verbose/success/warn/die/banner/…)
+export const errColors = makeColors(!!process.stderr.isTTY);
 
 // ── Primary output ───────────────────────────────────────────────────────────
 
@@ -61,22 +71,22 @@ export function emit(data: unknown): void {
 // ── Diagnostics (stderr) ─────────────────────────────────────────────────────
 
 export function info(msg: string): void {
-  if (!jsonMode && !quietMode) process.stderr.write(colors.dim(msg) + "\n");
+  if (!jsonMode && !quietMode) process.stderr.write(errColors.dim(msg) + "\n");
 }
 export function success(msg: string): void {
-  if (!jsonMode && !quietMode) process.stderr.write(colors.green("✔ ") + msg + "\n");
+  if (!jsonMode && !quietMode) process.stderr.write(errColors.green("✔ ") + msg + "\n");
 }
 export function warn(msg: string): void {
-  if (!quietMode) process.stderr.write(colors.yellow("! ") + msg + "\n");
+  if (!quietMode) process.stderr.write(errColors.yellow("! ") + msg + "\n");
 }
 export function verbose(msg: string): void {
-  if (verboseMode && !quietMode) process.stderr.write(colors.dim(`[verbose] ${msg}`) + "\n");
+  if (verboseMode && !quietMode) process.stderr.write(errColors.dim(`[verbose] ${msg}`) + "\n");
 }
 
 // Terminal error: print and exit non-zero.
 export function die(message: string, code = 1): never {
   if (jsonMode) process.stdout.write(JSON.stringify({ error: message }) + "\n");
-  else process.stderr.write(colors.red("✖ ") + message + "\n");
+  else process.stderr.write(errColors.red("✖ ") + message + "\n");
   process.exit(code);
 }
 
@@ -91,10 +101,10 @@ export function startSpinner(text: string): void {
     return;
   }
   let i = 0;
-  process.stderr.write(colors.cyan(SPINNER_FRAMES[i]) + " " + text);
+  process.stderr.write(errColors.cyan(SPINNER_FRAMES[i]) + " " + text);
   spinnerTimer = setInterval(() => {
     i = (i + 1) % SPINNER_FRAMES.length;
-    process.stderr.write("\r" + colors.cyan(SPINNER_FRAMES[i]) + " " + text);
+    process.stderr.write("\r" + errColors.cyan(SPINNER_FRAMES[i]) + " " + text);
   }, 80);
 }
 
@@ -107,7 +117,7 @@ export function stopSpinner(successText?: string): void {
     process.stderr.write("\r\x1b[K");
   }
   if (successText) {
-    process.stderr.write(colors.green("✔ ") + successText + "\n");
+    process.stderr.write(errColors.green("✔ ") + successText + "\n");
   }
 }
 
@@ -120,7 +130,7 @@ export async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
     return result;
   } catch (err) {
     stopSpinner();
-    process.stderr.write(colors.red("✖ ") + label + "\n");
+    process.stderr.write(errColors.red("✖ ") + label + "\n");
     throw err;
   }
 }
@@ -129,10 +139,10 @@ export async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
 
 export function banner(cliVersion?: string): void {
   if (jsonMode || quietMode) return;
-  const line = colors.dim("─".repeat(40));
+  const line = errColors.dim("─".repeat(40));
   const ver = cliVersion ? ` v${cliVersion}` : "";
   process.stderr.write(
-    `\n${colors.bold("DevLens")}${colors.dim(ver)}\n` +
+    `\n${errColors.bold("DevLens")}${errColors.dim(ver)}\n` +
     `${line}\n`
   );
 }

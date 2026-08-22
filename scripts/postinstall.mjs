@@ -38,17 +38,24 @@ const BANNER = `
   │  https://github.com/devlensio/devlensOSS              │
   ╰───────────────────────────────────────────────────────╯`;
 
+// ANSI codes only when the output is a real terminal. When npm pipes/captures
+// the postinstall output (or it runs on a Windows console without VT enabled),
+// raw `\x1b[2m`-style escapes would leak as literal garbage (e.g. "2e[") — so
+// drop colors entirely unless we're writing to an interactive TTY.
+const USE_COLOR = !isCI && process.stdout.isTTY;
+const C = (code) => (USE_COLOR ? `\x1b[${code}m` : "");
+
 function dim(s) {
-  console.log("   \x1b[2m%s\x1b[0m", s);
+  console.log("   " + C("2") + s + C("0"));
 }
 function green(s) {
-  console.log("   \x1b[32m✓\x1b[0m %s", s);
+  console.log("   " + C("32") + "✓" + C("0") + " " + s);
 }
 function red(s) {
-  console.log("   \x1b[31m✖\x1b[0m %s", s);
+  console.log("   " + C("31") + "✖" + C("0") + " " + s);
 }
 function yellow(s) {
-  console.log("   \x1b[33m!\x1b[0m %s", s);
+  console.log("   " + C("33") + "!" + C("0") + " " + s);
 }
 function line(s) {
   if (s === undefined) console.log("");

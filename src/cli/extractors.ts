@@ -114,8 +114,11 @@ export function extractorStatuses(): ExtractorStatus[] {
   const root = bootstrapExtractors() ?? process.env.DEVLENS_EXTRACTORS_DIR ?? null;
   const statuses: ExtractorStatus[] = [];
 
-  // Go — static binary, no runtime needed.
-  const go = root ? path.join(root, "go", "bin", enginePlatformDir(), "devlens_go_extractor") : null;
+  // Go — static binary, no runtime needed. On Windows the embedded binary is
+  // materialised with a `.exe` suffix (see extractorAssets.ts), so probe the
+  // platform-correct name.
+  const exe = enginePlatformDir() === "windows-amd64" ? ".exe" : "";
+  const go = root ? path.join(root, "go", "bin", enginePlatformDir(), `devlens_go_extractor${exe}`) : null;
   statuses.push({
     name: "extractor.go",
     ok: !!go && fs.existsSync(go),
@@ -123,7 +126,7 @@ export function extractorStatuses(): ExtractorStatus[] {
   });
 
   // Rust — static binary, no runtime needed.
-  const rust = root ? path.join(root, "rust", "bin", enginePlatformDir(), "devlens_rust_extractor") : null;
+  const rust = root ? path.join(root, "rust", "bin", enginePlatformDir(), `devlens_rust_extractor${exe}`) : null;
   statuses.push({
     name: "extractor.rust",
     ok: !!rust && fs.existsSync(rust),

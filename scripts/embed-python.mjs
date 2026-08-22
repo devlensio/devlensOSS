@@ -19,7 +19,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pySrcDir = path.join(root, "node_modules", "devlensio", "extractors", "python");
@@ -58,8 +58,28 @@ print(f"zipped {n} files, {os.path.getsize(out)} bytes -> {out}")
 `;
 const tmpScript = path.join(os.tmpdir(), `devlens-embed-python-${process.pid}.py`);
 fs.writeFileSync(tmpScript, script, "utf8");
+
+// Resolve a working Python interpreter. On Windows `python3` is often the
+// Microsoft Store stub (which fails when run), while `python` points at a real
+// interpreter — or vice-versa. Probe candidates with `--version` and use the
+// first that actually executes.
+const pyCandidates = ["python3", "python"];
+let pyCmd = null;
+for (const c of pyCandidates) {
+  try {
+    const probe = spawnSync(c, ["--version"], { stdio: "ignore", timeout: 10000 });
+    if (probe.status === 0) { pyCmd = c; break; }
+  } catch { /* try next */ }
+}
+if (!pyCmd) {
+  console.error("devlens: no working Python interpreter found (tried: " + pyCandidates.join(", ") + ").");
+  console.error("  Install Python 3.11+ or make sure `python`/`python3` is on PATH.");
+  try { fs.rmSync(tmpScript); } catch { /* best-effort */ }
+  process.exit(1);
+}
+
 try {
-  execSync(`python3 ${JSON.stringify(tmpScript)}`, { stdio: "inherit" });
+  execSync(`${pyCmd} ${JSON.stringify(tmpScript)}`, { stdio: "inherit" });
 } finally {
   try { fs.rmSync(tmpScript); } catch { /* best-effort */ }
 }

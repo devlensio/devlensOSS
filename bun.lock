@@ -20,11 +20,11 @@
         "zod": "^4.4.3",
       },
       "optionalDependencies": {
-        "@devlensio/cli-darwin-arm64": "0.4.0",
-        "@devlensio/cli-darwin-x64": "0.4.0",
-        "@devlensio/cli-linux-arm64": "0.4.0",
-        "@devlensio/cli-linux-x64": "0.4.0",
-        "@devlensio/cli-windows-x64": "0.4.0",
+        "@devlensio/cli-darwin-arm64": "0.5.4",
+        "@devlensio/cli-darwin-x64": "0.5.4",
+        "@devlensio/cli-linux-arm64": "0.5.4",
+        "@devlensio/cli-linux-x64": "0.5.4",
+        "@devlensio/cli-windows-x64": "0.5.4",
       },
     },
     "frontend": {
@@ -102,15 +102,15 @@
 
     "@babel/types": ["@babel/types@7.29.7", "", { "dependencies": { "@babel/helper-string-parser": "^7.29.7", "@babel/helper-validator-identifier": "^7.29.7" } }, "sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA=="],
 
-    "@devlensio/cli-darwin-arm64": ["@devlensio/cli-darwin-arm64@0.4.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-mqmVzqCKpI7BslGFLFWimTWr49OBfIUymN5UmNuS+Prk/x1T0iHrpl5Ct7c99ucdSA51l8PM1DqLpTMcS28fpA=="],
+    "@devlensio/cli-darwin-arm64": ["@devlensio/cli-darwin-arm64@0.5.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-F/VjefdFfBRlN8Eyf9wdgl+JWichW78buo1ZjcFk4xttgSs8MRmb6SCkwytQSDVrjDHPPsZMUFwJEPXsbGLiKQ=="],
 
-    "@devlensio/cli-darwin-x64": ["@devlensio/cli-darwin-x64@0.4.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-5UIsEozWRf4wSe0+GjrcmmYXOxwszfAvg6zy8/L2nPnlKR2rHHKb/OAP0nfLEp9I1NIm8mvnbcaWaVEx1HU2aQ=="],
+    "@devlensio/cli-darwin-x64": ["@devlensio/cli-darwin-x64@0.5.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-6rdnTg/H1XAiDIX9+0OqBlYQytSLrSLg3HUuQIXg+W5DXB6JWClWJniCmhBbJVaYkrXxwYpphyNIraRBtalQfw=="],
 
-    "@devlensio/cli-linux-arm64": ["@devlensio/cli-linux-arm64@0.4.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-g/EHSRxpjdJ03XEqJEAz3pMwoktCrNhj5B4G5+sbhdWxuKXv16X12U6LgBl63tmvLB7vBdCTL1LPVmXi14kOkQ=="],
+    "@devlensio/cli-linux-arm64": ["@devlensio/cli-linux-arm64@0.5.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-LNKx/z9IgvT7zfC99Fg/YNgg9M1HVLie1cJdyLQHD7epnbJHqL5rQEmfm2LjyOytgC02qrPlmkbLS9KbK0AzLg=="],
 
-    "@devlensio/cli-linux-x64": ["@devlensio/cli-linux-x64@0.4.0", "", { "os": "linux", "cpu": "x64" }, "sha512-vqT1pqg9+pZf9ZdE6fP34Sy2O7voLWLlxHwlJLAX2BUA/rGbn4WbYW3GAtjmBCe/lY6nRxKLlv2X11CNzam5og=="],
+    "@devlensio/cli-linux-x64": ["@devlensio/cli-linux-x64@0.5.4", "", { "os": "linux", "cpu": "x64" }, "sha512-vMw1RlwCLtdNWEHil5uhIoF0eT1MM3vqg1J5QdJ/SsvewWukF/CcIxkx5oP6VuJirYnJfv/gdybj9JOq/voXHA=="],
 
-    "@devlensio/cli-windows-x64": ["@devlensio/cli-windows-x64@0.4.0", "", { "os": "win32", "cpu": "x64" }, "sha512-HreDOpWropKNZP36QbxRsaBLriMMqyN5OzvyWeLIZUh5C/UfJApk2SYZcNQ1kNbQ/UT6bslxT6cWLFA0AF+6Ww=="],
+    "@devlensio/cli-windows-x64": ["@devlensio/cli-windows-x64@0.5.4", "", { "os": "win32", "cpu": "x64" }, "sha512-qbwqebOvO38MzDP7ZphP3bwDcwCXX59DyqVf2ePli21wZkYg4ramwWDLe5RcwAYu4NG2gagrUICIU6CSgObg9g=="],
 
     "@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 
