@@ -57,11 +57,11 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 - **Technical summary** — *how does it work?*
 - **Security assessment** — *severity + explanation*
 
-This is the difference between an AI that re-reads your whole repo every session and an AI that already knows the architecture — architecture reviews, impact analysis, security audits, and onboarding take **seconds, not hours**.
+This is the difference between an AI that re-reads your whole repo every session and an AI that already knows the architecture — architecture reviews, impact analysis, security audits, and onboarding take **minutes, not hours**.
 
 **Typical use cases:**
 
-- **Onboarding** — a new developer sees the architecture, modules, and gotchas in minutes, not weeks.
+- **Onboarding** — a developer joining a new team sees the architecture, functional/ technical summaries, modules, and gotchas in minutes, not weeks.
 - **Impact analysis** — *before* touching a symbol, see its blast radius: what breaks if you change it?
 - **Security reviews** — every node carries a severity-ranked security assessment with real reach.
 - **PR review** — a review packet that explains the diff's impact, tests, and security delta.
@@ -71,7 +71,7 @@ This is the difference between an AI that re-reads your whole repo every session
 
 ## Supported languages
 
-DevLens parses **six languages with native parsers** (no regex, no tree-sitter) and understands their frameworks:
+DevLens parses **six languages with native parsers** (no AI, no regex, no tree-sitter) and understands their frameworks:
 
 | Language | Frameworks / stacks the graph understands | What gets parsed |
 | :-- | :-- | :-- |
@@ -112,13 +112,13 @@ cd devlensOSS
 bun install
 
 # Development (backend on :3000, hot-reloaded frontend on :3001)
-bun run dev
+bun dev
 
 # OR production — one command, API + Web UI on a single port (:3000)
-bun run start
+bun start
 ```
 
-Production `bun start` builds the frontend **only the first time** (later runs skip the rebuild unless you pass `-- --rebuild`) and serves the Web UI *and* the backend API on one port. Open the printed URL, paste an absolute repo path, and click **Analyze**.
+Production `bun start` builds the frontend **only the first time** (later runs skip the rebuild unless you pass `--rebuild`) and serves the Web UI *and* the backend API on one port. Open the printed URL, paste an absolute repo path, and click **Analyze** (enable the skip summaries checkbox if you don't want summaries).
 
 ### Option B — Install the CLI from npm
 
@@ -378,6 +378,8 @@ Models are discovered dynamically from each provider's `/models` endpoint — no
 
 Every node carries: importance score + functional summary + technical summary + security assessment (when summarized).
 
+NOTE: When a repo is re-summarized only the nodes without summaries are being summarized (incremental summarization) unless force-summarization is done. Thus saving unnecessary token consumption.
+
 **Edge types (the connections the graph draws):**
 `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`, `IMPLEMENTS` (class → interface / trait / ABC), `EXTENDS` (class → base class).
 
@@ -474,9 +476,14 @@ The analysis engine (“native parsers + graph build”) ships as the separate [
 
 A hosted version is in development:
 
-- **Shareable graphs** your whole team can access
-- **Cross-repo navigation** — understand your entire org
-- **Graphical context for AI agents** — smarter code review and analysis
+- **Shareable graphs** Share your graphs to the world.
+- **Team Support** Create your team, and share same graph all across your team members.
+- **Live Documentation** every commit holds summaries to each Node, thus maintaing live documentation of every commit / PR.
+- **PR analysis** Detailed Analysis of the PRs raised as github comments including info like summary, impact analysis, security report etc
+- **Graphical context for AI agents** — smarter code review and analysis with Devlens MCP to use with your agents
+- **Commit Diff** - See the Commit diff, what nodes are modified/added/deleted with the diff and summary.
+- **Interactive AI native chat interface** - Ask anything about your codebase to AI. Graphical context, and functional summaries provide accurate answers in seconds.
+- **More interactive UI** The UI will be more human friendly and easy to Navigate. 
 - **No local setup**
 
 **[Join the waitlist →](https://devlens.io)**
