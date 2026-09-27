@@ -1563,6 +1563,19 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
     approxTokens: rendered.approxTokens,
     nodeCount: packetNodes.length,
     packet: rendered.text,
+    // Structured mirrors of the packet for programmatic consumers (benchmarks,
+    // UI). Files are ranked by the same order as NODES; nodes use the packet's
+    // included set, edges only those with both endpoints included.
+    files: [...new Set(packetNodes.map((n) => n.filePath))],
+    nodes: packetNodes.map((n) => ({
+      id: n.id,
+      name: n.name,
+      type: n.type,
+      path: n.filePath,
+      startLine: n.startLine,
+      endLine: n.endLine,
+    })),
+    returnedEdges: packetEdges.length,
     provenance: {
       source: ctx.result.gitInfo.hasGit ? "commit" : "snapshot",
       commitHash: usedCommit,

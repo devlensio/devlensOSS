@@ -34,7 +34,11 @@ export function nodeToDoc(node: CodeNode): SearchDoc {
 export function buildIndex(
   result: PipelineResult
 ): { envelope: SearchEnvelope; engine: MiniSearch<SearchDocT> } {
-  const docs = result.allNodes.map(nodeToDoc);
+  // OSS node ids are not guaranteed unique in allNodes (the cloud DB dedupes
+  // last-wins at ingestion; here we do it at index time).
+  const byId = new Map<string, CodeNode>();
+  for (const node of result.allNodes) byId.set(node.id, node);
+  const docs = [...byId.values()].map(nodeToDoc);
   const engine = buildEngine(docs);
   const envelope: SearchEnvelope = {
     envelopeVersion: 1,
