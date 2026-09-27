@@ -250,7 +250,7 @@ export default function Sidebar({
             {/* Panel content */}
             <div className="flex-1 overflow-hidden">
               {activePanel === "project"  && (
-                <ProjectPanel graph={graph} />
+                <ProjectPanel graph={graph} meta={meta} graphId={graphId} />
               )}
               {activePanel === "nodes"    && (
                 <NodesPanel
@@ -442,8 +442,29 @@ function EmptyState({ message, sub }: { message: string; sub?: string }) {
 
 // ─── Panel: Project ───────────────────────────────────────────────────────────
 
-function ProjectPanel({ graph }: { graph: GraphResponse | undefined }) {
+function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefined; meta: GraphMeta | undefined; graphId: string }) {
+  const [indexBusy, setIndexBusy] = useState(false);
+  const [indexed, setIndexed] = useState<boolean | null>(null);
+
   if (!graph) return <EmptyState message="No graph loaded" />;
+
+  const currentCommit = graph.gitInfo.commitHash;
+  const commitEntry = meta?.commits.find((c) => c.commitHash === currentCommit);
+  const isIndexed = indexed ?? commitEntry?.isIndexed ?? false;
+
+  async function reindex() {
+    if (!graphId || indexBusy) return;
+    setIndexBusy(true);
+    try {
+      const { api } = await import("@/lib/api");
+      await api.reindexGraph(graphId, currentCommit, true);
+      setIndexed(true);
+    } catch {
+      setIndexed(false);
+    } finally {
+      setIndexBusy(false);
+    }
+  }
 
   const fp = graph.fingerprint as any;
 
@@ -553,6 +574,38 @@ function ProjectPanel({ graph }: { graph: GraphResponse | undefined }) {
         >
           {graph.gitInfo.message || "No message"}
         </div>
+      </Section>
+
+      {/* Search index */}
+      <Section title="Search Index">
+        <div
+          className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+          style={{ background: C.elevated, border: `1px solid ${C.borderSub}` }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: isIndexed ? C.teal : "#f59e0b" }}
+            />
+            <span className="text-xs" style={{ color: C.textSub }}>
+              {isIndexed ? "indexed" : "not indexed"}
+            </span>
+          </div>
+          <button
+            onClick={reindex}
+            disabled={indexBusy}
+            className="text-xs font-mono px-2.5 py-1 rounded-lg disabled:opacity-50"
+            style={{ background: C.teal + "1a", color: C.teal, border: `1px solid ${C.teal}33` }}
+          >
+            {indexBusy ? "indexing..." : "reindex"}
+          </button>
+        </div>
+        {!isIndexed && (
+          <p className="text-xs mt-2" style={{ color: C.textGhost }}>
+            BM25F symbol search needs an index. Queries still work via fallback, or run
+            devlens reindex for all graphs.
+          </p>
+        )}
       </Section>
     </div>
   );

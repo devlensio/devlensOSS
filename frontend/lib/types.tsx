@@ -295,6 +295,7 @@ export interface CommitSummary {
   edgeCount:     number;
   hasGit:        boolean;
   isSummarized?: boolean;
+  isIndexed?:    boolean;
 }
 
 export interface GraphMeta {

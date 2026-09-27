@@ -75,10 +75,26 @@ async function put<T>(url: string, body: unknown): Promise<T> {
 
 //  API ─
 
+export interface ReindexResult {
+  commitHash: string;
+  status: "indexed" | "skipped" | "missing";
+}
+
 export const api = {
 
   health: () =>
     get<{ status: string }>("/api/health"),
+
+  //  Search index 
+  reindexGraph: (graphId: string, commitHash?: string, force = false) =>
+    post<{ graphId: string; commits: ReindexResult[] }>(
+      `/api/reindex/${graphId}?${commitHash ? `commitHash=${commitHash}&` : ""}force=${force ? "1" : "0"}`
+    ),
+
+  reindexAll: (force = false) =>
+    post<{ graphs: { graphId: string; commits: ReindexResult[] }[] }>(
+      `/api/reindex?force=${force ? "1" : "0"}`
+    ),
 
   //  Config 
   getConfig: () =>

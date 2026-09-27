@@ -113,7 +113,55 @@ devlens find-nodes -t COMPONENT
 |---------|--------------|
 | `devlens mcp` | Run the MCP server over stdio (for editor / MCP-client integration) |
 | `devlens mcp http -p <port>` | Run the MCP server over Streamable HTTP (default port 7000) |
-| `devlens serve -p <port>` | Start the backend API only (default port 3000) — used by MCP / skills / the Web UI. The Web UI itself runs from the source repo via `bun run start` |
+| `devlens reindex [<graphId>] [<commitHash>] [--force]` | Rebuild the local search index (see [Search index](#search-index)) |
+| `devlens serve -p <port>` | Start the backend REST API only (default port 3000) — used by the Web UI and available to any HTTP client. The MCP server is a separate process: `devlens mcp` (stdio) or `devlens mcp http -p <port>` |
+
+---
+
+## Search index
+
+Symbol and context search run on a derived BM25+ index, one file per commit:
+
+```
+~/.devlens/graphs/{graphId}/commits/{commitHash}.search.json
+```
+
+It indexes six fields per node (`name`, `nameparts`, `path`, and the technical,
+business, and security summaries) with identifiers weighted above prose, so
+`find-nodes Button` and a concept query like "how do we validate uploads" both
+land on the right code. Storage is plain JSON, next to the graph it describes.
+
+**Lifecycle:**
+
+- `devlens analyze` (with or without `--summarize`) rebuilds the index for the
+  commit it touched. Failure here is non-fatal.
+- The first search on a graph built by an older CLI builds the index lazily from
+  the stored commit, and that query succeeds normally.
+- If the commit file itself is gone, tools report that the graph needs
+  re-analyzing rather than failing.
+- `devlens reindex` rebuilds on demand at any time.
+
+**Rebuilding by hand:**
+
+```bash
+devlens reindex                                  # every graph, latest commit
+devlens reindex 75cfc0a3eb67e178                 # one graph, all of its commits
+devlens reindex 75cfc0a3eb67e178 911466a3cb      # one specific commit
+devlens reindex --force --json                   # rebuild everything, machine-readable
+```
+
+Commits that already have an index are skipped unless `--force` is passed. The
+file is safe to delete at any time: it is derived, never the source of truth, and
+is rebuilt on the next search.
+
+**From the backend API** (`devlens serve`), the same operations are `POST`
+endpoints, which is what the Web UI calls:
+
+```bash
+curl -X POST "http://localhost:3000/api/reindex"                    # every graph, latest commit
+curl -X POST "http://localhost:3000/api/reindex/75cfc0a3eb67e178"   # one graph, all commits
+curl -X POST "http://localhost:3000/api/reindex/75cfc0a3eb67e178?commitHash=911466a3cb&force=1"
+```
 
 ---
 
@@ -227,6 +275,7 @@ devlens find-nodes -t STRUCT
 | `devlens repos` | List analyzed repositories | `devlens repos` |
 | `devlens graphs list` | List stored graphs | `devlens graphs list` |
 | `devlens graphs delete <graphId>` | Delete a graph | `devlens graphs delete abc-123` |
+| `devlens reindex` | Rebuild the search index (on a graph built by an older CLI, or after changing summaries) | `devlens reindex --force` |
 
 ---
 
@@ -384,12 +433,15 @@ src/cli/
     ├── status.ts       # Analyzed / summarized graphs
     ├── repos.ts        # repos
     ├── graphs.ts       # graphs list|delete
+    ├── reindex.ts      # rebuild the local search index
     ├── serve.ts        # backend API server (devlens serve)
     ├── mcp.ts          # mcp stdio|http
     └── query.ts        # all read/query commands (overview, find-nodes, …, get-context)
 ```
 
-CLI and MCP share `src/core/` — they never drift.
+CLI and MCP share `src/core/` — they never drift. Retrieval is shared too: both go
+through `src/search/` (the BM25+ index, `devlens reindex`, and the MCP search
+tools all use the same code).
 
 ---
 
@@ -410,7 +462,7 @@ bun run build:binaries
 | Package | What it is |
 | :-- | :-- |
 | [`devlensio`](https://www.npmjs.com/package/devlensio) | The core analysis engine (AST → graph → scores → summaries) |
-| [`@devlensio/skill`](https://www.npmjs.com/package/@devlensio/skill) | Agent Skill — `/devlens` commands for Claude Code, Cursor, Kilo |
+| `@devlensio/skill` | Agent Skill (`/devlens` commands). Deprecated: the MCP server's own tools and instructions cover the same ground, and the skill's tool whitelist blocked new tools. Kept only as a pointer |
 | `@devlensio/cli-<platform>` | Platform-specific binaries (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64) |
 
 ---
