@@ -6,7 +6,7 @@
       "name": "@devlensio/cli",
       "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "devlensio": "^1.0.1",
+        "devlensio": "^1.0.2",
       },
       "devDependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
@@ -20,11 +20,11 @@
         "zod": "^4.4.3",
       },
       "optionalDependencies": {
-        "@devlensio/cli-darwin-arm64": "0.5.4",
-        "@devlensio/cli-darwin-x64": "0.5.4",
-        "@devlensio/cli-linux-arm64": "0.5.4",
-        "@devlensio/cli-linux-x64": "0.5.4",
-        "@devlensio/cli-windows-x64": "0.5.4",
+        "@devlensio/cli-darwin-arm64": "0.5.5",
+        "@devlensio/cli-darwin-x64": "0.5.5",
+        "@devlensio/cli-linux-arm64": "0.5.5",
+        "@devlensio/cli-linux-x64": "0.5.5",
+        "@devlensio/cli-windows-x64": "0.5.5",
       },
     },
     "frontend": {
@@ -102,15 +102,15 @@
 
     "@babel/types": ["@babel/types@7.29.7", "", { "dependencies": { "@babel/helper-string-parser": "^7.29.7", "@babel/helper-validator-identifier": "^7.29.7" } }, "sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA=="],
 
-    "@devlensio/cli-darwin-arm64": ["@devlensio/cli-darwin-arm64@0.5.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-F/VjefdFfBRlN8Eyf9wdgl+JWichW78buo1ZjcFk4xttgSs8MRmb6SCkwytQSDVrjDHPPsZMUFwJEPXsbGLiKQ=="],
+    "@devlensio/cli-darwin-arm64": ["@devlensio/cli-darwin-arm64@0.5.5", "", { "os": "darwin", "cpu": "arm64" }, "sha512-gRpjss5S0nW8wETqrluRTOQhhPA4RQDdd7kZylVVBr7C5J1aM6x42WZFwS4J2Bl1mWrPql0V5Q3wwpA7KD+SDw=="],
 
-    "@devlensio/cli-darwin-x64": ["@devlensio/cli-darwin-x64@0.5.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-6rdnTg/H1XAiDIX9+0OqBlYQytSLrSLg3HUuQIXg+W5DXB6JWClWJniCmhBbJVaYkrXxwYpphyNIraRBtalQfw=="],
+    "@devlensio/cli-darwin-x64": ["@devlensio/cli-darwin-x64@0.5.5", "", { "os": "darwin", "cpu": "x64" }, "sha512-5sJp9Kynaz+ZDA5QgpA1+/s8pJEejzwnSXgpEl2dn5s5mUc3HAd/vfqEY7Zdzo/AZwVc3qOcG7ZtDUD8evBgMw=="],
 
-    "@devlensio/cli-linux-arm64": ["@devlensio/cli-linux-arm64@0.5.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-LNKx/z9IgvT7zfC99Fg/YNgg9M1HVLie1cJdyLQHD7epnbJHqL5rQEmfm2LjyOytgC02qrPlmkbLS9KbK0AzLg=="],
+    "@devlensio/cli-linux-arm64": ["@devlensio/cli-linux-arm64@0.5.5", "", { "os": "linux", "cpu": "arm64" }, "sha512-lIV1Rx69gzVPN2RPKN0N0wiDnYEAuu4mrWJdqkyWI+bsh+s5LGHEImqiCKGUUlqGrE0T7SdHlA3hsyNjRa4LMQ=="],
 
-    "@devlensio/cli-linux-x64": ["@devlensio/cli-linux-x64@0.5.4", "", { "os": "linux", "cpu": "x64" }, "sha512-vMw1RlwCLtdNWEHil5uhIoF0eT1MM3vqg1J5QdJ/SsvewWukF/CcIxkx5oP6VuJirYnJfv/gdybj9JOq/voXHA=="],
+    "@devlensio/cli-linux-x64": ["@devlensio/cli-linux-x64@0.5.5", "", { "os": "linux", "cpu": "x64" }, "sha512-dSumYSYIiE/ihHCCTFrxRZNV925lLP5uQfGStl9SVcW33vHZYBEkQU/kUUKbSQpibjUm7523EbBVbnW21NSoJA=="],
 
-    "@devlensio/cli-windows-x64": ["@devlensio/cli-windows-x64@0.5.4", "", { "os": "win32", "cpu": "x64" }, "sha512-qbwqebOvO38MzDP7ZphP3bwDcwCXX59DyqVf2ePli21wZkYg4ramwWDLe5RcwAYu4NG2gagrUICIU6CSgObg9g=="],
+    "@devlensio/cli-windows-x64": ["@devlensio/cli-windows-x64@0.5.5", "", { "os": "win32", "cpu": "x64" }, "sha512-FHKoaerGc6nOezZ0TL5d2w89JA4zJQwZJ6GPg+tD3AlsMsTlOXJ5jwfdiv6e6aKDI/2A3Xs9la9tj6ozBTTK7g=="],
 
     "@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 
@@ -618,7 +618,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "devlensio": ["devlensio@1.0.1", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-vfoCAh0hwsX1hHbmm6+96+3y+sl3rybbDCHIAPxgooF9Nk2/C5PlnrNa1+kJObkDbeM3yrway0W+FgO4Att1Uw=="],
+    "devlensio": ["devlensio@1.0.2", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-DIjhy4Gr+mLN1Qz3yIrLKXZ0JTnC6qa0evQCMfRRUzFBPdyb/+3J+mh+Lr52WsOo6RcJs/W0IDuwsNYfdxhL1g=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
 
