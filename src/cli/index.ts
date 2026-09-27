@@ -13,6 +13,7 @@ import { registerConfigCommand } from "./commands/config.js";
 import { registerServeCommand } from "./commands/serve.js";
 import { registerQueryCommands } from "./commands/query.js";
 import { registerGraphsCommand } from "./commands/graphs.js";
+import { registerReindexCommand } from "./commands/reindex.js";
 import { registerMcpCommand } from "./commands/mcp.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
@@ -211,6 +212,7 @@ registerDetectCommand(program);
 // Query (mirror the MCP tools)
 registerQueryCommands(program);
 registerGraphsCommand(program);
+registerReindexCommand(program);
 // MCP server
 registerMcpCommand(program);
 // Utilities

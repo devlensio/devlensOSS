@@ -4,9 +4,11 @@
 // The queue runs runJob() (Phase 1 analysis + optional Phase 2 summarization)
 // asynchronously; we subscribe for progress events and resolve when terminal.
 
-import { queue, resolveConfig } from "devlensio";
+import { queue, resolveConfig, storage } from "devlensio";
 import type { ProgressEvent, LLMProvider } from "devlensio";
 import { info, success, isJsonMode } from "./output.js";
+import { buildIndex } from "../search/indexer.js";
+import { writeIndex, invalidate } from "../search/indexManager.js";
 
 export interface RunJobOpts {
   repoPath: string;
@@ -55,7 +57,32 @@ export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
   });
 
   const final = queue.getJob(job.jobId);
+  if (final?.graphId && !final.error) {
+    indexLatestCommit(final.graphId);
+  }
   return { graphId: final?.graphId, status: final?.status ?? "unknown", error: final?.error };
+}
+
+// Every analyze/summarize run rebuilds the derived .search.json for the
+// commit it touched. Failure is non-fatal: queries lazily rebuild on demand.
+function indexLatestCommit(graphId: string): void {
+  try {
+    const meta = storage.getGraphMeta(graphId);
+    const latest = meta?.commits[0];
+    if (!latest) return;
+    const result = storage.getGraph(graphId, latest.commitHash);
+    if (!result) return;
+    const { envelope, engine } = buildIndex(result);
+    writeIndex(graphId, latest.commitHash, envelope, engine);
+    invalidate(graphId);
+    if (!isJsonMode()) {
+      info(`indexed search index for ${latest.commitHash.slice(0, 10)} (${envelope.docs} nodes)`);
+    }
+  } catch (err) {
+    if (!isJsonMode()) {
+      info(`search indexing failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 }
 
 function renderEvent(ev: ProgressEvent): void {

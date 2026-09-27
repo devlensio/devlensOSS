@@ -10,6 +10,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { searchSeeds } from "../search/query.js";
+import {
+  defaultTokenBudget,
+  microSummaryOf,
+  renderResolvePacket,
+} from "../mcp/packetRender.js";
 import {
   storage,
   analyzePipeline,
@@ -339,6 +345,48 @@ export function findNodes(graphId: string, f: FindNodesFilters = {}, commitHash?
     .sort((x, y) => Number(y.score ?? 0) - Number(x.score ?? 0))
     .slice(0, f.limit ?? 25);
   return { total, returned: matched.length, nodes: matched.map(toCompact) };
+}
+
+// Cheap name-lookup over the local BM25F search index. No graph, no callers,
+// no source: just nodeIds plus file:line so the agent can decide what to open.
+// A missing index is lazily built here; a missing commit JSON is reported via
+// needsReanalyze instead of erroring.
+export interface FindSymbolsOpts {
+  query: string;
+  summaryType?: "technical" | "business" | "both";
+  limit?: number;
+}
+
+export function findSymbols(graphId: string, opts: FindSymbolsOpts, commitHash?: string) {
+  const ctx = requireContext(graphId, commitHash);
+  const usedCommit = ctx.result.gitInfo.commitHash;
+  const limit = Math.min(25, Math.max(1, opts.limit ?? 10));
+  const { seeds, needsReanalyze, origin } = searchSeeds(
+    graphId,
+    usedCommit,
+    opts.query,
+    opts.summaryType ?? "both",
+    limit
+  );
+
+  const symbols = seeds
+    .map((s) => {
+      const n = ctx.index.nodesById.get(s.nodeId) ?? ctx.result.allNodes.find((x) => x.id === s.nodeId);
+      if (!n) return null;
+      return {
+        nodeId: n.id,
+        name: n.name,
+        type: n.type,
+        filePath: n.filePath,
+        startLine: n.startLine,
+        endLine: n.endLine,
+        relevance: Math.round(s.relevance * 1000) / 1000,
+        exactMatch: s.exactMatch,
+      };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
+
+  return { query: opts.query, summaryType: opts.summaryType ?? "both", total: symbols.length, origin, needsReanalyze, commitHash: usedCommit, symbols };
 }
 
 export function nodesInPath(graphId: string, p: string, nodeTypes?: string[], commitHash?: string) {
@@ -1337,4 +1385,208 @@ export function getContext(graphId: string, query: string, opts: GetContextOpts 
     ...(retrievalFallback && { retrievalFallback }),
     verdict: included.length === 0 ? ("no-context" as const) : undefined,
   };
+}
+//  resolve_context / blast_radius 
+
+export type ResolveIntent =
+  | "pinpoint"
+  | "reference-list"
+  | "flow"
+  | "overview"
+  | "concept"
+  | "security-audit"
+  | "exploratory";
+
+export interface ResolveContextOpts {
+  task: string;
+  intent?: ResolveIntent;
+  focus?: string[];
+  tokenBudget?: number;
+  includeSummaries?: boolean;
+}
+
+const INTENT_TRAVERSAL: Record<ResolveIntent, { direction: "both" | "incoming" | "outgoing"; hops: number }> = {
+  pinpoint: { direction: "both", hops: 1 },
+  "reference-list": { direction: "incoming", hops: 2 },
+  flow: { direction: "outgoing", hops: 2 },
+  overview: { direction: "both", hops: 2 },
+  concept: { direction: "both", hops: 2 },
+  "security-audit": { direction: "incoming", hops: 2 },
+  exploratory: { direction: "both", hops: 2 },
+};
+
+const HUB_DEGREE_THRESHOLD = 25;
+const HUB_PENALTY = 0.3;
+const RESOLVE_NODE_CAP = 1000;
+
+export function resolveContext(graphId: string, opts: ResolveContextOpts, commitHash?: string) {
+  const ctx = requireContext(graphId, commitHash);
+  const usedCommit = ctx.result.gitInfo.commitHash;
+  const intent = opts.intent ?? "exploratory";
+  const traversal = INTENT_TRAVERSAL[intent];
+
+  const fileCount = [...ctx.result.allNodes].filter((n) => n.type === "FILE").length;
+  const budget = opts.tokenBudget ?? defaultTokenBudget(fileCount);
+
+  // Stage 1: seed. BM25F over the local search index, plus explicit focus
+  // (nodeId or filePath). Focus entries that resolve nowhere are reported,
+  // never dropped silently. Empty merge falls back to central nodes.
+  const unresolvedFocus: string[] = [];
+  const seedMap = new Map<string, number>();
+
+  for (const f of opts.focus ?? []) {
+    let node = ctx.index.nodesById.get(f);
+    if (!node) {
+      const inFile = ctx.index.nodesByFilePath.get(f);
+      node = inFile?.[0] ? ctx.index.nodesById.get(inFile[0]) : undefined;
+    }
+    if (node) seedMap.set(node.id, 1);
+    else unresolvedFocus.push(f);
+  }
+
+  const { seeds, needsReanalyze, origin } = searchSeeds(
+    graphId,
+    usedCommit,
+    opts.task,
+    "both",
+    25
+  );
+  for (const s of seeds) {
+    seedMap.set(s.nodeId, Math.max(seedMap.get(s.nodeId) ?? 0, s.relevance));
+  }
+
+  let retrievalFallback: string | undefined;
+  if (seedMap.size === 0) {
+    retrievalFallback = "no search hits -> central nodes";
+    for (const n of topNodes(graphId, 5, usedCommit).nodes) {
+      seedMap.set(n.id, 0.2);
+    }
+  }
+
+  // Stage 2: traverse from seeds, hub-penalized ranking.
+  const expanded = new Map<string, { hop: number; similarity: number }>();
+  for (const [id, rel] of seedMap) {
+    expanded.set(id, { hop: 0, similarity: rel });
+  }
+
+  for (const seedId of [...seedMap.keys()]) {
+    if (expanded.size >= RESOLVE_NODE_CAP) break;
+    const push = (hits: { nodeId: string; hop: number }[]) => {
+      for (const h of hits) {
+        if (!expanded.has(h.nodeId) && expanded.size < RESOLVE_NODE_CAP) {
+          expanded.set(h.nodeId, { hop: h.hop, similarity: h.hop === 1 ? 0.6 : 0.3 });
+        }
+      }
+    };
+    if (traversal.direction === "both" || traversal.direction === "incoming") {
+      try { push(getBlastRadius(ctx.index, seedId, { radius: traversal.hops }).hits); } catch { /* skip */ }
+    }
+    if (traversal.direction === "both" || traversal.direction === "outgoing") {
+      try { push(getKHop(ctx.index, seedId, { radius: traversal.hops }).hits); } catch { /* skip */ }
+    }
+  }
+
+  const degreeOf = (id: string): number =>
+    (ctx.index.reverse.get(id)?.length ?? 0) + (ctx.index.forward.get(id)?.length ?? 0);
+
+  const ranked = [...expanded.values()];
+  const rankOf = (id: string, similarity: number): number => {
+    const node = ctx.index.nodesById.get(id);
+    let rank = similarity * 0.6 + Number(node?.score ?? 0) * 0.4;
+    if (degreeOf(id) > HUB_DEGREE_THRESHOLD && !seedMap.has(id)) rank *= HUB_PENALTY;
+    return rank;
+  };
+  const ids = [...expanded.keys()].sort(
+    (a, b) => rankOf(b, expanded.get(b)!.similarity) - rankOf(a, expanded.get(a)!.similarity)
+  );
+
+  // Stage 3: pack into the line-format packet.
+  const microSummaries = opts.includeSummaries !== false;
+  const packetNodes = ids
+    .map((id) => {
+      const n = ctx.index.nodesById.get(id);
+      if (!n) return null;
+      return {
+        id: n.id,
+        name: n.name,
+        type: n.type as string,
+        filePath: n.filePath,
+        startLine: n.startLine,
+        endLine: n.endLine,
+        microSummary: microSummaries
+          ? requireMicro(n)
+          : undefined,
+      };
+    })
+    .filter((n): n is NonNullable<typeof n> => n !== null);
+
+  const includedIds = new Set(packetNodes.map((n) => n.id));
+  const packetEdges = ctx.result.edges
+    .filter((e) => includedIds.has(e.from) && includedIds.has(e.to))
+    .slice(0, 40)
+    .map((e) => ({ from: e.from, to: e.to, type: e.type as string }));
+
+  const codeTargets = packetNodes
+    .filter((n) => n.type.toLowerCase() !== "file")
+    .slice(0, 5)
+    .map((n) => ({
+      nodeId: n.id,
+      filePath: n.filePath,
+      startLine: n.startLine,
+      endLine: n.endLine,
+    }));
+
+  const notes: string[] = [];
+  if (unresolvedFocus.length > 0) notes.push(`unresolvedFocus: ${unresolvedFocus.join(", ")}`);
+  if (needsReanalyze) notes.push("graph has no search index and no commit file; run devlens analyze or POST /api/reindex");
+
+  const rendered = renderResolvePacket(
+    {
+      graphId,
+      commitHash: usedCommit,
+      nodes: packetNodes,
+      edges: packetEdges,
+      code: codeTargets,
+      nextHint: nextHintFor(intent),
+      notes,
+    },
+    budget
+  );
+
+  return {
+    graphId,
+    commitHash: usedCommit,
+    intent,
+    budget,
+    origin,
+    retrievalFallback,
+    approxTokens: rendered.approxTokens,
+    nodeCount: packetNodes.length,
+    packet: rendered.text,
+    provenance: {
+      source: ctx.result.gitInfo.hasGit ? "commit" : "snapshot",
+      commitHash: usedCommit,
+      analyzedAt: ctx.result.analyzedAt,
+      hasGit: ctx.result.gitInfo.hasGit,
+    },
+  };
+}
+
+function requireMicro(n: { businessSummary?: string }): string | undefined {
+  return microSummaryOf(n.businessSummary);
+}
+
+function nextHintFor(intent: ResolveIntent): string {
+  switch (intent) {
+    case "pinpoint":
+      return "use get_node_code on a short id for full source; get_neighbors for structure";
+    case "reference-list":
+      return "each FILE line lists dependent locations; use blast_radius(symbol) to re-run on one symbol";
+    case "flow":
+      return "FLOW lines are call order; use get_node_code to inspect a hop";
+    case "security-audit":
+      return "use get_security_issues for the full finding list";
+    default:
+      return "use find_symbols for cheap lookups; resolve_context with intent=flow to trace a path";
+  }
 }

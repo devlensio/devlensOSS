@@ -18,6 +18,7 @@ import {
     handleGetCodeNode,
 } from "./handlers/graph.js";
 import { handleFilter } from "./handlers/filter.js";
+import { handleReindexGraph, handleReindexAll } from "./handlers/reindexHandler.js";
 import { handleDiff } from "./handlers/diff.js";
 import { handleQuery }  from "./handlers/query.js";
 import { handleGetConfig, handlePatchConfig, handleGetProviders, handleGetProviderModels, handlePostProviderModels, handleSetActiveProvider, handleRemoveProvider } from "./handlers/config.js";
@@ -220,6 +221,26 @@ const ROUTES: Route[] = [
         method: "DELETE",
         pattern: "/api/graph/:graphId",
         handler: (params) => handleDeleteGraph(params.graphId),
+    },
+    {
+        method: "POST",
+        pattern: "/api/reindex/:graphId",
+        handler: (params, req) => {
+            const url = new URL(req.url);
+            return handleReindexGraph(
+                params.graphId,
+                url.searchParams.get("commitHash") ?? undefined,
+                url.searchParams.get("force") === "1"
+            );
+        },
+    },
+    {
+        method: "POST",
+        pattern: "/api/reindex",
+        handler: (_params, req) => {
+            const url = new URL(req.url);
+            return handleReindexAll(url.searchParams.get("force") === "1");
+        },
     },
 ];
 

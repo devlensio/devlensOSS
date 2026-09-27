@@ -75,6 +75,64 @@ export function registerTools(server: McpServer) {
     async ({ graphId, commitHash, ...filters }) => run(() => q.findNodes(graphId, filters, commitHash))
   );
 
+  //  3a. resolve_context (the front door)
+  server.registerTool(
+    "resolve_context",
+    {
+      description: "THE front door. One call returns a task-shaped packet: the nodes that matter (with one-line meanings), call flow, involved files, key code bodies, security flags, and an id map, all within a token budget. Answering 'where/how/what' about a supported-language repo should start here, not with grep or find_symbols. Intents: pinpoint (find a symbol's story), reference-list (who uses X), flow (trace a path), overview (map of the area), concept (explain a domain), security-audit, exploratory (default).",
+      annotations: { readOnlyHint: true, idempotentHint: true },
+      inputSchema: {
+        graphId: z.string().describe("Graph id of the analyzed repo"),
+        task: z.string().min(1).describe("The actual question or task, in plain words"),
+        intent: z.enum(["pinpoint", "reference-list", "flow", "overview", "concept", "security-audit", "exploratory"]).optional().describe("Default exploratory"),
+        focus: z.array(z.string()).optional().describe("nodeIds or filePaths to center the packet on"),
+        tokenBudget: z.number().optional().describe("500..100000; default scales with repo size"),
+        includeSummaries: z.boolean().optional().describe("One-line business meanings on nodes, default true"),
+        commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
+      },
+    },
+    async ({ graphId, commitHash, ...opts }) => run(() => q.resolveContext(graphId, opts as q.ResolveContextOpts, commitHash))
+  );
+
+  //  3a2. blast_radius (cheap wrapper over the front door)
+  server.registerTool(
+    "blast_radius",
+    {
+      description: "What breaks if a symbol changes: incoming callers and dependents, packed tight as files and node refs within a small budget. Pass the symbol name or path as `symbol`. For full meaning, code, and flow around the same area use resolve_context instead.",
+      annotations: { readOnlyHint: true, idempotentHint: true },
+      inputSchema: {
+        graphId: z.string().describe("Graph id of the analyzed repo"),
+        symbol: z.string().min(1).describe("Symbol name, nodeId, or file path"),
+        commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
+      },
+    },
+    async ({ graphId, symbol, commitHash }) =>
+      run(() =>
+        q.resolveContext(
+          graphId,
+          { task: symbol, intent: "reference-list", tokenBudget: 1200 },
+          commitHash
+        )
+      )
+  );
+
+  //  3b. find_symbols
+  server.registerTool(
+    "find_symbols",
+    {
+      description: "Cheap symbol lookup by name, path, or concept. Returns nodeIds plus file:line refs, no graph structure and no source. Use this to locate a symbol before get_node_details/get_node_code; use resolve_context when you need meaning and impact instead. Lexical BM25F search (field-weighted, stemmed), not embeddings.",
+      annotations: { readOnlyHint: true, idempotentHint: true },
+      inputSchema: {
+        graphId: z.string().describe("Graph id; defaults to the current repo when omitted only if exactly one graph is known"),
+        query: z.string().min(1).describe("Symbol name, identifier, path fragment, or concept words"),
+        summaryType: z.enum(["technical", "business", "both"]).optional().describe("Which summaries to weight in ranking, default both"),
+        limit: z.number().optional().describe("1..25, default 10"),
+        commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
+      },
+    },
+    async ({ graphId, commitHash, ...opts }) => run(() => q.findSymbols(graphId, opts as { query: string; summaryType?: "technical" | "business" | "both"; limit?: number }, commitHash))
+  );
+
   //  4. get_nodes_in_path
   server.registerTool(
     "get_nodes_in_path",

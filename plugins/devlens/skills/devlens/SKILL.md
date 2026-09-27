@@ -1,117 +1,21 @@
 ---
 name: devlens
-description: Understand a codebase with the DevLens MCP — TypeScript, JavaScript, Python, Go, Rust, or Java (incl. React/Next.js/Node, FastAPI/Flask/Django, Spring Boot, Gin/Echo/chi/net-http, axum/actix/rocket). Query a precomputed graph of nodes (components, hooks, functions, classes, methods, structs, traits, routes) and typed edges, each carrying technical/business/security summaries, instead of grepping and reading whole files. Use PROACTIVELY — reach for this BEFORE grepping/Glob/reading files whenever you need to locate, understand, or assess the impact of code in a supported language, not only when DevLens is named. Triggers: exploring an unfamiliar repo, orienting before an edit, "where does X live", "what calls/uses X", "what breaks if I change Y", "how does X work", "explain this codebase", "draw the architecture", "is this secure", "find circular dependencies", or any impact/security/architecture/onboarding review.
-argument-hint: "[init|architecture|diagram|summary|security-analysis|explain|onboard|tech-debt|impact|find|changes|guard]"
-allowed-tools: mcp__plugin_devlens_devlens__list_analyzed_repos, mcp__plugin_devlens_devlens__get_repo_overview, mcp__plugin_devlens_devlens__find_nodes, mcp__plugin_devlens_devlens__get_nodes_in_path, mcp__plugin_devlens_devlens__get_node, mcp__plugin_devlens_devlens__get_summaries, mcp__plugin_devlens_devlens__get_node_code, mcp__plugin_devlens_devlens__get_security_issues, mcp__plugin_devlens_devlens__get_blast_radius, mcp__plugin_devlens_devlens__get_khop, mcp__plugin_devlens_devlens__get_subgraph, mcp__plugin_devlens_devlens__list_cycles, mcp__plugin_devlens_devlens__analyze, mcp__plugin_devlens_devlens__analyze_changes, mcp__plugin_devlens_devlens__check_freshness, mcp__plugin_devlens_devlens__get_coverage, mcp__plugin_devlens_devlens__architecture_brief, mcp__plugin_devlens_devlens__security_brief, mcp__plugin_devlens_devlens__review_pr, mcp__plugin_devlens_devlens__onboarding_tour, mcp__plugin_devlens_devlens__get_context, Read, Write, Bash(git *)
+description: DEPRECATED as a procedural skill. DevLens now works directly through its MCP tools, which describe themselves. Install the DevLens MCP and call its tools without this skill. Kept only as a pointer so old installs do not break.
 ---
 
-# DevLens — codebase intelligence via the DevLens MCP
+# DevLens skill is deprecated
 
-DevLens precomputes a structural graph of a repo: nodes (components, hooks, functions, routes, classes, methods, structs, traits, stores) joined by typed edges (CALLS, IMPORTS, READS_FROM, IMPLEMENTS, …), each carrying a **technical** summary, a **business/functional** summary, and a **security** assessment. You query it through the **DevLens MCP tools** — not by reading files.
+This skill used to carry 12 command recipes and a tool whitelist. That whole layer is
+gone in MCP v2:
 
-**Supported languages (analyzed with native parsers, not regex/tree-sitter):**
+- The whitelist silently blocked every new tool the server added. It no longer exists.
+- The routing policy ("DevLens decides where and what, file tools make the edit") now
+  lives in the MCP server's INSTRUCTIONS, versioned with the code.
+- The freshness guard is automatic: every MCP response carries provenance and staleness
+  flags, so no recipe step is needed.
+- The command recipes (explain, impact, find, changes, security-analysis, ...) are
+  replaced by the MCP tools themselves: resolve_context, blast_radius, find_symbols,
+  get_node_details, get_node_code, get_neighbors.
 
-| Language | Frameworks the graph understands | Typical node types |
-| :-- | :-- | :-- |
-| TypeScript / JavaScript | React, Next.js (app/pages/router), Express/Hono/Fastify, any Node | COMPONENT, HOOK, STATE_STORE, CLASS, METHOD, FUNCTION, ROUTE, … |
-| Python | FastAPI, Flask, Django (+DRF), SQLAlchemy/Django ORM, Celery, Pydantic | CLASS, METHOD, FUNCTION, ROUTE, … |
-| Java | Spring Boot (controllers, JPA, repositories) | CLASS, METHOD, INTERFACE, ENUM, ROUTE, … |
-| Go | net/http, Gin, Echo, chi, Fiber, GORM, database/sql | STRUCT, INTERFACE, METHOD, FUNCTION, ROUTE, … |
-| Rust | axum, actix-web, rocket, utoipa, Diesel | STRUCT, ENUM, TRAIT, IMPL_BLOCK, METHOD, FUNCTION, ROUTE, … |
-
-(Full per-language node/edge table in `reference.md` → "Node & edge types by language". A graph is **per-repo/per-language**: the node types you can query with `find_nodes nodeTypes` depend on the repo's language.)
-
-**Tool names.** The DevLens MCP server is bundled with this plugin and registers automatically. Its tools appear to you as `mcp__plugin_devlens_devlens__<name>`. Throughout these recipes a tool is named by its short `<name>` (e.g. `get_subgraph`, `find_nodes`, `get_blast_radius`); call the matching `mcp__plugin_devlens_devlens__…` tool. Every tool is keyed by a `graphId` (and optionally a `commitHash`); read each tool's own description for its parameters.
-
-**Why this saves tokens:** a node summary is ~50 tokens; the underlying file is ~2000. Querying summaries, and using `get_blast_radius`/`get_khop`/`get_subgraph` to fetch only the relevant slice, costs a fraction of reading files. Reach for raw source (`get_node_code`) only as a last resort.
-
-**Standing rule — prefer summaries when available:** whenever a node has a technical or business summary, read it (`get_node` / `get_summaries`) to understand the code **instead of opening the file** — it is far cheaper and usually enough. Fall back to `get_node_code` or reading the file only when no summary exists (structure-only graph) or the summary is genuinely insufficient to act. This applies to every subcommand below.
-
-## Pre-flight check — the `devlens://repos` resource
-
-The `devlens://repos` MCP resource is auto-attached by the host — read it to get the graphId for this repo without a tool call. If the resource is not available, call `list_analyzed_repos` once per session. Cache the graphId and reuse it for every subsequent query. **Do not ask the user's permission**; this is automatic.
-
-## Freshness guard — ALWAYS run before any workflow tool call
-
-**Before ANY workflow tool call** (`architecture_brief`, `security_brief`, `review_pr`, `onboarding_tour`, `get_context`), run `check_freshness` once. If `stale === true`, ask the user before proceeding (or re-analyze structure-only if `dirty`). Do not silently answer against a stale graph.
-
-On a `{ code: STALE_GRAPH | COMMIT_NOT_ANALYZED }` error from any tool, call `analyze` (structure-only) and retry once; do not ask the user unless summarize permission is required.
-
-If `result.schemaVersion !== 1` on any composed tool result, stop and warn the user the skill is out of date with the installed DevLens.
-
----
-
-## When to reach for DevLens vs. plain file tools (routing policy)
-On a repo in a **supported language** (TS/JS, Python, Go, Rust, Java), **DevLens is the default way to understand code** — querying the graph is cheaper and more accurate than grepping. Reach for DevLens (don't `Grep`/`Glob`/`Read` first) whenever you need to:
-- **Locate** — "where is X", which file/component/class/handler/route does something → `find_nodes` / `get_nodes_in_path`.
-- **Understand** — what a function/class/module does before relying on or editing it → `get_node` / `get_summaries` (summary first, source last).
-- **Assess impact** — "what breaks if I change Y", who calls/uses X, what X depends on → `get_blast_radius` / `get_khop`.
-- **Orient before an edit** — getting your bearings in an unfamiliar area → `get_repo_overview` / `get_subgraph`.
-- **Review** — architecture, security, tech-debt, cycles, onboarding → the matching subcommand.
-
-This is the fix for "grepping for every little task": don't fan out `grep`/`Read` to reconstruct what a node does or who depends on it — **one graph query (a ~50-token summary) replaces several greps and full-file reads.**
-
-Use plain `Read`/`grep`/`Glob` instead when:
-- You already know the exact file and the task is small and localized (a typo, a one-liner, a rename in a known spot).
-- You need the **literal current bytes to edit** — once DevLens tells you *where* and *what*, pull the file to make the change (DevLens decides where/what; file tools make the edit).
-- The repo is **not** in a supported language (plain C/C++/Ruby/Swift/… codebases aren't parsed yet), or no graph exists and the user doesn't want to analyze.
-- You're searching things the graph doesn't model (config, docs, generated output, non-code assets).
-- You need to confirm an empty blast radius (zero callers "in the graph" is not proof of safety) — a targeted `grep` here is the right tool.
-
-Rule of thumb: **DevLens to decide *where* and *what*; file tools to make the actual change.** If you catch yourself about to grep a supported-language repo to understand a symbol, query the graph instead.
-
-## Step 1 — Ensure the DevLens MCP is connected
-Call `list_analyzed_repos`. If it returns (even an empty list), the MCP is live — proceed. If the tool is **not available** (no `mcp__plugin_devlens_devlens__*` tools), the DevLens MCP isn't connected: tell the user and stop. To enable it, they can reinstall/enable this plugin, or register the server directly:
-```
-claude mcp add devlens -- npx -y @devlensio/cli mcp
-```
-(The MCP ships inside the `@devlensio/cli` package, so no separate install is needed once registered.)
-
-## Step 2 — Graph freshness guard (ALWAYS run before any query)
-
-**Resolve `graphId` ONCE per session, then reuse.** Use the `devlens://repos` resource (auto-attached) or `list_analyzed_repos` to find the entry whose repo path matches this repo. Cache the graphId and reuse it. Re-resolve only if the user switches repos or you re-`analyze`.
-
-Then call `check_freshness` once. Based on the result:
-
-1. **`dirty === true`** → re-analyze structure-only: call `analyze` with this repo's path. Existing summaries are inherited for unchanged nodes. Then proceed.
-2. **`behind === true` (clean worktree, HEAD ahead of graph)** → call `analyze` (structure only) for the current HEAD. Then **ask the user whether to summarize this commit**. Proceed structure-only if they decline.
-3. **`stale === false`** → use the graph directly.
-4. **If the subcommand needs summaries and the graph has none** (`summariesCoverage.pct === 0`) → **STOP and ask the user for permission to summarize** before running summarization. If they decline, continue structure-only and say what's limited.
-
-**Golden rule:** structural `analyze` may run automatically; **summarizing requires explicit user permission every time** — it costs LLM calls. Never summarize silently.
-
-## Step 3 — Route to the subcommand
-You were invoked as `/devlens $ARGUMENTS`. Take the first word (`$0`) as the subcommand and **read the matching recipe file in full, then follow it exactly.**
-
-**How to use the graph well (applies to every subcommand).** These tools are a kit — the quality of your answer comes from *orchestrating them*, not from dumping the whole graph. Before writing any recipe's output, internalize the methodology in `${CLAUDE_SKILL_DIR}/reference.md` → **"How to use the graph well"**. In short:
-- **Orient cheap first** with `get_repo_overview` (framework, route count, top central nodes). Let its exact counts anchor your output.
-- **Discover real modules from the graph**, not from directory-name guesses: `get_subgraph` on central seed nodes returns the cohesive clusters that *are* the codebase's bounded contexts.
-- **Draw real connections** with `get_blast_radius` (upstream) and `get_khop` (downstream) — never invent edges.
-- **Describe by meaning** using `get_summaries` (business + technical) — label things by what they *do*, not by their names.
-- **Overlay health** with `list_cycles` and `get_security_issues`.
-- **Be comprehensive through hierarchy, not omission.** On a large repo, give a clean module-level answer that accounts for every route and every bounded node set — for JS/TS that's routes/stores/hooks; for Python/Java/Go/Rust it's routes + classes/methods/structs/traits/functions — and represents long tails explicitly (e.g. "+N more"), with drill-down offered — rather than enumerating raw node lists you never synthesized. Cite the exact counts from `get_repo_overview`. A thorough, well-structured answer is the goal; a brute-force node dump is not.
-- **Scope to the question.** A scoped ask ("how does *streaming* work", a path) is not a whole-repo tour — seed from the named subsystem's cluster (`get_subgraph`) and stay there. Reserve the full sweep for genuinely whole-repo requests; over-traversing a scoped question drains the budget the write-up needs.
-- **Output discipline — the data is wasted if the write-up is garbled.** (1) **Lead with the exclusives** a raw LLM can't produce: in-scope **security severity flags are a mandatory call-out**, describe relationships by their **edge type**, and rank by **centrality**. (2) **No hand-drawn ASCII diagrams** — they break and truncate; use Markdown tables or Mermaid blocks, or defer to `/devlens diagram`. (3) **Protect the synthesis budget**: collect efficiently (batch `get_summaries`, don't over-traverse), then write deliberately — a few sections written cleanly beats every section truncated.
-
-Routing table:
-
-| Subcommand | Recipe |
-| :-- | :-- |
-| `init` | `${CLAUDE_SKILL_DIR}/commands/init.md` |
-| `architecture` | `${CLAUDE_SKILL_DIR}/commands/architecture.md` |
-| `diagram` | `${CLAUDE_SKILL_DIR}/commands/diagram.md` |
-| `summary` | `${CLAUDE_SKILL_DIR}/commands/summary.md` |
-| `security-analysis` | `${CLAUDE_SKILL_DIR}/commands/security-analysis.md` |
-| `explain` | `${CLAUDE_SKILL_DIR}/commands/explain.md` |
-| `onboard` | `${CLAUDE_SKILL_DIR}/commands/onboard.md` |
-| `tech-debt` | `${CLAUDE_SKILL_DIR}/commands/tech-debt.md` |
-| `impact` | `${CLAUDE_SKILL_DIR}/commands/impact.md` |
-| `find` | `${CLAUDE_SKILL_DIR}/commands/find.md` |
-| `changes` | `${CLAUDE_SKILL_DIR}/commands/changes.md` |
-| `guard` | `${CLAUDE_SKILL_DIR}/commands/guard.md` |
-
-- **No argument** (bare `/devlens`): briefly list the subcommands above with one line each, and point to `${CLAUDE_SKILL_DIR}/reference.md` for the full tool catalog and when to use each. Do not run analysis.
-- **Unknown argument**: say so and show the subcommand list.
-- When **auto-invoked** (the user didn't type `/devlens`), pick the subcommand that matches their request (e.g. "is this secure?" → security-analysis; "draw the architecture" → diagram).
-
-Every tool accepts `graphId` (default to the graph for the cwd) and an optional `commitHash`. Default to the cwd graph's latest commit unless the user specifies otherwise.
+If you are reading this, install or update the DevLens MCP and delete this skill
+directory. No skill file is required to use DevLens.
