@@ -162,7 +162,7 @@ Symbol search is **lexical BM25F** (field-weighted across name, path, and both s
 
 Every response carries a `provenance` block (`commitHash`, `analyzedAt`, `hasGit`), so your agent always knows which snapshot answered the question. If a response sets `needsReanalyze: true`, the graph is too old (or predates the search index) and the user should run `devlens analyze`. For repos without git, DevLens keys the snapshot by content, so re-analyzing unchanged code updates the same snapshot instead of piling up new ones.
 
-> **Full reference:** [`src/mcp/README.md`](src/mcp/README.md) for the tool catalog, registration, and configuration.
+> **Full reference:** [`docs/mcp-reference.md`](docs/mcp-reference.md) for the complete tool catalog, the packet format, the search index, and contributor notes.
 
 ---
 
