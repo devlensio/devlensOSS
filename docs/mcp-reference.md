@@ -97,6 +97,8 @@ resolve_context({
   focus?: string[],                // nodeIds or filePaths to center on
   tokenBudget?: number,            // default scales with repo size
   includeSummaries?: boolean,      // default true
+  includeStructured?: boolean,     // default false: also return the nodes and
+                                   // files arrays, which the packet already lists
   commitHash?: string,             // default: latest analyzed commit
 })
 // => { graphId, commitHash, intent, budget, origin, approxTokens, nodeCount,

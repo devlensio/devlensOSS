@@ -7,6 +7,9 @@
 //
 // Flow: searchSeeds(graphId, commitHash, task, summaryType, limit)
 // -> queryTerms(task) -> ensureIndex: cache hit / file load / lazy build.
+// The graph itself is read through the shared context cache rather than a fresh
+// storage.getGraph, because a full graph parse costs about 1.5s on a mid-size repo
+// and search happens on every front door call.
 // A null engine (commit JSON missing too) yields { needsReanalyze: true } so
 // callers answer "graph needs re-analyzing" instead of erroring. Seeds get
 // relevance = score/maxScore clamped to [0,1]; exact name matches flag
@@ -20,6 +23,7 @@ import { queryTerms } from "./tokenizer.js";
 import { runSearch } from "./searchEngine.js";
 import type { SearchDoc } from "./searchEngine.js";
 import { ensureIndex } from "./indexManager.js";
+import { getContext } from "../mcp/graphCache.js";
 import type { SeedResult, SummaryType } from "./types.js";
 
 export interface SearchSeedsResult {
@@ -111,7 +115,7 @@ export function searchSeeds(
   const hits = runSearch(ensured.engine, terms, summaryType, limit);
 
   if (hits.length === 0) {
-    const result = storage.getGraph(graphId, commitHash);
+    const result = getContext(graphId, commitHash)?.result ?? storage.getGraph(graphId, commitHash);
     if (!result) {
       return { seeds: [], needsReanalyze: true, origin: "missing" };
     }
@@ -135,7 +139,7 @@ export function searchSeeds(
     matchedTerms: h.matchedTerms,
   }));
 
-  const result = storage.getGraph(graphId, commitHash);
+  const result = getContext(graphId, commitHash)?.result ?? storage.getGraph(graphId, commitHash);
   if (result) {
     const exact = exactNameMatches(terms, result.allNodes, limit);
     const exactIds = new Set(exact.map((e) => e.nodeId));

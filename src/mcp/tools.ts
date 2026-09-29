@@ -5,6 +5,8 @@ import { ok, fail } from "./helpers.js";
 
 // Adapters: run a core query and wrap the result as an MCP content block.
 // All query logic lives in src/core/queries.ts so the CLI shares it verbatim.
+// Responses are trimmed at this boundary: the packet already renders the node
+// table, the file list and the id map, so the structured arrays are opt-in.
 const run = (fn: () => unknown) => {
   try {
     return ok(fn());
@@ -79,7 +81,7 @@ export function registerTools(server: McpServer) {
   server.registerTool(
     "resolve_context",
     {
-      description: "THE front door. One call returns a task-shaped packet: the nodes that matter (with one-line meanings), call flow, involved files, key code bodies, security flags, and an id map, all within a token budget. Answering 'where/how/what' about a supported-language repo should start here, not with grep or find_symbols. Intents: pinpoint (find a symbol's story), reference-list (who uses X), flow (trace a path), overview (map of the area), concept (explain a domain), security-audit, exploratory (default).",
+      description: "THE front door. One call returns a task-shaped packet: the nodes that matter (with one-line meanings), call flow, involved files, key code bodies, security flags, and an id map, all within a token budget. The packet is the deliverable and already lists every node with its path and line range, so the structured node and file arrays are returned only when includeStructured is set. Answering 'where/how/what' about a supported-language repo should start here, not with grep or find_symbols. Intents: pinpoint (find a symbol's story), reference-list (who uses X), flow (trace a path), overview (map of the area), concept (explain a domain), security-audit, exploratory (default).",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
         graphId: z.string().describe("Graph id of the analyzed repo"),
@@ -88,10 +90,19 @@ export function registerTools(server: McpServer) {
         focus: z.array(z.string()).optional().describe("nodeIds or filePaths to center the packet on"),
         tokenBudget: z.number().optional().describe("500..100000; default scales with repo size"),
         includeSummaries: z.boolean().optional().describe("One-line business meanings on nodes, default true"),
+        includeStructured: z.boolean().optional().describe("Also return the structured nodes and files arrays (ids, paths, line ranges). Default false because the packet already lists both and the arrays are not bounded by tokenBudget."),
         commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
       },
     },
-    async ({ graphId, commitHash, ...opts }) => run(() => q.resolveContext(graphId, opts as q.ResolveContextOpts, commitHash))
+    async ({ graphId, commitHash, includeStructured, ...opts }) =>
+      run(() => {
+        const res = q.resolveContext(graphId, opts as q.ResolveContextOpts, commitHash) as Record<string, unknown>;
+        if (includeStructured) return res;
+        const compact = { ...res };
+        delete compact.nodes;
+        delete compact.files;
+        return compact;
+      })
   );
 
   //  3a2. blast_radius (cheap wrapper over the front door)
