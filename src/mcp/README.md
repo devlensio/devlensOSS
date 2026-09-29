@@ -73,13 +73,13 @@ first for almost any "where / how / what" question.
 | `get_khop` | Downstream dependencies — "what does this depend on?" |
 | `get_subgraph` | Cohesive cluster around a seed node |
 | `list_cycles` | Circular dependency groups |
-| `get_security_issues` | Security-flagged nodes, ranked by severity |
+| `get_security_issues` | Security findings ranked by severity then impact score. Returns the severity distribution and the assessed-node coverage, so zero findings reads against coverage instead of being mistaken for safe. Deterministic: reads the graph directly, no model call. Page with `offset` |
 | `analyze` | Run the pipeline on a repo path and store the graph |
 | `analyze_changes` | Difference between two analyzed commits + impact |
 | `check_freshness` | Is the graph stale vs HEAD? (dirty, behind, summaries coverage) |
 | `get_coverage` | Graph health report — summarized / total / by type |
 | `architecture_brief` | One-call repo architecture brief — modules, routes, flows, health |
-| `security_brief` | One-call prioritized security report + blast radius for highs |
+| `security_brief` | One-call prioritized security report: findings at or above the threshold, blast radius for highs, a ranked fix-first list, and the assessed-node coverage |
 | `review_pr` | One-call PR review — diff + impact + test coverage + security delta |
 | `onboarding_tour` | One-call onboarding skeleton — graph-derived tour for new devs |
 | `get_context` | Legacy token-budgeted packet (keyword-seeded, JSON). Superseded by `resolve_context` |
@@ -343,10 +343,18 @@ when an agent needs machine-readable results with distances:
 
 ```json
 // get_security_issues(graphId: "abc-123", minSeverity: "high")
-//   ⇒ [{ name: "loginUser", severity: "high", filePath: "src/auth/login.ts:42",
-//         securitySummary: "SQL injection risk: raw query concatenation" },
-//       { name: "deleteAccount", severity: "high", filePath: "src/user/settings.tsx:120",
-//         securitySummary: "No CSRF token on DELETE endpoint" }]
+//   ⇒ { nodesTotal: 10346, nodesAssessed: 10342, assessedPct: 99, unassessed: 4,
+//       findingsBySeverity: { high: 12, medium: 88, low: 93 },
+//       matched: 12, returned: 12, truncated: false,
+//       findings: [{ name: "loginUser", severity: "high", filePath: "src/auth/login.ts",
+//                    lines: "42-78", score: 6,
+//                    securitySummary: "SQL injection risk: raw query concatenation",
+//                    technicalSummary: "Validates credentials and issues a session token" },
+//                  { name: "deleteAccount", severity: "high", filePath: "src/user/settings.tsx",
+//                    securitySummary: "No CSRF token on DELETE endpoint" }] }
+//
+// The counts are the point. If findingsBySeverity is empty but nodesAssessed is far below
+// nodesTotal, the graph was not assessed rather than clean, and the response says so.
 
 // analyze_changes(graphId: "abc-123", from: "abc1234", to: "def5678")
 //   ⇒ { added: [{ name: "AnalyticsTracker", score: 5.0 }],

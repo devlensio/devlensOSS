@@ -153,7 +153,7 @@ devlens mcp http -p 7000
 | `get_node_code` | Raw source for one node (expensive, so use it last). |
 | `get_blast_radius` / `get_khop` | Upstream dependents or downstream dependencies out to a chosen radius. |
 | `get_summaries` | Batch-read summaries for several node ids. |
-| `get_security_issues` | Security findings with severity and explanation. |
+| `get_security_issues` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
 | `check_freshness` | Is the graph stale versus the working tree? |
 
 Symbol search is **lexical BM25F** (field-weighted across name, path, and both summary kinds, with English stemming), not embeddings: it runs entirely on your machine, offline, with no API key. The server self-describes its full tool list through `tools/list`, so your agent can discover the rest.
