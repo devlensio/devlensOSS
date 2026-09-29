@@ -203,16 +203,20 @@ export function registerTools(server: McpServer) {
   server.registerTool(
     "get_security_issues",
     {
-      description: "List nodes flagged with a security concern at or above `minSeverity` (default 'low'), ranked by severity then score. Each entry includes the security summary. Use for security review without scanning the whole codebase.",
+      description: "List nodes flagged with a security concern, ranked by severity then impact score. Deterministic: it reads the stored graph directly, with no model call. The response includes the severity distribution and how many nodes were assessed, so '0 high' can be read against coverage instead of being mistaken for 'safe'. Severity labels are a model-generated review aid, not a security audit. When `truncated` is true, page with `offset`. Fetch bodies with get_node_code.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
         graphId: z.string(),
-        minSeverity: z.enum(["low", "medium", "high"]).optional(),
-        limit: z.number().optional().describe("Default 50"),
+        minSeverity: z.enum(["low", "medium", "high"]).optional().describe("At or above this severity. Default low, which means every finding."),
+        exactSeverity: z.enum(["low", "medium", "high"]).optional().describe("Exact bucket instead of at or above. Overrides minSeverity when set."),
+        includeTechnical: z.boolean().optional().describe("Include a one-line technical summary beside the security one. Default true."),
+        limit: z.number().optional().describe("Page size. Default 20, max 500."),
+        offset: z.number().optional().describe("Skip this many findings, for paging."),
         commitHash: z.string().optional(),
       },
     },
-    async ({ graphId, minSeverity, limit, commitHash }) => run(() => q.securityIssues(graphId, minSeverity, limit, commitHash))
+    async ({ graphId, minSeverity, exactSeverity, includeTechnical, limit, offset, commitHash }) =>
+      run(() => q.securityFindings(graphId, { minSeverity, exactSeverity, includeTechnical, limit, offset, commitHash }))
   );
 
   //  9. get_blast_radius — upstream dependents
@@ -369,7 +373,7 @@ export function registerTools(server: McpServer) {
   server.registerTool(
     "security_brief",
     {
-      description: "One-call prioritized security report: all findings at or above minSeverity, enriched with blast radius for high-severity issues, plus a ranked 'fixTheseFirst' list. Replaces the 3-step security-analysis recipe. Never truncates high-severity findings. Read-only.",
+      description: "One-call prioritized security report: all findings at or above minSeverity, enriched with blast radius for high-severity issues, plus a ranked 'fixTheseFirst' list and the assessed-node coverage. Replaces the 3-step security-analysis recipe. Never truncates high-severity findings. Read-only.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
         graphId: z.string(),

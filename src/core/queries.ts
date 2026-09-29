@@ -25,7 +25,7 @@ import {
   findCycles,
   getNodeCode,
 } from "devlensio";
-import type { EdgeType } from "devlensio";
+import type { CodeNode, EdgeType } from "devlensio";
 import { getContext as getGraphContext, invalidate } from "../mcp/graphCache.js";
 import {
   toCompact,
@@ -477,21 +477,145 @@ export function getNodeCodeFor(graphId: string, nodeId: string, commitHash?: str
 }
 
 //  security 
+//
+// Deterministic by construction: this reads the stored graph and filters, ranks and
+// pages in memory. No resolver, no intent classifier and no model call are involved, so
+// the same graph always produces the same answer. Ranking is severity first, then the
+// node's persisted impact score, then file path, so the order is stable across calls.
+//
+// Two counting rules matter for honesty. "Assessed" counts nodes that carry a security
+// object, including those whose severity is "none", because those were evaluated and
+// found clean. Nodes with no security object were never evaluated and are reported as
+// unassessed rather than being folded into "clean".
 
+const SECURITY_SEVERITIES = ["low", "medium", "high"] as const;
+export type SecuritySeverity = (typeof SECURITY_SEVERITIES)[number];
+
+const SECURITY_SUMMARY_MAX = 300;
+const TECHNICAL_SUMMARY_MAX = 140;
+
+function clip(text: string | null | undefined, max: number): string | null {
+  if (!text) return null;
+  const s = String(text).replace(/\s+/g, " ").trim();
+  if (!s) return null;
+  return s.length > max ? `${s.slice(0, max - 3)}...` : s;
+}
+
+function assessedSeverity(n: CodeNode): SecuritySeverity | null {
+  const s = n.security?.severity;
+  return s === "high" || s === "medium" || s === "low" ? s : null;
+}
+
+function hasSecurityData(n: CodeNode): boolean {
+  return n.security != null && typeof n.security.severity === "string";
+}
+
+export interface SecurityFinding {
+  id: string;
+  name: string;
+  type: string;
+  filePath: string;
+  lines: string;
+  score: number;
+  severity: SecuritySeverity;
+  securitySummary: string | null;
+  technicalSummary?: string | null;
+}
+
+export interface SecurityFindingsResult {
+  nodesTotal: number;
+  nodesAssessed: number;
+  assessedPct: number;
+  findingsBySeverity: { high: number; medium: number; low: number };
+  matched: number;
+  returned: number;
+  truncated: boolean;
+  offset: number;
+  limit: number;
+  findings: SecurityFinding[];
+}
+
+export interface SecurityFindingsOpts {
+  /** At or above this severity. Default low, which means every finding. */
+  minSeverity?: SecuritySeverity;
+  /** Exact bucket instead of at or above. Overrides minSeverity when set. */
+  exactSeverity?: SecuritySeverity;
+  /** Include the one-line technical summary beside the security summary. Default true. */
+  includeTechnical?: boolean;
+  limit?: number;
+  offset?: number;
+  commitHash?: string;
+}
+
+export function rankSecurityFindings(nodes: CodeNode[], opts: SecurityFindingsOpts = {}): SecurityFindingsResult {
+  const limit = Math.max(1, Math.min(Math.trunc(opts.limit ?? 20), 500));
+  const offset = Math.max(0, Math.trunc(opts.offset ?? 0));
+  const minRank = SEVERITY_RANK[opts.minSeverity ?? "low"];
+  const exact = opts.exactSeverity;
+  const includeTechnical = opts.includeTechnical ?? true;
+
+  const findingsBySeverity = { high: 0, medium: 0, low: 0 };
+  let nodesAssessed = 0;
+  const matched: { node: CodeNode; severity: SecuritySeverity; score: number }[] = [];
+
+  for (const n of nodes) {
+    if (!hasSecurityData(n)) continue;
+    nodesAssessed++;
+    const severity = assessedSeverity(n);
+    if (!severity) continue;
+    findingsBySeverity[severity]++;
+    if (exact ? severity !== exact : SEVERITY_RANK[severity] < minRank) continue;
+    matched.push({ node: n, severity, score: Number(n.score ?? 0) });
+  }
+
+  matched.sort(
+    (a, b) =>
+      SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] ||
+      b.score - a.score ||
+      a.node.filePath.localeCompare(b.node.filePath) ||
+      a.node.id.localeCompare(b.node.id)
+  );
+
+  const page = matched.slice(offset, offset + limit);
+  const findings: SecurityFinding[] = page.map(({ node, severity, score }) => ({
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    filePath: node.filePath,
+    lines: `${node.startLine}-${node.endLine}`,
+    score: Math.round(score),
+    severity,
+    securitySummary: clip(node.security?.summary, SECURITY_SUMMARY_MAX),
+    ...(includeTechnical ? { technicalSummary: clip(node.technicalSummary, TECHNICAL_SUMMARY_MAX) } : {}),
+  }));
+
+  const nodesTotal = nodes.length;
+  return {
+    nodesTotal,
+    nodesAssessed,
+    assessedPct: nodesTotal > 0 ? Math.floor((nodesAssessed / nodesTotal) * 100) : 0,
+    findingsBySeverity,
+    matched: matched.length,
+    returned: findings.length,
+    truncated: offset + findings.length < matched.length,
+    offset,
+    limit,
+    findings,
+  };
+}
+
+export function securityFindings(graphId: string, opts: SecurityFindingsOpts = {}): SecurityFindingsResult {
+  const ctx = requireContext(graphId, opts.commitHash);
+  return rankSecurityFindings(ctx.result.allNodes as CodeNode[], opts);
+}
+
+// Compatibility adapter for the internal callers that want a flat list: the architecture
+// brief, the review_pr security delta, the onboarding tour and the get_context security
+// seeds. New callers should use securityFindings, which also returns coverage and the true
+// matched count rather than the page size.
 export function securityIssues(graphId: string, minSeverity: Severity = "low", limit = 50, commitHash?: string) {
-  const ctx = requireContext(graphId, commitHash);
-  const minRank = SEVERITY_RANK[minSeverity];
-
-  const issues = ctx.result.allNodes
-    .filter((n) => SEVERITY_RANK[(n.security?.severity ?? "none") as Severity] >= minRank)
-    .sort(
-      (a, b) =>
-        SEVERITY_RANK[(b.security?.severity ?? "none") as Severity] - SEVERITY_RANK[(a.security?.severity ?? "none") as Severity] ||
-        Number(b.score ?? 0) - Number(a.score ?? 0)
-    )
-    .slice(0, limit)
-    .map((n) => ({ ...toCompact(n), securitySummary: n.security?.summary }));
-  return { total: issues.length, issues };
+  const res = securityFindings(graphId, { minSeverity: minSeverity as SecuritySeverity, limit, commitHash });
+  return { total: res.matched, issues: res.findings };
 }
 
 //  traversal 
@@ -881,18 +1005,20 @@ export function securityBrief(graphId: string, opts: SecurityBriefOpts = {}) {
   const commitHash = opts.commitHash;
   const fresh = checkFreshnessInternal(graphId);
 
-  const issues = securityIssues(graphId, minSeverity, 1000, commitHash);
+  const res = securityFindings(graphId, { minSeverity: minSeverity as SecuritySeverity, limit: 500, commitHash });
 
-  const counts = { high: 0, medium: 0, low: 0, total: issues.total };
-  for (const iss of issues.issues) {
-    const sev = iss.severity;
-    if (sev && sev in counts) counts[sev as keyof typeof counts]++;
-  }
+  const minRank = SEVERITY_RANK[minSeverity as Severity];
+  const counts = {
+    high: SEVERITY_RANK.high >= minRank ? res.findingsBySeverity.high : 0,
+    medium: SEVERITY_RANK.medium >= minRank ? res.findingsBySeverity.medium : 0,
+    low: SEVERITY_RANK.low >= minRank ? res.findingsBySeverity.low : 0,
+    total: res.matched,
+  };
 
   // Enrich high-severity findings with blast radius. No timeout — blastRadius
   // is synchronous and would block the event loop anyway; a Promise.race timer
   // can't interrupt it. (Worker-thread protection is a future PR.)
-  const findings = issues.issues.map((iss) => {
+  const findings = res.findings.map((iss) => {
     const base = { ...iss, mitigationHint: null as null, reach: undefined as { count: number; truncated: boolean; topDependents: { id: string; name?: string; viaEdge: string }[] } | undefined };
     if (iss.severity === "high") {
       try {
@@ -923,6 +1049,14 @@ export function securityBrief(graphId: string, opts: SecurityBriefOpts = {}) {
     fixTheseFirst,
     verdict: counts.total === 0 ? ("clean" as const) : undefined,
     coverage: fresh.summariesCoverage,
+    securityCoverage: {
+      nodesTotal: res.nodesTotal,
+      nodesAssessed: res.nodesAssessed,
+      assessedPct: res.assessedPct,
+      unassessed: res.nodesTotal - res.nodesAssessed,
+      findingsBySeverity: res.findingsBySeverity,
+      note: "Severity labels are a model-generated review aid, not a security audit. findingsBySeverity is the whole repository regardless of minSeverity. Nodes counted as unassessed carry no security data and are not known to be clean.",
+    },
     header: {
       commit: commitHash ?? fresh.latestAnalyzed,
       analyzedAt: fresh.summariesCoverage.isCommitSummarized ? "summarized" : "structure-only",

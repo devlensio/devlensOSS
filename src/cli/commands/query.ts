@@ -180,9 +180,15 @@ export function registerQueryCommands(program: Command): void {
       .option("-g, --graph <id>")
       .option("--min-severity <sev>", "low|medium|high", "low")
       .option("-l, --limit <n>", "max results", "50")
+      .option("--offset <n>", "skip N findings, for paging", "0")
       .option("-c, --commit <hash>")
       .action((o) =>
-        run(() => q.securityIssues(resolveGraphId(o.graph), o.minSeverity as Severity, intOr(o.limit, 50), o.commit))
+        run(() => q.securityFindings(resolveGraphId(o.graph), {
+          minSeverity: o.minSeverity as "low" | "medium" | "high",
+          limit: intOr(o.limit, 50),
+          offset: intOr(o.offset, 0),
+          commitHash: o.commit,
+        }))
       )
   );
 
