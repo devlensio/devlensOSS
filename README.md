@@ -169,19 +169,26 @@ The server self-describes its full tool list through `tools/list`, so your agent
 
 ## What your agent can ask
 
-| Tool | What it does |
-| :-- | :-- |
-| `resolve_context` | **The front door.** One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, key code bodies, security flags, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
-| `blast_radius` | Cheap change-impact wrapper: what depends on a symbol, packed small. |
-| `find_symbols` | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
-| `get_node` | Full detail for one node: technical, business, and security summaries plus metadata. |
-| `get_node_code` | Raw source for one node (expensive, so use it last). |
-| `get_blast_radius` / `get_khop` | Upstream dependents or downstream dependencies out to a chosen radius. |
-| `get_summaries` | Batch-read summaries for several node ids. |
-| `get_security_issues` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
-| `check_freshness` | Is the graph stale versus the working tree? |
+The server self-describes every tool's parameters through `tools/list` — your agent fills them in automatically. Every graph tool takes a `graphId` (returned by `list_analyzed_repos` / `analyze`) plus the arguments below.
 
-Plus repo-level tools: `architecture_brief` (one-call architecture report), `security_brief` (ranked security report), `review_pr` (PR review packet), `onboarding_tour` (modules, routes, flows, glossary), `analyze_changes` (commit diff impact), and more — 24 tools in total.
+| Tool | Key arguments | What it does |
+| :-- | :-- | :-- |
+| `resolve_context` | `task` (required), `intent`, `focus`, `tokenBudget` | **The front door.** One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, key code bodies, security flags, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
+| `blast_radius` | `symbol` (required) | Cheap change-impact wrapper: what depends on a symbol, packed small. |
+| `find_symbols` | `query` (required) | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
+| `get_node` | `nodeId` (required) | Full detail for one node: technical, business, and security summaries plus metadata. |
+| `get_node_code` | `nodeId` (required) | Raw source for one node (expensive, so use it last). |
+| `get_blast_radius` / `get_khop` | `nodeId` (required), `radius` | Upstream dependents or downstream dependencies out to a chosen radius. |
+| `get_summaries` | `nodeIds` (required) | Batch-read summaries for several node ids. |
+| `get_security_issues` | `minSeverity` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
+| `check_freshness` | — | Is the graph stale versus the working tree? |
+| `get_subgraph` | `seedNodeId` (required) | The cohesive cluster (module) a node belongs to. |
+| `list_cycles` | — | Circular dependencies. |
+| `get_nodes_in_path` | `path` (required) | Every node in a file or folder. |
+| `find_nodes` | filters (`name`, `nodeTypes`, `filePath`, `minScore`, `severity`) | Flexible node search. |
+| `get_coverage` | — | How much of the graph has summaries. |
+
+Plus repo-level tools: `architecture_brief` (one-call architecture report), `security_brief` (ranked security report), `review_pr` (`from`/`to` commits — PR review packet), `onboarding_tour` (modules, routes, flows, glossary), `analyze_changes` (`from`/`to` commits — commit diff impact), `analyze` (analyze a repo path), `get_repo_overview`, and `get_context` (raw keyword/seed context query) — **24 tools in total**.
 
 Every response carries a `provenance` block (`commitHash`, `analyzedAt`, `hasGit`), so your agent always knows which snapshot answered the question.
 
