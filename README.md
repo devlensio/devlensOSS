@@ -4,9 +4,9 @@
 
 # DevLens
 
-**Intelligent codebase visualizer.**
+**Codebase Intelligence for AI agents and Developers.**
 
-Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a living, queryable graph. Every node carries a functional summary, a technical summary, and a security assessment.
+Analyze your repo once. Your AI agent then queries a precomputed code graph through MCP — ranked files, call flow, impact, and security — instead of re-reading your codebase file by file. Ranked **first of nine tools** on every quality measure in our public benchmark.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![npm: @devlensio/cli](https://img.shields.io/badge/npm-%40devlensio%2Fcli-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
@@ -24,31 +24,166 @@ Turn any TypeScript, JavaScript, Python, Go, Rust, or Java repository into a liv
 
 ---
 
-## Table of Contents
+## Why DevLens?
 
-- [What is DevLens?](#what-is-devlens)
-- [Supported languages](#supported-languages)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Use it with your AI agent (MCP)](#use-it-with-your-ai-agent-mcp)
-- [Search index](#search-index)
-- [Web UI](#web-ui)
-- [CLI](#cli)
-- [How to summarize](#how-to-summarize)
-- [Configuration](#configuration)
-- [What DevLens understands](#what-devlens-understands)
-- [Benchmarks](#benchmarks)
-- [Who is this for](#who-is-this-for)
-- [How DevLens compares](#how-devlens-compares)
-- [Repository layout](#repository-layout)
-- [DevLens Cloud](#devlens-cloud)
+- **Your agent stops burning tokens.** One MCP call returns a task-shaped packet — the files and symbols that matter, ranked, within a token budget. No grep loops, no re-reading files.
+- **It wins the benchmark.** First of nine tools on correctness, F1, recall, and precision — the only tool that leads every quality column.
+- **It is fast and small.** 67 ms per call, packets 6.7× smaller than the closest graph competitor, and it never exceeds the token budget you set.
+- **Developers get it too.** Interactive graph visualization, blast radius before you change a symbol, PR review packets, and per-node security analysis.
+
 ---
 
-## What is DevLens?
+## Benchmarks
 
-**DevLens turns a codebase into a pre-built dependency graph.** Instead of reading files one at a time, you (or your AI agent) query the graph: every component, class, function, route, struct, or trait is a **node**, and every connection is a **typed edge** (`CALLS`, `IMPORTS`, `HANDLES`, `IMPLEMENTS`, ...). Each node carries a **functional** summary (what business purpose it serves), a **technical** summary (how it works), and a **security** assessment (severity plus explanation).
+We benchmarked DevLens MCP against seven other code graph and retrieval tools — **Graphify, codegraph, serena, semble, codebase-memory**, and others. One headless coding agent, one model, one real TypeScript repository, 133 real questions written from actual pull requests and symbols, two runs each: **2,394 agent runs in total**.
 
-**Typical use cases:** onboarding (architecture, modules, and gotchas in minutes), impact analysis (see a symbol's blast radius before changing it), security reviews (severity-ranked findings with real reach), PR review (impact, tests, and security delta), and AI agents (query the graph through MCP instead of re-reading files).
+| | **DevLens OSS** | Best competitor | The gap |
+| :-- | :-- | :-- | :-- |
+| Correctness | **🥇 0.694** | 0.674 (codegraph) | **Ranked 1st of 9** — the only tool leading every quality column |
+| F1 / Recall / Precision | **🥇 1st in all three** | — | 1st on correctness, F1, recall, *and* precision |
+| Latency per call | **67 ms** | 2,469 ms (Graphify) | **~37× faster** |
+| Response packet vs Graphify | **2,230 tokens** | 15,020 tokens | **6.7× smaller** — smaller on all 54 of 54 comparable questions |
+| Token budget compliance | **100%** (0 of 627 rows over budget) | Graphify: median 2.5× over budget | never exceeds the budget you set |
+| Graph size | **10,346 nodes / 19,847 edges** | 16,999 / 71,694 (Graphify) | higher quality from a **smaller index** |
+
+Question-type wins (F1): **importers** (0.650 vs 0.605 next best), **feature-intent**, **flow**, and **module-overview** — plus a statistically significant paired win over the strongest baseline (18 wins to 6 losses, p = 0.023). Head-to-head against Graphify on identical questions, DevLens wins 15 and loses 9.
+
+> The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
+
+**Full methodology, all nine tools, five languages:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
+
+---
+
+## How DevLens compares
+
+DevLens is the only tool in this space that combines native semantic parsing, per-node AI summaries with per-node security analysis, and framework-aware data edges — and the only option you can use commercially under AGPL.
+
+| Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Parsing depth | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`), type-resolved | tree-sitter (syntactic, no type info) | tree-sitter + native bindings (no type info) | SCIP/LSIF symbol index + language servers (no semantic parse) | LLM reads source directly (no structured parser) |
+| Edge quality | **Type-checked `IMPLEMENTS`/`EXTENDS`**, framework **routes** (Next.js, Django, Spring, Gin, axum), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags, no type or framework awareness | call chains, clusters, `route_map`, no ORM or data edges | precise symbol cross-references (SCIP), no type-checked inheritance | docs-level relationships (no structured graph) |
+| Per-node AI summaries | **Technical + business + security** with severity on every node | No (LLM used for docs and concepts) | No (embeddings for semantic query) | Via Cody (hover and inline docs, chat-level) | Auto-generated docs per symbol (no security, no technical/business split) |
+| Security analysis | **Per-node severity + blast-radius reach** with real exploit descriptions | No | Partial (opt-in PDG/taint) | No (compliance certifications only) | No |
+| Agent / MCP integration | CLI + **self-describing MCP server** + Web UI | CLI + local skill (no MCP) | CLI + 17-tool MCP + hooks (`AGENTS.md`) | MCP server (cross-repo search, not per-repo graph queries) | Unknown (no public MCP integration) |
+| Language coverage | TS/JS, Python, Java, Go, Rust with **native parsers for each** | 12 code families + docs/images (shallow syntactic) | Many via tree-sitter (Dart/Kotlin/Swift), shallow syntactic | 30+ via language servers (symbol-level, no semantic edges) | Any (LLM reads source, no structured extraction) |
+| License / pricing | **AGPL-3.0, free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (cannot use commercially) | Open-source core, Enterprise paid | Free for public repos, enterprise tiers unlisted |
+
+*(Feature comparison from public sources, Aug 2026.)*
+
+**Why teams choose DevLens:** semantic edges that syntactic tools cannot produce, per-node security analysis no other open-source tool provides, benchmark-winning retrieval quality, and a single MCP front door — free for commercial use.
+
+---
+
+## Quick Start
+
+### Step 1 — Install the CLI
+
+```bash
+npm install -g @devlensio/cli
+```
+
+Or install the standalone binary (no Node.js needed):
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
+```
+
+### Step 2 — Configure a model (optional)
+
+Only needed if you want AI summaries. Structure-only analysis works offline with no API key.
+
+```bash
+devlens init
+```
+
+This walks you through picking a provider and model interactively. Local models work too (Ollama, 8 GB+ RAM). See [Configuration](#configuration) for recommended models.
+
+### Step 3 — Analyze your repo
+
+```bash
+cd your-project
+devlens analyze . --summarize
+```
+
+This builds the graph, generates summaries, and creates the search index — once. After this, everything below is instant.
+
+### Step 4 — Connect your AI agent
+
+Start the MCP server:
+
+```bash
+devlens mcp
+```
+
+Then register it in your agent. Pick your tool:
+
+**Claude Code / Claude Desktop**
+
+```bash
+claude mcp add devlens -- devlens mcp
+```
+
+**Cursor** — add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "devlens": { "command": "devlens", "args": ["mcp"] }
+  }
+}
+```
+
+**Codex** — add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.devlens]
+command = "devlens"
+args = ["mcp"]
+```
+
+**Hermes** — add to `config.yaml`:
+
+```yaml
+mcp:
+  servers:
+    devlens:
+      command: devlens
+      args: [mcp]
+```
+
+**Any other MCP client** — the server speaks standard MCP over stdio. Point your client at the command `devlens mcp`. For an HTTP transport instead:
+
+```bash
+devlens mcp http -p 7000
+```
+
+The server self-describes its full tool list through `tools/list`, so your agent discovers everything on its own. That's it — ask your agent "how does auth work in this repo?" and watch it query the graph instead of reading files.
+
+---
+
+## What your agent can ask
+
+| Tool | What it does |
+| :-- | :-- |
+| `resolve_context` | **The front door.** One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, key code bodies, security flags, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
+| `blast_radius` | Cheap change-impact wrapper: what depends on a symbol, packed small. |
+| `find_symbols` | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
+| `get_node` | Full detail for one node: technical, business, and security summaries plus metadata. |
+| `get_node_code` | Raw source for one node (expensive, so use it last). |
+| `get_blast_radius` / `get_khop` | Upstream dependents or downstream dependencies out to a chosen radius. |
+| `get_summaries` | Batch-read summaries for several node ids. |
+| `get_security_issues` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
+| `check_freshness` | Is the graph stale versus the working tree? |
+
+Plus repo-level tools: `architecture_brief` (one-call architecture report), `security_brief` (ranked security report), `review_pr` (PR review packet), `onboarding_tour` (modules, routes, flows, glossary), `analyze_changes` (commit diff impact), and more — 24 tools in total.
+
+Every response carries a `provenance` block (`commitHash`, `analyzedAt`, `hasGit`), so your agent always knows which snapshot answered the question.
+
+> **Full reference:** [`docs/mcp-reference.md`](docs/mcp-reference.md)
 
 ---
 
@@ -68,123 +203,7 @@ Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, 
 
 ---
 
-## Prerequisites
-
-| Requirement | Needed for | Notes |
-| :-- | :-- | :-- |
-| [Bun](https://bun.sh) 1.x or later | Build and run from source | macOS, Linux, Windows |
-| [Node.js](https://nodejs.org) 18 or later | `npm install -g @devlensio/cli` | not needed for the standalone binary |
-| `git` | analyzing a repo | required on all install paths |
-| JVM 17+ | Java analysis | only when analyzing Java repos |
-| `python3` 3.11+ | Python analysis | only when analyzing Python repos |
-| An LLM provider API key | AI summaries (optional) | only needed for `--summarize`; structure-only analysis works offline |
-
----
-
-## Quick Start
-
-### Option A: Clone and run from source (Web UI + CLI together)
-
-```bash
-git clone https://github.com/devlensio/devlensOSS.git
-cd devlensOSS
-bun install
-bun dev     # backend :3000 + hot-reloaded frontend :3001
-bun start   # OR production: API + Web UI on a single port (:3000)
-```
-
-`bun start` builds the frontend only the first time. Open the printed URL, paste an absolute repo path, and click **Analyze**.
-
-### Option B: Install the CLI from npm
-
-```bash
-npm install -g @devlensio/cli
-```
-
-### Option C: Install the standalone binary (no Node.js required)
-
-The installers print progress, warnings, and next steps, and automatically add `devlens` to your `PATH`.
-
-```bash
-# Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.sh | sh
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/devlensio/devlensOSS/main/scripts/install.ps1 | iex
-```
-
-Environment variables: `DEVLENS_VERSION`, `DEVLENS_INSTALL_DIR`, or `DEVLENS_NO_PATH=1` to skip the automatic PATH setup.
-
-Then `cd your-project`, run `devlens analyze . --summarize` to build the graph, and either explore from the [CLI](#cli), the [Web UI](#web-ui), or your [AI agent](#use-it-with-your-ai-agent-mcp).
-
----
-
-## Use it with your AI agent (MCP)
-
-The MCP server is the primary way to use DevLens. Your agent asks a question in plain words and gets a compact, task-shaped answer with the files and symbols that matter, instead of reading your repo file by file.
-
-### Setup in three steps
-
-```bash
-# 1. Install the CLI
-npm install -g @devlensio/cli
-
-# 2. Analyze the repo you want your agent to understand
-devlens analyze /path/to/repo --summarize
-
-# 3. Register DevLens in your MCP client
-claude mcp add devlens -- devlens mcp
-```
-
-Step 3 also works for Claude Desktop, Cursor, and any other MCP client. For an HTTP transport instead of stdio:
-
-```bash
-devlens mcp http -p 7000
-```
-
-### What your agent can ask
-
-| Tool | What it does |
-| :-- | :-- |
-| `resolve_context` | **The front door.** One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, key code bodies, security flags, and an id map, within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
-| `blast_radius` | Cheap change-impact wrapper: what depends on a symbol, packed small. |
-| `find_symbols` | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
-| `get_node` | Full detail for one node: technical, business, and security summaries plus metadata. |
-| `get_node_code` | Raw source for one node (expensive, so use it last). |
-| `get_blast_radius` / `get_khop` | Upstream dependents or downstream dependencies out to a chosen radius. |
-| `get_summaries` | Batch-read summaries for several node ids. |
-| `get_security_issues` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
-| `check_freshness` | Is the graph stale versus the working tree? |
-
-Symbol search is **lexical BM25F** (field-weighted across name, path, and both summary kinds, with English stemming), not embeddings: it runs entirely on your machine, offline, with no API key. The server self-describes its full tool list through `tools/list`, so your agent can discover the rest.
-
-### Freshness you can trust
-
-Every response carries a `provenance` block (`commitHash`, `analyzedAt`, `hasGit`), so your agent always knows which snapshot answered the question. If a response sets `needsReanalyze: true`, the graph is too old (or predates the search index) and the user should run `devlens analyze`. For repos without git, DevLens keys the snapshot by content, so re-analyzing unchanged code updates the same snapshot instead of piling up new ones.
-
-> **Full reference:** [`docs/mcp-reference.md`](docs/mcp-reference.md) for the complete tool catalog, the packet format, the search index, and contributor notes.
-
----
-
-## Search index
-
-Each analyzed commit gets a derived BM25F search index next to the graph, at `~/.devlens/graphs/<graphId>/commits/<commitHash>.search.json`.
-
-- Every `devlens analyze` and `devlens summarize` rebuilds the index for the commit it produced, so search is ready immediately.
-- Graphs built by older DevLens versions have no index. They are indexed **lazily on the first search**, or you can index everything up front with `devlens reindex`.
-- The index is derived data: deleting it is safe, it rebuilds on demand.
-
-```bash
-devlens reindex                                  # latest commit of every graph
-devlens reindex <graphId>                        # every commit of one graph
-devlens reindex <graphId> <commitHash> --force   # one commit, rebuilt even if present
-```
-
-The same operations are available over HTTP: `POST /api/reindex` and `POST /api/reindex/:graphId?commitHash=...&force=1`.
-
----
-
-## Web UI
+## For developers: the Web UI
 
 *For when you want to see your codebase laid out as an interactive graph.*
 
@@ -249,7 +268,7 @@ The Web UI runs from the source tree, it is not bundled into the installed CLI b
 | `devlens graphs list \| delete` | Manage stored graphs |
 | `devlens reindex [graphId] [commitHash] [--force]` | Rebuild the local search index (`.search.json`) without re-analyzing. No arguments reindexes the latest commit of every graph |
 | `devlens serve` | Start the backend HTTP API only (used by the MCP server and the Web UI) |
-| `devlens mcp` | Run the MCP server (see [MCP](#use-it-with-your-ai-agent-mcp)) |
+| `devlens mcp` | Run the MCP server (see [Quick Start](#quick-start)) |
 
 **Hands-on examples**
 
@@ -260,7 +279,7 @@ devlens blast-radius "src/auth/login.ts::login"
 devlens reindex                          # index everything up front
 ```
 
-> **Full reference:** [`src/cli/README.md`](src/cli/README.md) for every command with options and examples. Agent skills are deprecated; DevLens now works through its MCP tools, which describe themselves.
+> **Full reference:** [`src/cli/README.md`](src/cli/README.md) for every command with options and examples.
 
 ---
 
@@ -296,7 +315,7 @@ Config lives in `~/.devlens/config.json`, set via `devlens init` or `devlens con
 ```bash
 devlens config --set                            # interactive setup
 devlens config --provider openai --provider-name deepseek --model deepseek-v4-flash --api-key <key>
-devlens config --active openai:deepseek          # switch saved provider
+devlens config --active openai:deepseek         # switch saved provider
 devlens doctor                                  # health check
 ```
 
@@ -309,6 +328,24 @@ A graph is per repo and per language. Node types include `FILE`, `FUNCTION`, `ME
 Edge types (the connections the graph draws): `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`, `IMPLEMENTS` (class to interface, trait, or ABC), `EXTENDS` (class to base class). `EXPORTS`, `THROWS`, `MODULE`, and `PACKAGE` are reserved for future languages.
 
 Router awareness: routes are real graph nodes, for Next.js (app and pages), React Router, TanStack Router, wouter, Express, Fastify, Hono, Koa, Django URLconf and DRF, Flask blueprints, `@RestController` (Spring), Gin, Echo, chi, plain HTTP handlers, axum, actix, and rocket.
+
+---
+
+## Search index
+
+Each analyzed commit gets a derived BM25F search index next to the graph, at `~/.devlens/graphs/<graphId>/commits/<commitHash>.search.json`.
+
+- Every `devlens analyze` and `devlens summarize` rebuilds the index for the commit it produced, so search is ready immediately.
+- Graphs built by older DevLens versions have no index. They are indexed **lazily on the first search**, or you can index everything up front with `devlens reindex`.
+- The index is derived data: deleting it is safe, it rebuilds on demand.
+
+```bash
+devlens reindex                                  # latest commit of every graph
+devlens reindex <graphId>                        # every commit of one graph
+devlens reindex <graphId> <commitHash> --force   # one commit, rebuilt even if present
+```
+
+The same operations are available over HTTP: `POST /api/reindex` and `POST /api/reindex/:graphId?commitHash=...&force=1`.
 
 ---
 
@@ -331,56 +368,11 @@ A node summary is roughly 50 tokens. The file it describes is roughly 2,000. Que
 
 ---
 
-## Benchmarks
-
-*Real-world tasks (architecture understanding, feature implementation, bug finding) comparing the same models (DeepSeek V4 Flash, GLM 5.2, Kimi K2.6, Qwen 3.6) with and without DevLens.*
-
-### Architecture understanding (full DevLens MCP)
-
-<div align="center">
-<img src="assets/01_arch_metrics.png" alt="Architecture benchmark comparing cost, tokens, and steps" width="90%" />
-</div>
-
-| Metric | Without DevLens | With DevLens | Improvement |
-|--------|:--------------:|:------------:|:-----------:|
-| Avg cost per query | $0.163 | **$0.075** | **54% cheaper** |
-| Avg input tokens | 88,980 | **35,035** | **61% less** |
-| Avg output tokens | 9,549 | **3,233** | **66% less** |
-| Avg tool steps | 14.3 | **7.8** | **45% faster** |
-| Structured output | 50% | **100%** | **2x more reliable** |
-| Architectural debt found | 0% | **50%** | **Now discoverable** |
-
-> Even the strongest tested model was **81% cheaper** ($0.0035 vs $0.0185) and used **83% fewer input tokens** with DevLens.
-
----
-
 ## Who is this for
 
 - **Developers and teams**: onboard in hours not weeks, review PRs with impact context, catch circular dependencies and god-files, keep living documentation.
 - **Engineering leaders**: a bird's-eye architecture view, spot debt before it becomes a crisis.
 - **AI-augmented developers**: stop letting your agent burn tokens re-reading files; it queries the graph instead.
-
----
-
-## How DevLens compares
-
-DevLens is the only tool in this space that combines three things: native semantic parsing (not regex or tree-sitter), per-node AI summaries with per-node security analysis, and framework-aware data edges (routes, ORM reads and writes). It is also the only option you can use commercially under AGPL.
-
-| Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
-| :-- | :-- | :-- | :-- | :-- | :-- |
-| Parsing depth | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`), type-resolved | tree-sitter (syntactic, no type info) | tree-sitter + native bindings (no type info) | SCIP/LSIF symbol index + language servers (no semantic parse) | LLM reads source directly (no structured parser) |
-| Edge quality | **Type-checked `IMPLEMENTS`/`EXTENDS`**, framework **routes** (Next.js, Django, Spring, Gin, axum), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags, no type or framework awareness | call chains, clusters, processes, `route_map`, no ORM or data edges | precise symbol cross-references (SCIP), no type-checked inheritance | docs-level relationships (no structured graph) |
-| Per-node AI summaries | **Technical + business + security** with severity on every node | No (LLM used for docs and concepts) | No (embeddings for semantic query) | Via Cody (hover and inline docs, chat-level) | Auto-generated docs per symbol (no security, no technical/business split) |
-| Security analysis | **Per-node severity + blast-radius reach** with real exploit descriptions | No | Partial (opt-in PDG/taint) | No (compliance certifications only) | No |
-| Agent / MCP integration | CLI + **self-describing MCP server** + Web UI | CLI + local skill (no MCP) | CLI + 17-tool MCP + hooks (`AGENTS.md`) | MCP server (cross-repo search, not per-repo graph queries) | Unknown (no public MCP integration) |
-| Language coverage | TS/JS, Python, Java, Go, Rust with **native parsers for each** | 12 code families + docs/images (shallow syntactic) | Many via tree-sitter (Dart/Kotlin/Swift), shallow syntactic | 30+ via language servers (symbol-level, no semantic edges) | Any (LLM reads source, no structured extraction) |
-| License / pricing | **AGPL-3.0, free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (cannot use commercially) | Open-source core, Enterprise paid | Free for public repos, enterprise tiers unlisted |
-
-**Other notable alternatives:** CodeSee (enterprise-only dependency mapping), CodeQL (GitHub-native security, no AI summaries or graph), and ctags-based indexers (symbol indexes, no graph intelligence).
-
-**Why teams choose DevLens:** semantic edges that syntactic tools cannot produce (type-checked inheritance, ORM data flow, framework routes), per-node security analysis that no other open-source tool provides, and a single MCP front door (`resolve_context`) plus a Web UI.
-
-(Feature comparison from public sources, Aug 2026.)
 
 ---
 
