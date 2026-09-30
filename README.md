@@ -37,16 +37,18 @@ Analyze your repo once. Your AI agent then queries a precomputed code graph thro
 
 We benchmarked DevLens MCP against seven other code graph and retrieval tools — **Graphify, codegraph, serena, semble, codebase-memory**, and others. One headless coding agent, one model, one real TypeScript repository, 133 real questions written from actual pull requests and symbols, two runs each: **2,394 agent runs in total**.
 
-| | **DevLens OSS** | Best competitor | The gap |
-| :-- | :-- | :-- | :-- |
-| Correctness | **🥇 0.694** | 0.674 (codegraph) | **Ranked 1st of 9** — the only tool leading every quality column |
-| F1 / Recall / Precision | **🥇 1st in all three** | — | 1st on correctness, F1, recall, *and* precision |
-| Latency per call | **67 ms** | 2,469 ms (Graphify) | **~37× faster** |
-| Response packet vs Graphify | **2,230 tokens** | 15,020 tokens | **6.7× smaller** — smaller on all 54 of 54 comparable questions |
-| Token budget compliance | **100%** (0 of 627 rows over budget) | Graphify: median 2.5× over budget | never exceeds the budget you set |
-| Graph size | **10,346 nodes / 19,847 edges** | 16,999 / 71,694 (Graphify) | higher quality from a **smaller index** |
+| | **DevLens OSS** | **Graphify** | codegraph | serena | semble | codebase-memory |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| Correctness | **🥇 0.694** | 0.662 | 0.674 | 0.656 | 0.652 | 0.644 |
+| F1 | **🥇 0.562** | 0.548 | 0.555 | 0.545 | 0.535 | 0.544 |
+| Latency per call | **67 ms** | 2,469 ms | 2,736 ms | 106 ms | 508 ms | 1,100 ms |
+| Response packet | **2,230 tokens** | 15,020 tokens | 6,339 tokens | 8 tokens* | 736 tokens | 294 tokens |
+| Token budget compliance | **100%** | median 2.5× over | — | — | — | — |
+| Graph size | **10,346 nodes / 19,847 edges** | 16,999 / 71,694 | not measured | — | — | 26,299 / 99,321 |
 
-Question-type wins (F1): **importers** (0.650 vs 0.605 next best), **feature-intent**, **flow**, and **module-overview** — plus a statistically significant paired win over the strongest baseline (18 wins to 6 losses, p = 0.023). Head-to-head against Graphify on identical questions, DevLens wins 15 and loses 9.
+\* serena's symbol tool returned no results on every question, so its tiny packet means it found nothing, not that it is efficient. The low response-payload figures for codebase-memory, semble, and BM25-style tools come from line lists rather than structured answers.
+
+DevLens is **the only tool ranked first on correctness, F1, recall, and precision** — and it wins with the fastest calls and one of the smallest packets. Head-to-head against Graphify on identical questions: packet 6.7× smaller on all 54 of 54 comparable questions, ~37× faster per call, and a paired 15 wins to 9 losses.
 
 > The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
 
@@ -301,16 +303,7 @@ When a repo is re-summarized, only nodes without summaries are processed, so tok
 
 ## Configuration
 
-Config lives in `~/.devlens/config.json`, set via `devlens init` or `devlens config`. Models are discovered dynamically from each provider's `/models` endpoint, so there are no hardcoded model lists.
-
-| Provider | Recommended model | Notes |
-| :-- | :-- | :-- |
-| Ollama (local) | `qwen2.5-coder:7b` | Free, local, 8 GB+ RAM |
-| OpenAI | `gpt-4o-mini` | Fast, cost-effective |
-| Anthropic | `claude-haiku-4-5` | Best cost/quality for summaries |
-| DeepSeek | `deepseek-v4-flash` | Strong code model |
-| OpenRouter | `deepseek-v4-flash` or `mimo-v2.5` | Best cost/quality balance |
-| Gemini | `gemini-2.0-flash` | Fast, large context |
+Config lives in `~/.devlens/config.json`, set via `devlens init` or `devlens config`. Models are discovered dynamically from each provider's `/models` endpoint, so there are no hardcoded model lists — pick whatever fits your budget and quality bar.
 
 ```bash
 devlens config --set                            # interactive setup
