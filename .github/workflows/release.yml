@@ -1,18 +1,36 @@
 name: release
 
-# Tag a release to publish:  git tag v0.3.0 && git push origin v0.3.0
+# Tag a release to publish:  git tag v0.6.1 && git push origin v0.6.1
+#
+# Why two jobs. The MCP Registry validates the npm package named in server.json when
+# it publishes, and npm serves a cached packument (cache-control: max-age=300) for up
+# to five minutes after a release, so a registry call made immediately after
+# `npm publish` can 404 on a version that already exists. Splitting them means:
+#   - npm publishing and registry registration fail independently;
+#   - npm steps skip versions that are already on the registry, so a re-run is safe;
+#   - the registry job waits for npm to expose the version, then retries, and can be
+#     retried on its own from the Actions UI with "Re-run failed jobs";
+#   - workflow_dispatch with registry_only lets you register the version already in
+#     package.json without touching npm at all.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      registry_only:
+        description: "Register the version in package.json with the MCP Registry, without publishing to npm"
+        type: boolean
+        default: true
 
 permissions:
   contents: write # needed to upload binaries to the GitHub Release
-  id-token: write # needed for npm Trusted Publishing (OIDC) — no NPM_TOKEN required
+  id-token: write # needed for npm Trusted Publishing (OIDC) and MCP Registry OIDC
 
 jobs:
-  release:
-    # bun cross-compiles every target from one Linux runner — no per-OS matrix.
+  npm-release:
+    if: github.event_name == 'push' || inputs.registry_only == false
+    # bun cross-compiles every target from one Linux runner, no per-OS matrix.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,9 +49,17 @@ jobs:
       - name: Upgrade npm for Trusted Publishing
         run: npm install -g npm@latest
 
-      - name: Derive version from tag
+      # A tag push is the release signal, so the tag wins. A manual run has no tag, so
+      # it uses whatever version is committed in package.json.
+      - name: Derive version
         id: ver
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+            echo "manual run: using the committed package.json version"
+          fi
 
       - name: Install dependencies
         run: bun install
@@ -48,15 +74,33 @@ jobs:
         run: bun run stage:binaries
 
       # Publish platform packages FIRST so the main package's optionalDependencies resolve.
+      # The 404 check hits the version endpoint directly, which is not CDN cached, so it is
+      # a reliable "is this version already published" test and a re-run stays harmless.
       - name: Publish platform packages
         run: |
+          set -euo pipefail
           for dir in npm/*/; do
-            echo "publishing $dir"
-            (cd "$dir" && npm publish --access public)
+            name=$(node -p "require('./$dir/package.json').name")
+            ver=$(node -p "require('./$dir/package.json').version")
+            if curl -sfL "https://registry.npmjs.org/${name/\//%2F}/$ver?t=$(date +%s)" >/dev/null; then
+              echo "$name@$ver is already on npm, skipping"
+            else
+              echo "publishing $name@$ver"
+              (cd "$dir" && npm publish --access public)
+            fi
           done
 
       - name: Publish main package
-        run: npm publish --access public
+        run: |
+          set -euo pipefail
+          name=$(node -p "require('./package.json').name")
+          ver=$(node -p "require('./package.json').version")
+          if curl -sfL "https://registry.npmjs.org/${name/\//%2F}/$ver?t=$(date +%s)" >/dev/null; then
+            echo "$name@$ver is already on npm, skipping"
+          else
+            echo "publishing $name@$ver"
+            npm publish --access public
+          fi
 
       # Also attach the raw binaries to the GitHub Release (for the install-script channel).
       - name: Upload binaries to GitHub Release
@@ -64,15 +108,66 @@ jobs:
         with:
           files: dist/bin/*
 
-      # Publish server metadata to the official MCP Registry (tokenless via GitHub OIDC).
-      # Last, so a registry hiccup (e.g. npm propagation lag) can't block the npm/GitHub
-      # release. set-version.mjs already synced server.json to this release's version.
+  mcp-registry:
+    needs: npm-release
+    # Runs after a successful npm release, or alone when npm publishing was skipped
+    # (workflow_dispatch), and never after a failed npm release.
+    if: always() && (needs.npm-release.result == 'success' || needs.npm-release.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Read the version to register
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The registry validates the npm entry on every publish attempt, so wait until npm
+      # actually serves this version instead of racing the packument cache.
+      - name: Wait until npm exposes this version
+        run: |
+          set -euo pipefail
+          V="${{ steps.ver.outputs.version }}"
+          for i in $(seq 1 20); do
+            if curl -sfL "https://registry.npmjs.org/@devlensio%2Fcli/$V?t=$(date +%s)" >/dev/null; then
+              echo "npm is serving @devlensio/cli@$V"
+              exit 0
+            fi
+            echo "attempt $i: npm has no @devlensio/cli@$V yet, waiting 30s"
+            sleep 30
+          done
+          echo "::error::npm never exposed @devlensio/cli@$V"
+          exit 1
+
       - name: Install mcp-publisher
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          set -euo pipefail
+          os=$(uname -s | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_${os}_${arch}.tar.gz" | tar xz mcp-publisher
 
       - name: Authenticate to MCP Registry (OIDC)
         run: ./mcp-publisher login github-oidc
 
+      # A single 400 from a lagging replica should not fail the release, so retry.
       - name: Publish server to MCP Registry
-        run: ./mcp-publisher publish
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 10); do
+            if ./mcp-publisher publish; then
+              echo "registered version ${{ steps.ver.outputs.version }} with the MCP Registry"
+              exit 0
+            fi
+            echo "registry attempt $i failed, retrying in 30s"
+            sleep 30
+          done
+          echo "::error::MCP Registry publish failed after 10 attempts"
+          exit 1
+
+      - name: Show the registered versions
+        run: |
+          curl -s "https://registry.modelcontextprotocol.io/v0/servers/io.github.devlensio%2Fdevlens/versions" \
+            | head -c 2000 || true
