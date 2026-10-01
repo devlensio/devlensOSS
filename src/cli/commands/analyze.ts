@@ -5,7 +5,6 @@ import { withGlobalFlags } from "../options.js";
 import { emit, die, info, isJsonMode } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
-// `devlens analyze [path] [commitHash]` — Phase 1 analysis; --summarize chains Phase 2.
 export function registerAnalyzeCommand(program: Command): void {
   withGlobalFlags(
     program
@@ -29,14 +28,11 @@ export function registerAnalyzeCommand(program: Command): void {
         });
 
         if (res.status === "cancelled") {
-          // Human mode already printed the cancelled-at-X/Y summary.
           if (isJsonMode()) die("Job cancelled", 130);
           process.exit(130);
         }
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
 
-        // Language/framework come from the persisted graph entry — cheap, exact,
-        // and lets agents know WHAT they're analyzing without another query.
         const meta = res.graphId ? storage.listGraphs().find((g) => g.graphId === res.graphId) : undefined;
         emit({
           graphId: res.graphId,

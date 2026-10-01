@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """M8 PTY smoke 2: summarization progress bar with p/r/c on a REAL summarize
 (issue 17). Each expect is called exactly once and stored (consumed watermark)."""
 import sys, os, re, time
@@ -21,7 +20,7 @@ check("bar: analysis phase starts", s.expect("Analyzing", 60))
 got_hint = s.expect("[p] pause", 150)
 check("bar: pause/resume/cancel hint shown", got_hint, s.text()[-300:].replace("\x1b", "ESC"))
 
-terminal = None  # what we observed at the end
+terminal = None
 if got_hint:
     time.sleep(4)
     s.send("p")
@@ -31,7 +30,6 @@ if got_hint:
     s.send("r")
     resumed = s.expect("resumed", 60)
     check("bar: 'r' resumes the job", resumed, s.text()[-300:].replace("\x1b", "ESC"))
-    # cancel ASAP after resume — job must end terminal either way
     s.pump(1)
     s.send("c")
     cancelled = s.expect("cancelled at", 90)

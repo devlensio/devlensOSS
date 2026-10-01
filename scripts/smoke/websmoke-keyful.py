@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """webUI surface, phase B — keyful HOME: real summarize over the API.
 
 Verifies what the JobsPanel actually consumes: SSE events DURING a running
@@ -10,7 +9,7 @@ import json, os, signal, subprocess, sys, time, urllib.request, urllib.error
 REPO = os.environ.get("DEVLENS_OSS_REPO") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PORT = 4175
 BASE = f"http://127.0.0.1:{PORT}"
-HOME = os.environ.get("DEVLENS_UI_HOME", "/tmp/dlsum-home")  # working provider key
+HOME = os.environ.get("DEVLENS_UI_HOME", "/tmp/dlsum-home")
 REPO_PATH = "/tmp/dlbar"
 
 fails, checks = [], 0
@@ -84,20 +83,17 @@ try:
     check("config GET providerName", cfg.get("summarization", {}).get("providerName") == "commandcode",
           str(cfg.get("summarization", {}).get("providerName")))
 
-    # start a REAL summarize via the same API the webUI uses
     st, body = req("POST", "/api/analyze", {"repoPath": REPO_PATH, "skipSummarization": False, "forceSummarize": True})
     data = (body or {}).get("data") or {}
     job_id = data.get("jobId")
     check("analyze(summarize:true, keyful) accepted", st == 200 and bool(job_id), str(body)[:300])
     check("no auto-skip when key present", not data.get("summarizationSkipped"), str(data))
 
-    # SSE stream WHILE the job runs — the JobsPanel event contract
     seen, err = read_sse(90, ["analysis_started", "summarization_started", "summarization_progress"])
     check("SSE: analysis_started", "analysis_started" in seen, f"{seen} err={err}")
     check("SSE: summarization_started", "summarization_started" in seen, f"{seen} err={err}")
     check("SSE: summarization_progress", "summarization_progress" in seen, f"{seen} err={err}")
 
-    # jobs panel counters + terminal status
     status, counters = None, None
     for _ in range(240):
         st, jobs = req("GET", "/api/jobs")
@@ -115,7 +111,6 @@ try:
           (total or 0) > 0 and (completed or 0) > 0, f"total={total} completed={completed}")
     check("counters consistent (completed <= total)", (completed or 0) <= (total or 0), f"{completed}/{total}")
 
-    # graph endpoint serving (what GraphView fetches)
     graph_id = (job or {}).get("graphId")
     st, meta = req("GET", f"/api/graph/{graph_id}/commits")
     m = (meta or {}).get("data") or meta or {}
@@ -129,7 +124,6 @@ try:
     check("GET /api/graph/:id?commitHash serves the graph", st == 200 and len(nodes) > 0,
           f"st={st} nodes={len(nodes) if isinstance(nodes, list) else nodes}")
 
-    # summarize endpoint idempotence guard (JobsPanel re-trigger path)
     st, body = req("POST", f"/api/graph/{graph_id}/{commit}/summarize", {})
     check("re-summarize of an already-summarized commit → clean 409", st == 409, f"st={st} {str(body)[:200]}")
 

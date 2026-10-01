@@ -1,21 +1,36 @@
-// Drives an analyze/summarize job through the engine's in-memory queue and
-// renders progress to stderr. Shared by the `analyze` and `summarize` commands.
+// Drives an analyze/summarize job through the engine's in-memory queue —
+// shared by the `analyze` and `summarize` commands.
 //
-// The queue runs runJob() (Phase 1 analysis + optional Phase 2 summarization)
-// asynchronously; we subscribe for progress events and resolve when terminal.
-
+// Pipeline: resolve config → queue.enqueue() → subscribe to progress events
+// (rendered by JobProgress: analysis spinner → summarization bar with
+// p/r/c keys) → await the terminal event → rebuild the derived search index
+// for the touched commit (non-fatal on failure) → return {graphId, status}.
+//
+// Key invariants:
+//   - Config gating: structure-only runs (summarize=false) NEVER resolve or
+//     validate the user's LLM config — they enqueue the shared placeholder
+//     config, so an incomplete/absent/invalid config cannot block analysis
+//     (devlensOSS#10). Only --summarize paths resolve the real config, which
+//     fails fast here with one actionable message instead of mid-job; per-run
+//     --model/--provider overrides apply only on that path.
+//   - Graceful cancel: SIGINT (cooked mode, e.g. during analysis) and the raw
+//     0x03 byte (raw mode, during the bar) both route to requestCancel() —
+//     first press warns, signals the engine to stop at the next checkpoint and
+//     waits for the terminal event (the command then exits 130); a second
+//     press force-quits. The SIGINT listener is installed only for the job's
+//     lifetime and always removed in `finally`.
 import { queue, resolveConfig, storage } from "devlensio";
 import type { LLMProvider, DevLensConfig } from "devlensio";
-import { info, success, warn, isJsonMode } from "./output.js";
+import { info, isJsonMode } from "./output.js";
 import { buildIndex } from "../search/indexer.js";
 import { writeIndex, invalidate } from "../search/indexManager.js";
 import { SKIP_SUMMARIZATION_CONFIG } from "../core/skipConfig.js";
-import { JobProgress } from "./progress.js";
+import { JobProgress, cliProgressIO } from "./progress.js";
 
 export interface RunJobOpts {
   repoPath: string;
   isGithubRepo?: boolean;
-  summarize: boolean; // false → skipSummarization (Phase 1 only)
+  summarize: boolean;
   forceSummarize?: boolean;
   model?: string;
   provider?: string;
@@ -28,15 +43,10 @@ export interface JobResult {
 }
 
 export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
-  // Structure-only analysis never resolves (validates) the user's LLM config —
-  // an incomplete/absent summarization config must not block `devlens analyze`
-  // (GitHub issue #10). Only --summarize paths resolve the real config, which
-  // fails fast here with one actionable message instead of mid-job.
   let config: DevLensConfig = SKIP_SUMMARIZATION_CONFIG;
   if (opts.summarize) {
     config = resolveConfig();
 
-    // Per-run override of summarization provider/model (used by `summarize`).
     if (opts.model || opts.provider) {
       config.summarization = {
         ...config.summarization,
@@ -54,21 +64,15 @@ export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
     config,
   });
 
-  // Live view: analysis spinner → summarization bar with [p]/[r]/[c] keys.
   const progress = new JobProgress({
     jobId: job.jobId,
     queue,
     json: isJsonMode(),
     input: process.stdin,
     onInterrupt: () => requestCancel(),
-    io: { out: (s) => process.stderr.write(s), info, success, warn },
+    io: cliProgressIO(),
   });
 
-  // ── Graceful cancel (issue 17) ──────────────────────────────────────────
-  // Ctrl+C: SIGINT signal (cooked mode, e.g. during analysis) AND the raw
-  // 0x03 byte (raw mode, during the bar) both land here. First press asks
-  // the engine to stop at the next checkpoint and waits for the terminal
-  // event; a second press force-quits. Never a stack trace, exit code 130.
   let interrupted = false;
   function requestCancel(): void {
     if (interrupted) {
@@ -105,8 +109,6 @@ export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
   return { graphId: final?.graphId, status: final?.status ?? "unknown", error: final?.error };
 }
 
-// Every analyze/summarize run rebuilds the derived .search.json for the
-// commit it touched. Failure is non-fatal: queries lazily rebuild on demand.
 function indexLatestCommit(graphId: string): void {
   try {
     const meta = storage.getGraphMeta(graphId);

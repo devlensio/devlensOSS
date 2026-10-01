@@ -1,16 +1,30 @@
+// `devlens update` — check the npm registry for a newer @devlensio/cli and
+// (unless --check) install it globally with the detected package manager.
+//
+// Architecture: the whole flow lives in runUpdate(opts, deps) with fully
+// injectable dependencies (registry check, package-manager pick, install
+// spawn, install-kind classification, IO) so every message path is unit
+// tested; registerUpdateCommand is a thin wrapper wiring the real deps.
+//
+// Behavior contract:
+//   - registry lookup = `npm view @devlensio/cli version` with a BOUNDED 15s
+//     timeout; the install spawn is bounded at 10min — neither can hang the
+//     CLI. Offline/registry failures print one actionable line (--check and
+//     --json still emit {installed, latest:null, error} first).
+//   - package manager: first available of npm → pnpm → yarn → bun, each with
+//     its correct global-install argv.
+//   - classifyInstall(): source (repo checkout — never self-update; points at
+//     git pull) | global (npm root -g, bun/yarn global schemes) | local
+//     (project node_modules — warns that a global update will not change the
+//     running copy) | unknown (never blocks).
+//   - --check is a pure dry run: {installed, latest, upToDate} + one status
+//     line, no install. Up-to-date installs emit {updated:false} without
+//     spawning anything. --json keeps stdout machine-parseable.
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import type { Command } from "commander";
 import { withGlobalFlags } from "../options.js";
 import { emit, info, success, warn, die, isJsonMode } from "../output.js";
 import { CLI_VERSION } from "../version.js";
-
-// `devlens update` — check the npm registry for a newer @devlensio/cli and
-// (unless --check) install it globally with the detected package manager.
-//
-// Design: the whole flow lives in runUpdate(opts, deps) with injectable
-// dependencies so every message path (offline, up-to-date, not-global,
-// install failure, JSON shapes) is unit-testable. registerUpdateCommand is a
-// thin wrapper wiring the real deps.
 
 export const UPDATE_PACKAGE = "@devlensio/cli";
 
@@ -20,18 +34,16 @@ export interface VersionCheck {
   error?: string;
 }
 
-/** Parse `npm view @devlensio/cli version` stdout → a bare semver or undefined. */
 export function parseLatestVersion(stdout: string): string | undefined {
   const line = (stdout ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
-    .pop(); // npm prints one version; tolerate trailing noise
+    .pop();
   if (!line) return undefined;
   return /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(line) ? line : undefined;
 }
 
-/** -1 older, 0 equal, 1 newer (numeric dot-segment compare; pre-release ignored). */
 export function compareVersions(a: string, b: string): number {
   const pa = a.split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
   const pb = b.split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
@@ -42,7 +54,6 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** First available package manager from the preference list. */
 export function pickPackageManager(
   candidates: string[] = ["npm", "pnpm", "yarn", "bun"],
   probe: (cmd: string) => boolean = defaultProbe,
@@ -59,7 +70,6 @@ function defaultProbe(cmd: string): boolean {
   }
 }
 
-/** The install argv for a given package manager. */
 export function installArgs(pm: string): string[] {
   switch (pm) {
     case "pnpm":
@@ -69,26 +79,17 @@ export function installArgs(pm: string): string[] {
     case "bun":
       return ["add", "-g", `${UPDATE_PACKAGE}@latest`];
     default:
-      return ["install", "-g", `${UPDATE_PACKAGE}@latest`]; // npm
+      return ["install", "-g", `${UPDATE_PACKAGE}@latest`];
   }
 }
 
 export type InstallKind = "source" | "global" | "local" | "unknown";
 
-/** Running from a source checkout (bun src/cli/index.ts …)? */
 export function isSourceRun(): boolean {
   const main = (process.argv[1] ?? "").replace(/\\/g, "/");
   return main.endsWith("src/cli/index.ts");
 }
 
-/**
- * Classify how the running CLI was installed:
- *   source — repo checkout (must never self-update; use git pull)
- *   global — under the npm global root (or a known global scheme)
- *   local  — under some project's node_modules (self-updating the GLOBAL
- *            copy would not change what is running; warn clearly)
- *   unknown — could not determine (do not block anything)
- */
 export function classifyInstall(
   entryPath: string,
   globalRoot?: string,
@@ -98,13 +99,11 @@ export function classifyInstall(
   if (source || p.endsWith("src/cli/index.ts")) return "source";
   const root = (globalRoot ?? "").replace(/\\/g, "/").replace(/\/$/, "");
   if (root && p.startsWith(root + "/")) return "global";
-  // other well-known global schemes (bun, yarn classic)
   if (/\/\.bun\/install\/global\//.test(p) || /\/yarn\/global\//.test(p)) return "global";
   if (p.includes("/node_modules/")) return "local";
   return "unknown";
 }
 
-/** npm root -g with a bounded timeout; undefined when npm is unavailable. */
 export function globalRoot(timeoutMs = 5000): string | undefined {
   try {
     const r = spawnSync("npm", ["root", "-g"], { encoding: "utf8", timeout: timeoutMs });
@@ -112,18 +111,12 @@ export function globalRoot(timeoutMs = 5000): string | undefined {
       const out = (r.stdout ?? "").trim().split("\n").pop();
       return out || undefined;
     }
-  } catch {
-    /* ignore */
-  }
+  } catch {}
   return undefined;
 }
 
 export type Spawner = (cmd: string, args: string[], opts: Record<string, unknown>) => SpawnSyncReturns<string>;
 
-/**
- * Registry version check with a BOUNCED timeout (default 15s) so an offline
- * or hung npm can never stall the CLI.
- */
 export function checkLatest(timeoutMs = 15000, spawn: Spawner = spawnSync as Spawner): VersionCheck {
   let r: SpawnSyncReturns<string>;
   try {
@@ -147,22 +140,18 @@ export function checkLatest(timeoutMs = 15000, spawn: Spawner = spawnSync as Spa
   return { installed: CLI_VERSION, latest };
 }
 
-// ── The update flow (injectable, unit-tested) ────────────────────────────────
-
 export interface UpdateIO {
   info(s: string): void;
   success(s: string): void;
   warn(s: string): void;
   emit(o: Record<string, unknown>): void;
   isJson(): boolean;
-  /** Terminate with a message (default: die(msg, code)). */
   fail(msg: string, code: number): void;
 }
 
 export interface UpdateDeps {
   checkLatest: () => VersionCheck;
   pickPM: () => string | undefined;
-  /** Runs the global install; returns the spawn result (status/error/stderr). */
   install(pm: string, json: boolean): { status: number | null; error?: Error | null; stderr?: string };
   kind(): InstallKind;
   version(): string;
@@ -176,7 +165,6 @@ export interface UpdateOpts {
 export function runUpdate(opts: UpdateOpts, deps: UpdateDeps): void {
   const { io } = deps;
 
-  // Source checkout: never self-update a linked dev copy.
   if (deps.kind() === "source") {
     io.warn(
       "You are running DevLens from source — update with git pull + bun install instead of `devlens update`.",
@@ -189,7 +177,6 @@ export function runUpdate(opts: UpdateOpts, deps: UpdateDeps): void {
   const check = deps.checkLatest();
 
   if (check.error) {
-    // Offline / registry trouble: --check and --json still report cleanly.
     if (opts.check || io.isJson()) {
       io.emit({ installed: check.installed, latest: null, error: check.error });
     }
@@ -213,7 +200,6 @@ export function runUpdate(opts: UpdateOpts, deps: UpdateDeps): void {
     return;
   }
 
-  // Not-global guard: updating the global copy does not change a local run.
   if (deps.kind() === "local") {
     io.warn(
       `DevLens is running from a LOCAL install — \`update\` changes the global copy only.\n` +
@@ -272,7 +258,7 @@ function realDeps(): UpdateDeps {
       spawnSync(pm, installArgs(pm), {
         stdio: json ? "pipe" : "inherit",
         encoding: "utf8",
-        timeout: 10 * 60 * 1000, // bounded: a hung install cannot stall forever
+        timeout: 10 * 60 * 1000,
       }),
     kind: () => classifyInstall(process.argv[1] ?? process.execPath, globalRoot(), isSourceRun()),
     version: () => CLI_VERSION,
@@ -280,7 +266,6 @@ function realDeps(): UpdateDeps {
   };
 }
 
-// `devlens update` — check for / install the latest CLI.
 export function registerUpdateCommand(program: Command): void {
   withGlobalFlags(
     program

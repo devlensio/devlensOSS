@@ -35,11 +35,6 @@ export function isVerboseMode(): boolean {
 
 const isTTY = process.stdout.isTTY;
 
-// ANSI helpers — drop colors when piped. Colour support is decided PER-STREAM:
-// emit()/formatters write to stdout; diagnostics (info/verbose/success/warn/
-// die/banner/spinner) write to stderr. Probing one stream for both would leak
-// raw `\x1b[2m`-style escapes (garbled as e.g. "2e[") into whichever stream is
-// actually piped/redirected, so each stream carries its own toggle.
 function makeColors(on: boolean) {
   const wrap = (code: string) => (s: string) => (on ? `\x1b[${code}m${s}\x1b[0m` : s);
   return {
@@ -53,12 +48,9 @@ function makeColors(on: boolean) {
     bold:    wrap("1"),
   };
 }
-// colours for stdout-bound output (emit → humanFormat)
 export const colors = makeColors(!!process.stdout.isTTY);
-// colours for stderr-bound diagnostics (info/verbose/success/warn/die/banner/…)
 export const errColors = makeColors(!!process.stderr.isTTY);
 
-// ── Primary output ───────────────────────────────────────────────────────────
 
 export function emit(data: unknown): void {
   if (jsonMode) {
@@ -68,7 +60,6 @@ export function emit(data: unknown): void {
   }
 }
 
-// ── Diagnostics (stderr) ─────────────────────────────────────────────────────
 
 export function info(msg: string): void {
   if (!jsonMode && !quietMode) process.stderr.write(errColors.dim(msg) + "\n");
@@ -83,14 +74,12 @@ export function verbose(msg: string): void {
   if (verboseMode && !quietMode) process.stderr.write(errColors.dim(`[verbose] ${msg}`) + "\n");
 }
 
-// Terminal error: print and exit non-zero.
 export function die(message: string, code = 1): never {
   if (jsonMode) process.stdout.write(JSON.stringify({ error: message }) + "\n");
   else process.stderr.write(errColors.red("✖ ") + message + "\n");
   process.exit(code);
 }
 
-// ── Spinner / step helpers ───────────────────────────────────────────────────
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
 let spinnerTimer: ReturnType<typeof setInterval> | null = null;
@@ -135,7 +124,6 @@ export async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// ── Banner ───────────────────────────────────────────────────────────────────
 
 export function banner(cliVersion?: string): void {
   if (jsonMode || quietMode) return;
@@ -147,22 +135,18 @@ export function banner(cliVersion?: string): void {
   );
 }
 
-// ── Formatting ───────────────────────────────────────────────────────────────
 
 function humanFormat(data: unknown): string {
   if (data == null) return "";
   if (typeof data === "string") return data;
   if (typeof data === "object" && !Array.isArray(data)) {
     const obj = data as Record<string, unknown>;
-    // If it's a config object with summarization, pretty-print it
     if (obj.summarization || obj.deploymentMode) {
       return formatConfig(obj);
     }
-    // If it has an ok/checks structure (doctor output), pretty-print
     if ("ok" in obj && "checks" in obj) {
       return formatDoctorResult(obj as any);
     }
-    // If it has total/graphs structure (status output), pretty-print
     if ("total" in obj && "graphs" in obj) {
       return formatStatusResult(obj as any);
     }
@@ -186,9 +170,6 @@ function formatConfig(obj: Record<string, unknown>): string {
     }
     lines.push("");
   }
-  // Note: the embedding block is intentionally NOT displayed — embeddings are
-  // not used by the OSS CLI/webUI (config surface cleanup). The SafeConfig
-  // payload still carries it for API/type compatibility.
   return lines.join("\n");
 }
 

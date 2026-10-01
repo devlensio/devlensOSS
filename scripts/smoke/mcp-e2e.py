@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """MCP surface smoke: real JSON-RPC over stdio against `devlens mcp stdio`.
 
 Handshake → tools/list → real tool calls (repo listing, symbol query, repo
@@ -7,7 +6,7 @@ Exit 0 = all checks passed."""
 import json, os, subprocess, sys, time
 
 REPO = os.environ.get("DEVLENS_OSS_REPO") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-HOME = os.environ.get("DEVLENS_MCP_HOME", "/tmp/dlsum-home")  # needs a graph for /tmp/dlbar
+HOME = os.environ.get("DEVLENS_MCP_HOME", "/tmp/dlsum-home")
 
 fails = []
 def check(name, cond, detail=""):

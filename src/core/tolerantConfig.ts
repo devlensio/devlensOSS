@@ -1,10 +1,10 @@
 // Tolerant config access — version-adaptive bridge over devlensio's config API.
 //
-// The M1 engine fixes (resolveConfig(req, {validate:false}), the native
-// hasSummarizationConfigured export) live in devlensio >= 1.0.4. The CLI must
-// also run against the currently-pinned published engine (1.0.3), whose
-// resolveConfig validates eagerly and has no configured-check export — a
-// missing named export would otherwise SyntaxError the whole module graph.
+// The engine-side fixes (resolveConfig(req, {validate:false}), the native
+// hasSummarizationConfigured export) exist in devlensio >= 1.0.4. The CLI is
+// written to run correctly on BOTH: importing a symbol an older engine does
+// not export would SyntaxError the whole module graph, and the 1-arg
+// resolveConfig of older engines validates eagerly.
 //
 // Contract of both helpers (identical on old and new engines):
 //   resolveTolerant()      → NEVER throws for an incomplete summarization

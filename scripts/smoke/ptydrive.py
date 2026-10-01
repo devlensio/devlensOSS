@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Tiny PTY driver: spawn a CLI under a real TTY, send keys on schedule,
 assert on accumulated output. Replaces expect (whose timeout clause proved
 unreliable here)."""
@@ -9,7 +8,7 @@ REPO = os.environ.get("DEVLENS_OSS_REPO") or os.path.dirname(os.path.dirname(os.
 class Session:
     def __init__(self, argv, home, cwd=REPO):
         pid, fd = pty.fork()
-        if pid == 0:  # child
+        if pid == 0:
             os.environ["HOME"] = home
             os.environ["TERM"] = "xterm-256color"
             for k in ("DEVLENS_LLM_KEY", "DEVLENS_LLM_MODEL", "DEVLENS_LLM_PROVIDER",
@@ -19,7 +18,7 @@ class Session:
             os.execvp(argv[0], argv)
         self.pid, self.fd = pid, fd
         self.buf = bytearray()
-        self.pos = 0  # consumed watermark — expect() only matches NEW data
+        self.pos = 0
         os.set_blocking(fd, False)
 
     def pump(self, seconds):
