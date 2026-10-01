@@ -149,9 +149,6 @@ function showConfig(): void {
 // ../initFlow.ts so they are unit-testable.
 
 export async function configInteractive(prefill: Record<string, any> = {}): Promise<void> {
-  // Tolerant read: init/config must work on an INCOMPLETE config — fixing
-  // broken configs is exactly what this flow is for (GitHub issue #10).
-  const cur = resolveConfig(undefined, { validate: false }).summarization;
   const catalog = loadCatalog();
   const saved = resolveAllProviders();
 
@@ -182,12 +179,12 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
   while (true) {
     // ── Stage 0: provider ───────────────────────────────────────────────────
     if (stage === 0) {
-      const res = await withEscBack(() =>
+      const res = await withEscBack((signal) =>
         select<ProviderChoice["value"]>({
           message: "Choose a summarization provider",
           choices: choices,
           default: preselected?.value,
-        }),
+        }, { signal }),
       );
       if (res.kind === "back") {
         info("Setup cancelled — your existing config was not changed.");
@@ -197,12 +194,12 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
 
       if (res.value && (res.value as { providerName?: string }).providerName === "" ) {
         // Custom… → collect the name right here (staying on stage 0)
-        const nameRes = await withEscBack(() =>
+        const nameRes = await withEscBack((signal) =>
           input({
             message: "Provider name (e.g. my-lmalite)  ·  ESC = back",
             default: customName,
             validate: (s: string) => (s.trim() ? true : "Provider name is required"),
-          }),
+          }, { signal }),
         );
         if (nameRes.kind === "back") continue; // re-show the provider select
         customName = nameRes.value.trim();
@@ -234,12 +231,12 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
 
     // ── Stage 1: API type (issue 10 — explicit, proper wording, openai default)
     if (stage === 1) {
-      const res = await withEscBack(() =>
+      const res = await withEscBack((signal) =>
         select<"openai" | "anthropic" | typeof GO_BACK>({
           message: `API type for ${label}`,
           choices: apiTypeChoices(),
           default: protocol,
-        }),
+        }, { signal }),
       );
       if (res.kind === "back" || res.value === GO_BACK) {
         stage = 0;
@@ -259,11 +256,11 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
         hasSavedKey: !!apiKey,
         requiresKey,
       });
-      const res = await withEscBack(() =>
+      const res = await withEscBack((signal) =>
         password({
           message: spec.message,
           mask: "*",
-        }),
+        }, { signal }),
       );
       if (res.kind === "back") {
         stage = 1;
@@ -285,12 +282,12 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
     // ── Stage 3: base URL (issue 9 — default is THIS provider's, never the old one)
     if (stage === 3) {
       const spec = urlPromptSpec(label, baseUrl);
-      const res = await withEscBack(() =>
+      const res = await withEscBack((signal) =>
         input({
           message: spec.message,
           default: spec.defaultUrl ?? "",
           validate: (s: string) => validateBaseUrl(s, spec),
-        }),
+        }, { signal }),
       );
       if (res.kind === "back") {
         stage = 2;
@@ -321,7 +318,7 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
           { name: "Other (type a custom model)", value: "__type__" as string | typeof GO_BACK },
           { name: "← Back", value: GO_BACK as string | typeof GO_BACK },
         ];
-        const selected = await withEscBack(() =>
+        const selected = await withEscBack((signal) =>
           search<string | typeof GO_BACK | "__type__">({
             message: "Model",
             source: (q = "") => {
@@ -337,19 +334,19 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
                 description: m.value === "__type__" ? "Enter any model name" : undefined,
               }));
             },
-          }),
+          }, { signal }),
         );
         if (selected.kind === "back" || selected.value === GO_BACK) {
           stage = 3;
           continue;
         }
         if (selected.value === "__type__") {
-          const customRes = await withEscBack(() =>
+          const customRes = await withEscBack((signal) =>
             input({
               message: "Custom model name  ·  ESC = back",
-              default: prefill.model ?? savedModelFor(savedId, saved) ?? cur.model,
+              default: prefill.model ?? savedModelFor(savedId, saved),
               validate: (s: string) => (s.trim() ? true : "Model name is required"),
-            }),
+            }, { signal }),
           );
           if (customRes.kind === "back") {
             stage = 3;
@@ -360,12 +357,12 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
           model = selected.value as string;
         }
       } else {
-        const manualRes = await withEscBack(() =>
+        const manualRes = await withEscBack((signal) =>
           input({
             message: "Model name  ·  ESC = back",
-            default: prefill.model ?? savedModelFor(savedId, saved) ?? cur.model,
+            default: prefill.model ?? savedModelFor(savedId, saved),
             validate: (s: string) => (s.trim() ? true : "Model name is required"),
-          }),
+          }, { signal }),
         );
         if (manualRes.kind === "back") {
           stage = 3;
@@ -381,10 +378,9 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
     const defaultBatch = String(
       prefill.batchSize ??
         (isCustom ? undefined : picked?.value.savedBatchSize) ??
-        cur.batchSize ??
         50,
     );
-    const batchRes = await withEscBack(() =>
+    const batchRes = await withEscBack((signal) =>
       input({
         message: "Batch size (nodes per request)  ·  ESC = back",
         default: defaultBatch,
@@ -392,7 +388,7 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
           const n = parseInt(s, 10);
           return !isNaN(n) && n >= 1 && n <= 500 ? true : "Must be a number between 1 and 500";
         },
-      }),
+      }, { signal }),
     );
     if (batchRes.kind === "back") {
       stage = 4;

@@ -165,21 +165,41 @@ describe("withEscBack (issue 11)", () => {
     expect(isLoneEsc("nope")).toBe(false);
   });
 
-  test("ESC during a prompt → {kind:'back'}", async () => {
+  test("ESC during a prompt → aborts the signal → {kind:'back'}", async () => {
     const stdin = new EventEmitter() as unknown as Parameters<typeof withEscBack>[1];
+    let sawSignal = false;
     const promise = withEscBack(
-      () =>
+      (signal) =>
         new Promise<string>((_res, rej) => {
-          // simulate inquirer: rejects only when ^C byte reaches it
-          (stdin as EventEmitter).on("data", (b: Buffer) => {
-            if (b[0] === 0x03) rej(Object.assign(new Error("User force closed the prompt with SIGINT"), { name: "ExitPromptError" }));
-          });
+          // simulate @inquirer/core: rejects when the context signal aborts
+          sawSignal = true;
+          signal.addEventListener("abort", () =>
+            rej(Object.assign(new Error("prompt aborted"), { name: "AbortPromptError" })),
+          );
         }),
       stdin,
     );
+    expect(sawSignal).toBe(true);
     (stdin as EventEmitter).emit("data", Buffer.from([0x1b]));
     const r = await promise;
     expect(r.kind).toBe("back");
+  });
+
+  test("arrow keys ([A chunks) do NOT go back", async () => {
+    const stdin = new EventEmitter() as unknown as Parameters<typeof withEscBack>[1];
+    const promise = withEscBack(
+      (signal) =>
+        new Promise<string>((res, rej) => {
+          signal.addEventListener("abort", () =>
+            rej(Object.assign(new Error("aborted"), { name: "AbortPromptError" })),
+          );
+          setTimeout(() => res("done"), 20);
+        }),
+      stdin,
+    );
+    (stdin as EventEmitter).emit("data", Buffer.from([0x1b, 0x5b, 0x41]));
+    const r = await promise;
+    expect(r).toEqual({ kind: "done", value: "done" });
   });
 
   test("real Ctrl+C (no ESC) rethrows ExitPromptError for the top-level handler", async () => {
@@ -194,7 +214,7 @@ describe("withEscBack (issue 11)", () => {
       stdin,
     );
     (stdin as EventEmitter).emit("data", Buffer.from([0x03]));
-    expect(promise).rejects.toMatchObject({ name: "ExitPromptError" });
+    await expect(promise).rejects.toMatchObject({ name: "ExitPromptError" });
   });
 
   test("normal completion returns the value", async () => {
@@ -206,6 +226,20 @@ describe("withEscBack (issue 11)", () => {
   test("listener is removed after the prompt settles", async () => {
     const stdin = new EventEmitter();
     await withEscBack(() => Promise.resolve(1), stdin as never);
+    expect(stdin.listenerCount("data")).toBe(0);
+  });
+
+  test("listener removed after ESC → back too", async () => {
+    const stdin = new EventEmitter();
+    const p = withEscBack(
+      (signal) =>
+        new Promise<string>((_r, rej) =>
+          signal.addEventListener("abort", () => rej(new Error("x"))),
+        ),
+      stdin as never,
+    );
+    (stdin as EventEmitter).emit("data", Buffer.from([0x1b]));
+    await p;
     expect(stdin.listenerCount("data")).toBe(0);
   });
 });
