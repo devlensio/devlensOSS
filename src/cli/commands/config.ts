@@ -1,11 +1,21 @@
 import { select, input, password, search } from "@inquirer/prompts";
 import type { Command } from "commander";
 import { resolveConfig, maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
-import type { LLMProvider, CatalogProvider } from "devlensio";
+import type { LLMProvider } from "devlensio";
 import { withGlobalFlags } from "../options.js";
 import { emit, success, info, warn, die } from "../output.js";
-
-const CUSTOM_SENTINEL = "__custom__";
+import {
+  buildProviderChoices,
+  apiTypeChoices,
+  keyPromptSpec,
+  urlPromptSpec,
+  validateBaseUrl,
+  resolveBaseUrl,
+  buildSavePayload,
+  withEscBack,
+  GO_BACK,
+  type ProviderChoice,
+} from "../initFlow.js";
 
 // `devlens config` — show config; with flags or --set, update it.
 export function registerConfigCommand(program: Command): void {
@@ -132,173 +142,293 @@ function showConfig(): void {
 }
 
 // ── Interactive config flow ──────────────────────────────────────────────────
+//
+// Stage loop with ESC / "← Back" navigation:
+//   0 provider → 1 API type → 2 API key → 3 base URL → 4 model → 5 batch size
+// Pure helpers (choices, messages, save payload, ESC wrapper) live in
+// ../initFlow.ts so they are unit-testable.
 
 export async function configInteractive(prefill: Record<string, any> = {}): Promise<void> {
   // Tolerant read: init/config must work on an INCOMPLETE config — fixing
   // broken configs is exactly what this flow is for (GitHub issue #10).
   const cur = resolveConfig(undefined, { validate: false }).summarization;
   const catalog = loadCatalog();
+  const saved = resolveAllProviders();
 
-  // Build provider choices
-  type ChoiceValue = CatalogProvider | typeof CUSTOM_SENTINEL;
-  const knownChoices = catalog.map(p => ({
-    name: `${p.label} (${p.protocol})`,
-    value: p as ChoiceValue,
-  }));
-  const allChoices: Array<{ name: string; value: ChoiceValue }> = [
-    ...knownChoices,
-    { name: "Custom…", value: CUSTOM_SENTINEL as ChoiceValue },
-  ];
+  const built = buildProviderChoices(catalog, saved.providers, saved.active);
+  const choices = built.choices;
+  let defaultIndex = built.defaultIndex;
+  if (prefill.providerName) {
+    // --set --provider-name X preselects X when it exists in the list.
+    const i = choices.findIndex((c) => c.value.providerName === prefill.providerName);
+    if (i >= 0) defaultIndex = i;
+  }
 
-  // Determine pre-selected provider
-  const prefillName = prefill.providerName ?? prefill["provider-name"];
-  const defaultProvider = prefillName
-    ? allChoices.find(
-        c => typeof c.value === "object" && c.value.name === prefillName
-      )?.value
-    : allChoices.find(
-        c => typeof c.value === "object" && c.value.name === cur.providerName
-      )?.value;
-
-  // 1) Pick provider
-  const picked = await select<ChoiceValue>({
-    message: "Choose a summarization provider",
-    choices: allChoices,
-    ...(defaultProvider ? { default: defaultProvider } : {}),
-  });
-
-  let providerName: string;
-  let protocol: "openai" | "anthropic";
-  let baseUrl: string;
+  // Stage state — survives going back and forth between stages.
+  let stage = 0;
+  let picked: ProviderChoice | null = null;         // stage 0 (catalog/saved)
+  let isCustom = false;                             // stage 0 (Custom…)
+  let customName = String(prefill.providerName ?? "");
+  let protocol: "openai" | "anthropic" = "openai";
   let apiKey: string | undefined;
-
-  if (typeof picked === "string" && picked === CUSTOM_SENTINEL) {
-    providerName = await input({
-      message: "Provider name (e.g. my-lmalite)",
-      default: prefillName ?? "",
-      validate: (s) => (s.trim() ? true : "Provider name is required"),
-    });
-
-    protocol = await select<"openai" | "anthropic">({
-      message: "API style",
-      choices: [
-        { name: "OpenAI-compatible", value: "openai" },
-        { name: "Anthropic-compatible", value: "anthropic" },
-      ],
-      default: prefill.provider === "anthropic" ? "anthropic" : "openai",
-    });
-
-    baseUrl = await input({
-      message: "Base URL (https://…/v1)",
-      default: prefill.baseUrl ?? "",
-      validate: (u) =>
-        u.startsWith("http") ? true : "Must be an http(s):// URL",
-    });
-
-    apiKey = await password({
-      message: "API key",
-      mask: "*",
-    });
-  } else {
-    providerName = picked.name;
-    protocol = picked.protocol as "openai" | "anthropic";
-    baseUrl = picked.baseUrl;
-    const needsKey = picked.requiresKey;
-
-    if (needsKey) {
-      apiKey =
-        (await password({
-          message: `API key (leave empty to keep "${cur.providerName || "current"}" key)`,
-          mask: "*",
-        })) || undefined;
-    } else {
-      apiKey = undefined;
-      info(`${picked.label} — no API key needed`);
-    }
-
-    // Allow overriding base URL
-    const overrideBase = await input({
-      message: "Base URL (leave empty for default)",
-      default: cur.baseUrl ?? "",
-    });
-    if (overrideBase.trim()) baseUrl = overrideBase.trim();
-  }
-
-  // 2) Model: fetch live list, fall back to free text
+  let baseUrl: string | undefined;
+  let label = "";
+  let providerName = "";
   let model = "";
-  let models: string[] = [];
+  let batchSize = 50;
+  let preselected = choices[defaultIndex];
+  let savedId: string | undefined = undefined; // saved entry of the SELECTED provider
 
-  try {
-    info("Fetching models from provider…");
-    models = await listModels({
-      protocol,
-      baseUrl,
-      apiKey: apiKey || undefined,
-    });
-  } catch (err: any) {
-    warn(`Couldn't fetch model list: ${err?.message ?? err}. You can type a model name manually.`);
-  }
+  while (true) {
+    // ── Stage 0: provider ───────────────────────────────────────────────────
+    if (stage === 0) {
+      const res = await withEscBack(() =>
+        select<ProviderChoice["value"]>({
+          message: "Choose a summarization provider",
+          choices: choices,
+          default: preselected?.value,
+        }),
+      );
+      if (res.kind === "back") {
+        info("Setup cancelled — your existing config was not changed.");
+        return;
+      }
+      const chosen = choices.find((c) => c.value === res.value);
 
-  if (models.length > 0) {
-    // Append a "Custom model" option
-    const modelChoices = [
-      ...models.map((m) => ({ name: m, value: m })),
-      { name: "Other (type a custom model)", value: "__type__" as const },
-    ];
-
-    const selected = await search({
-      message: "Model",
-      source: (input = "", _opt) => {
-        const q = input.toLowerCase();
-        const filtered = q
-          ? modelChoices.filter((m) => m.value === "__type__" || m.name.toLowerCase().includes(q))
-          : modelChoices;
-        return filtered.slice(0, 25).map((m) => ({
-          name: m.name,
-          value: m.value,
-          description: m.value === "__type__" ? "Enter any model name" : undefined,
-        }));
-      },
-    });
-
-    if (selected === "__type__") {
-      model = await input({
-        message: "Custom model name",
-        default: cur.model,
-        validate: (s) => (s.trim() ? true : "Model name is required"),
-      });
-    } else {
-      model = selected;
+      if (res.value && (res.value as { providerName?: string }).providerName === "" ) {
+        // Custom… → collect the name right here (staying on stage 0)
+        const nameRes = await withEscBack(() =>
+          input({
+            message: "Provider name (e.g. my-lmalite)  ·  ESC = back",
+            default: customName,
+            validate: (s: string) => (s.trim() ? true : "Provider name is required"),
+          }),
+        );
+        if (nameRes.kind === "back") continue; // re-show the provider select
+        customName = nameRes.value.trim();
+        isCustom = true;
+        picked = null;
+        providerName = customName;
+        label = customName;
+        savedId = undefined;
+        protocol = "openai";   // default API type for customs (issue 10)
+        apiKey = undefined;
+        baseUrl = prefill.baseUrl ?? undefined;
+      } else if (chosen) {
+        isCustom = false;
+        picked = chosen;
+        providerName = chosen.value.providerName;
+        label = chosen.value.label;
+        protocol = chosen.value.protocol;
+        // Entering the key stage: retain this provider's own saved key so
+        // "Enter to keep" refers to the SELECTED provider — never the
+        // previously-active one (issue 8).
+        apiKey = chosen.value.savedApiKey;
+        baseUrl = prefill.baseUrl ?? chosen.value.baseUrl;
+        preselected = chosen;
+        savedId = chosen.id;
+      }
+      stage = 1;
+      continue;
     }
-  } else {
-    model = await input({
-      message: "Model name",
-      default: prefill.model ?? cur.model,
-      validate: (s) => (s.trim() ? true : "Model name is required"),
-    });
+
+    // ── Stage 1: API type (issue 10 — explicit, proper wording, openai default)
+    if (stage === 1) {
+      const res = await withEscBack(() =>
+        select<"openai" | "anthropic" | typeof GO_BACK>({
+          message: `API type for ${label}`,
+          choices: apiTypeChoices(),
+          default: protocol,
+        }),
+      );
+      if (res.kind === "back" || res.value === GO_BACK) {
+        stage = 0;
+        continue;
+      }
+      protocol = res.value as "openai" | "anthropic";
+      stage = 2;
+      continue;
+    }
+
+    // ── Stage 2: API key (issue 8 — keep-key ONLY for this provider) ────────
+    if (stage === 2) {
+      const requiresKey = pickRequiresKey(catalog, providerName, isCustom);
+      const spec = keyPromptSpec({
+        providerName,
+        sameProvider: !!apiKey,
+        hasSavedKey: !!apiKey,
+        requiresKey,
+      });
+      const res = await withEscBack(() =>
+        password({
+          message: spec.message,
+          mask: "*",
+        }),
+      );
+      if (res.kind === "back") {
+        stage = 1;
+        continue;
+      }
+      const entered = res.value.trim();
+      if (entered) {
+        apiKey = entered;
+      } else if (!spec.canKeep) {
+        apiKey = undefined;
+        if (requiresKey) {
+          warn(`No API key saved — \`devlens summarize\` stays disabled for ${providerName} until you add one.`);
+        }
+      }
+      stage = 3;
+      continue;
+    }
+
+    // ── Stage 3: base URL (issue 9 — default is THIS provider's, never the old one)
+    if (stage === 3) {
+      const spec = urlPromptSpec(label, baseUrl);
+      const res = await withEscBack(() =>
+        input({
+          message: spec.message,
+          default: spec.defaultUrl ?? "",
+          validate: (s: string) => validateBaseUrl(s, spec),
+        }),
+      );
+      if (res.kind === "back") {
+        stage = 2;
+        continue;
+      }
+      baseUrl = resolveBaseUrl(res.value, spec);
+      stage = 4;
+      continue;
+    }
+
+    // ── Stage 4: model ──────────────────────────────────────────────────────
+    if (stage === 4) {
+      let models: string[] = [];
+      try {
+        info("Fetching models from provider…");
+        models = await listModels({
+          protocol,
+          baseUrl: baseUrl ?? "",
+          apiKey: apiKey || undefined,
+        });
+      } catch (err: any) {
+        warn(`Couldn't fetch model list: ${err?.message ?? err}. You can type a model name manually.`);
+      }
+
+      if (models.length > 0) {
+        const modelChoices = [
+          ...models.map((m) => ({ name: m, value: m as string | typeof GO_BACK | "__type__" })),
+          { name: "Other (type a custom model)", value: "__type__" as string | typeof GO_BACK },
+          { name: "← Back", value: GO_BACK as string | typeof GO_BACK },
+        ];
+        const selected = await withEscBack(() =>
+          search<string | typeof GO_BACK | "__type__">({
+            message: "Model",
+            source: (q = "") => {
+              const needle = q.toLowerCase();
+              const filtered = needle
+                ? modelChoices.filter(
+                    (m) => m.value === "__type__" || m.value === GO_BACK || m.name.toLowerCase().includes(needle),
+                  )
+                : modelChoices;
+              return filtered.slice(0, 25).map((m) => ({
+                name: m.name,
+                value: m.value,
+                description: m.value === "__type__" ? "Enter any model name" : undefined,
+              }));
+            },
+          }),
+        );
+        if (selected.kind === "back" || selected.value === GO_BACK) {
+          stage = 3;
+          continue;
+        }
+        if (selected.value === "__type__") {
+          const customRes = await withEscBack(() =>
+            input({
+              message: "Custom model name  ·  ESC = back",
+              default: prefill.model ?? savedModelFor(savedId, saved) ?? cur.model,
+              validate: (s: string) => (s.trim() ? true : "Model name is required"),
+            }),
+          );
+          if (customRes.kind === "back") {
+            stage = 3;
+            continue;
+          }
+          model = customRes.value.trim();
+        } else {
+          model = selected.value as string;
+        }
+      } else {
+        const manualRes = await withEscBack(() =>
+          input({
+            message: "Model name  ·  ESC = back",
+            default: prefill.model ?? savedModelFor(savedId, saved) ?? cur.model,
+            validate: (s: string) => (s.trim() ? true : "Model name is required"),
+          }),
+        );
+        if (manualRes.kind === "back") {
+          stage = 3;
+          continue;
+        }
+        model = manualRes.value.trim();
+      }
+      stage = 5;
+      continue;
+    }
+
+    // ── Stage 5: batch size ─────────────────────────────────────────────────
+    const defaultBatch = String(
+      prefill.batchSize ??
+        (isCustom ? undefined : picked?.value.savedBatchSize) ??
+        cur.batchSize ??
+        50,
+    );
+    const batchRes = await withEscBack(() =>
+      input({
+        message: "Batch size (nodes per request)  ·  ESC = back",
+        default: defaultBatch,
+        validate: (s: string) => {
+          const n = parseInt(s, 10);
+          return !isNaN(n) && n >= 1 && n <= 500 ? true : "Must be a number between 1 and 500";
+        },
+      }),
+    );
+    if (batchRes.kind === "back") {
+      stage = 4;
+      continue;
+    }
+    batchSize = parseInt(batchRes.value, 10);
+    break;
   }
 
-  // 3) Batch size
-  const batchSizeRaw = await input({
-    message: "Batch size",
-    default: String(prefill.batchSize ?? cur.batchSize ?? 50),
-    validate: (s) => {
-      const n = parseInt(s, 10);
-      return !isNaN(n) && n >= 1 && n <= 500 ? true : "Must be a number between 1 and 500";
-    },
+  const payload = buildSavePayload({
+    providerName,
+    label,
+    protocol,
+    apiKey,
+    baseUrl,
+    model,
+    batchSize,
   });
-
-  // 4) Write config
-  writeConfig({
-    summarization: {
-      provider: protocol,
-      providerName,
-      model,
-      ...(apiKey ? { apiKey } : {}),
-      baseUrl,
-      batchSize: parseInt(batchSizeRaw, 10),
-    },
-  });
-
+  writeConfig(payload);
   success(`Config saved — ${providerName} / ${model}`);
+}
+
+// requiresKey: catalog entries declare it; customs (and saved-only entries
+// missing from the catalog) are treated as key-requiring.
+function pickRequiresKey(
+  catalog: ReturnType<typeof loadCatalog>,
+  providerName: string,
+  isCustom: boolean,
+): boolean {
+  if (isCustom) return true;
+  return catalog.find((c) => c.name === providerName)?.requiresKey ?? true;
+}
+
+function savedModelFor(id: string | undefined, saved: ReturnType<typeof resolveAllProviders>): string | undefined {
+  if (!id) return undefined;
+  const [provider, ...rest] = id.split(":");
+  const name = rest.join(":");
+  return saved.providers.find((p) => p.provider === provider && p.providerName === name)?.model;
 }
