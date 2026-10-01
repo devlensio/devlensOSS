@@ -4,20 +4,7 @@ import { resolve, normalize } from "node:path";
 import { SKIP_SUMMARIZATION_CONFIG } from "../../core/skipConfig.js";
 import { summarizationConfigured } from "../../core/tolerantConfig.js";
 
-//  handleAnalyze 
-//
-// POST /api/analyze
-//
-// Creates a new job and returns jobId immediately.
-// Does NOT wait for analysis to complete — that happens in the background.
-// If a job for the same repoPath is already active, returns the existing jobId.
-//
-// Client should then open GET /api/job/:jobId/stream to watch progress.
 
-// FUTURE SCOPE: optional commitHash support via git worktree
-// When commitHash is provided: git worktree add /tmp/devlens-{uuid} {hash}
-// analyzePipeline runs against temp path, worktree removed after saveGraph()
-// It was actually complex considering the MVP and when I dont even know if people are gonna use it :/ . So I skipped it.
 
 export async function handleAnalyze(req: Request): Promise<Response> {
   let body: unknown;
@@ -39,7 +26,6 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     includedThirdPartyLibs?: string[];
   };
 
-  // Validate repoPath
   if (!repoPath || typeof repoPath !== "string") {
     return Response.json(
       { success: false, error: "repoPath is required and must be a string" },
@@ -49,7 +35,6 @@ export async function handleAnalyze(req: Request): Promise<Response> {
 
   const absolutePath = resolve(normalize(repoPath.trim()));
 
-  // Validate directory exists (skip for GitHub repos)
   if (!isGithubRepo) {
     const exists =
       existsSync(absolutePath) && lstatSync(absolutePath).isDirectory();
@@ -61,11 +46,6 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     }
   }
 
-  // Structure-only analysis never needs the LLM config. If summarization was
-  // requested but no usable key is configured, auto-skip summarization with a
-  // notice instead of failing the whole analyze with a config error
-  // (GitHub issue devlensio/devlensOSS#10). The explicit summarize endpoint
-  // (POST .../summarize) still validates strictly — that path asks for it.
   let skip = !!skipSummarization;
   if (!skip && !summarizationConfigured(req)) {
     skip = true;
@@ -82,8 +62,6 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     try {
       config = resolveConfig(req);
     } catch (err) {
-      // Any other config problem (e.g. an incomplete neo4j block) must not
-      // block analysis either — run structure-only and surface why.
       console.warn(
         `devlens: ${err instanceof Error ? err.message : String(err)} — running analysis without summarization.`
       );
@@ -102,8 +80,6 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     includedThirdPartyLibs:  includedThirdPartyLibs ?? [],
   };
 
-  // enqueue() handles deduplication internally —
-  // returns existing job if same repoPath is already active
   const job = queue.enqueue(input);
 
   return Response.json({
@@ -114,31 +90,18 @@ export async function handleAnalyze(req: Request): Promise<Response> {
       repoPath: job.repoPath,
       createdAt: job.createdAt,
       ...(skip && !skipSummarization ? { summarizationSkipped: true } : {}),
-      existing: job.status !== "queued",  // true = deduplication hit — returned an already-running job
+      existing: job.status !== "queued",
     },
   });
 }
 
 
-// ─── handleSummarize ──────────────────────────────────────────────────────────
-//
-// POST /api/graph/:graphId/:commitHash/summarize
-//
-// Enqueues a summarization-only job for a commit that has already been analysed.
-// Used when the user ran analysis with skipSummarization=true and now wants
-// to trigger summarization separately (e.g. after configuring their LLM key).
-//
-// Fails if:
-//   - graph or commit does not exist on disk
-//   - the commit is already fully summarized (isSummarized=true in meta)
-//   - a job for the same repoPath is already active (deduplication)
 
 export async function handleSummarize(
   graphId: string,
   commitHash: string,
   req: Request
 ): Promise<Response> {
-  // Verify the graph and commit exist
   const meta = storage.getGraphMeta(graphId);
   if (!meta) {
     return Response.json(
@@ -159,7 +122,6 @@ export async function handleSummarize(
     );
   }
 
-  // Already done — no point re-running
   if (commitEntry.isSummarized) {
     return Response.json(
       {
@@ -171,9 +133,6 @@ export async function handleSummarize(
     );
   }
 
-  // Enqueue as a full job but analysis will be fast — it re-runs and saves
-  // the same commit data, then continues straight to summarization.
-  // We pass skipSummarization=false explicitly.
   const config = resolveConfig(req);
 
   let forceSummarize = false;
@@ -181,7 +140,6 @@ export async function handleSummarize(
     const body = await req.json() as { forceSummarize?: boolean };
     forceSummarize = body.forceSummarize ?? false;
   } catch {
-    // No body or invalid JSON — default to false
   }
 
   const input: JobInput = {
@@ -207,24 +165,12 @@ export async function handleSummarize(
   });
 }
 
-//  handleListJobs 
-//
-// GET /api/jobs
-//
-// Returns all jobs sorted newest first.
-// Returns summaries only — never the full events array.
 
 export function handleListJobs(): Response {
   const jobs = queue.listJobs();
   return Response.json({ success: true, data: jobs });
 }
 
-//  handleGetJob 
-//
-// GET /api/job/:jobId
-//
-// Returns current status of a single job.
-// For live progress, use the SSE stream endpoint instead.
 
 export function handleGetJob(jobId: string): Response {
   const job = queue.getJob(jobId);
@@ -237,21 +183,8 @@ export function handleGetJob(jobId: string): Response {
   return Response.json({ success: true, data: toJobSummary(job) });
 }
 
-//  handleJobStream 
-//
-// GET /api/job/:jobId/stream
-//
-// Opens an SSE stream for a job.
-// Immediately replays all past events (catch-up for reconnecting clients).
-// Then streams live events as they are emitted by the runner.
-// Stream closes automatically when job reaches a terminal state.
-//
-// The browser should use the EventSource API:
-//   const es = new EventSource(`/api/job/${jobId}/stream`);
-//   es.onmessage = (e) => console.log(JSON.parse(e.data));
 
 export function handleJobStream(jobId: string): Response {
-  // Check job exists before setting up stream
   const job = queue.getJob(jobId);
   if (!job) {
     return Response.json(
@@ -260,10 +193,8 @@ export function handleJobStream(jobId: string): Response {
     );
   }
 
-  // TextEncoder reused across all enqueue calls for this stream
   const encoder = new TextEncoder();
 
-  // unsubscribe function — stored so cancel() can call it
   let unsubscribe: (() => void) | undefined;
 
   const stream = new ReadableStream({
@@ -271,31 +202,24 @@ export function handleJobStream(jobId: string): Response {
       unsubscribe = queue.subscribe(
         jobId,
 
-        // onEvent — called for every event (replayed history + live)
-        // Encodes to Uint8Array — required by Bun's ReadableStream
         (event) => {
           try {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
             );
           } catch {
-            // Stream already closed — subscriber will be cleaned up
           }
         },
 
-        // onCompleted — job reached terminal state, close stream cleanly
         () => {
           try {
             controller.close();
           } catch {
-            // Already closed — ignore
           }
         }
       );
     },
 
-    // cancel() fires when browser closes the tab or disconnects
-    // Cleans up the subscriber so it doesn't leak memory
     cancel() {
       unsubscribe?.();
     },
@@ -304,25 +228,15 @@ export function handleJobStream(jobId: string): Response {
   return new Response(stream, {
     status: 200,
     headers: {
-      // Required SSE headers
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       "Connection": "keep-alive",
 
-      // Disable buffering in nginx/proxies — critical for SSE to work
-      // Without this, proxies buffer the stream and browser gets nothing
-      // until the buffer fills up
       "X-Accel-Buffering": "no",
     },
   });
 }
 
-//  handlePauseJob 
-//
-// POST /api/job/:jobId/pause
-//
-// Signals the job to pause after its current summarization batch.
-// Only works during summarization phase — not during analysis.
 
 export function handlePauseJob(jobId: string): Response {
   const job = queue.getJob(jobId);
@@ -358,12 +272,6 @@ export function handlePauseJob(jobId: string): Response {
   });
 }
 
-//  handleResumeJob 
-//
-// POST /api/job/:jobId/resume
-//
-// Resumes a paused job from its last checkpoint.
-// Only works on paused jobs — not cancelled or failed.
 
 export function handleResumeJob(jobId: string): Response {
   const job = queue.getJob(jobId);
@@ -407,14 +315,6 @@ export function handleResumeJob(jobId: string): Response {
   });
 }
 
-//  handleCancelJob 
-//
-// POST /api/job/:jobId/cancel
-//
-// Cancels a job regardless of its current state.
-// Queued jobs are cancelled immediately.
-// Running/paused jobs are cancelled after their current batch finishes.
-// Cancelled jobs cannot be resumed — submit a new analysis to start over.
 
 export function handleCancelJob(jobId: string): Response {
   const job = queue.getJob(jobId);
@@ -443,8 +343,6 @@ export function handleCancelJob(jobId: string): Response {
     );
   }
 
-  // For queued jobs — cancelled immediately
-  // For running/paused — cancelRequested flag set, runner handles it
   const isImmediate = job.status === "queued";
 
   return Response.json({

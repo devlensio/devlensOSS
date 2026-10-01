@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """webUI regression smoke (M8): API contracts the webUI depends on."""
 import json, os, signal, subprocess, sys, time, urllib.request, urllib.error
 
@@ -31,7 +30,6 @@ def check(name, cond, detail=""):
         print(f"  FAIL  {name}  {detail}")
         fails.append(name)
 
-# keyless fixture HOME (no .devlens at all)
 home = "/tmp/dl-websmoke-home"
 os.system(f"rm -rf {home} && mkdir -p {home}")
 
@@ -41,7 +39,6 @@ srv = subprocess.Popen(["bun", "src/cli/index.ts", "serve", "-p", str(PORT)],
                        cwd=REPO, env=srv_env, stdout=log, stderr=log)
 
 try:
-    # wait for health
     up = False
     for _ in range(60):
         try:
@@ -54,13 +51,11 @@ try:
         time.sleep(0.5)
     check("server starts on keyless HOME", up)
 
-    # startup log: silent init (no Ollama noise, no stdout corruption)
     time.sleep(0.5)
     logtxt = open("/tmp/dl-websmoke.log").read()
     check("no 'Ollama' in server startup output", "Ollama" not in logtxt, logtxt[:400])
     check("no 'ollama detected' defaults noise", "not detected" not in logtxt)
 
-    # ── GET /api/config shape (SafeConfig unchanged: summarization+embedding+allProviders)
     st, body = req("GET", "/api/config")
     cfg = (body or {}).get("data") or {}
     check("GET /api/config 200", st == 200)
@@ -68,11 +63,9 @@ try:
     check("config keeps embedding field (API compat)", "embedding" in cfg, str(list(cfg)))
     check("config has allProviders (multi-provider UI)", "allProviders" in cfg, str(list(cfg)))
 
-    # ── PATCH /api/config (webUI settings save)
     st, body = req("PATCH", "/api/config", {"summarization": {"batchSize": 42}})
     check("PATCH /api/config accepted", st == 200, str(body)[:200])
 
-    # ── GET /api/providers (catalog — ollama removed)
     st, body = req("GET", "/api/providers")
     names = [p.get("name") for p in ((body or {}).get("data") or [])] if isinstance((body or {}).get("data"), list) else []
     if not names and isinstance(body, list):
@@ -80,14 +73,12 @@ try:
     check("GET /api/providers 200", st == 200, str(body)[:200])
     check("catalog has no ollama", "ollama" not in names, str(names))
 
-    # ── OUT-OF-BOX analyze: webUI default (skipSummarization:false) on keyless machine
     st, body = req("POST", "/api/analyze", {"repoPath": "/tmp/dlrepo2", "skipSummarization": False})
     data = (body or {}).get("data") or {}
     job_id = data.get("jobId")
     check("analyze (summarize requested, keyless) returns 200 + jobId", st == 200 and bool(job_id), str(body)[:300])
     check("auto-skip surfaced via summarizationSkipped", data.get("summarizationSkipped") is True, str(data))
 
-    # job reaches completed
     status = None
     for _ in range(120):
         st, jobs = req("GET", "/api/jobs")
@@ -100,11 +91,9 @@ try:
         time.sleep(0.5)
     check("auto-skipped analyze job completes", status == "completed", f"status={status}")
 
-    # ── explicit skipSummarization:true still works
     st, body = req("POST", "/api/analyze", {"repoPath": "/tmp/dlrepo2", "skipSummarization": True})
     check("analyze skipSummarization:true 200", st == 200 and (body or {}).get("data", {}).get("jobId"), str(body)[:200])
 
-    # ── SSE stream replays standard events (JobsPanel contract)
     try:
         r = urllib.request.Request(BASE + f"/api/job/{job_id}/stream")
         with urllib.request.urlopen(r, timeout=10) as resp:
@@ -113,7 +102,6 @@ try:
     except Exception as e:
         check("SSE stream reachable", False, str(e))
 
-    # ── explicit summarize endpoint fails CLEANLY on keyless (no stack, clear error)
     st, jobs = req("GET", "/api/jobs")
     js = (jobs or {}).get("data") or jobs or []
     job = next((j for j in js if j.get("jobId") == job_id), None)
@@ -130,7 +118,6 @@ try:
     check("summarize endpoint rejects keyless cleanly (500 + message)",
           st3 == 500 and "apiKey" in err and "    at " not in err, f"st={st3} {err[:300]}")
 
-    # ── pause/resume/cancel endpoints still registered (JobsPanel buttons)
     st, _ = req("POST", f"/api/job/{job_id}/pause")
     check("POST /api/job/:id/pause reachable (200/4xx as designed)", st in (200, 400, 404, 409, 500), f"st={st}")
     st, _ = req("POST", f"/api/job/{job_id}/cancel")

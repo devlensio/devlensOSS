@@ -24,7 +24,7 @@ describe("compareVersions", () => {
     expect(compareVersions("0.7.0", "0.6.0")).toBe(1);
     expect(compareVersions("0.6.0", "0.6.0")).toBe(0);
     expect(compareVersions("1.0.0", "0.9.9")).toBe(1);
-    expect(compareVersions("0.6.10", "0.6.9")).toBe(1); // numeric, not lexicographic
+    expect(compareVersions("0.6.10", "0.6.9")).toBe(1);
     expect(compareVersions("1.0", "1.0.0")).toBe(0);
   });
   test("prerelease does not lose to its release in the numeric pass", () => {
@@ -51,12 +51,10 @@ describe("installArgs", () => {
 
 describe("isSourceRun", () => {
   test("detects the source entrypoint shape", () => {
-    // This test process runs from source or not — just assert it's boolean.
     expect(typeof isSourceRun()).toBe("boolean");
   });
 });
 
-// ── runUpdate: every message path with injected deps (M5 / M8) ──────────────
 import {
   runUpdate,
   classifyInstall,
@@ -163,7 +161,7 @@ describe("runUpdate — install mode", () => {
     runUpdate({ check: false }, deps);
     expect(log.warn[0]).toContain("running from a LOCAL install");
     expect(log.warn[0]).toContain("npm install -g @devlensio/cli");
-    expect(installs).toEqual(["npm:human"]); // proceeds, does not block
+    expect(installs).toEqual(["npm:human"]);
   });
 
   test("source checkout → never installs, points at git pull", () => {

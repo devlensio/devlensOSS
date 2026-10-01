@@ -1,9 +1,8 @@
 import { resolveConfig, maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
 import { resolveTolerant } from "../../core/tolerantConfig.js";
 
-// ── Simple in-memory cache for model listings ────────────────────────────────
 const modelCache = new Map<string, { models: string[]; expires: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function cacheKey(name: string, baseUrl: string): string {
   return `${name}|${baseUrl}`;
@@ -22,21 +21,15 @@ function setCachedModels(key: string, models: string[]): void {
   modelCache.set(key, { models, expires: Date.now() + CACHE_TTL_MS });
 }
 
-// ── Existing endpoints ───────────────────────────────────────────────────────
 
 export function handleGetConfig(req: Request): Response {
   try {
-    // Tolerant read: an incomplete summarization config must still be
-    // visible in the settings UI (issue #10a family) — it used to return
-    // {} exactly when the user most needed to see and fix it.
     const config = resolveTolerant(req);
     const safe   = maskConfig(config);
-    // Attach all configured providers for the multi-provider UI
     try {
       const allProviders = resolveAllProviders();
       safe.allProviders = allProviders;
     } catch {
-      // best-effort — frontend falls back to flat summarization
     }
     return Response.json({ success: true, data: safe });
   } catch {
@@ -49,9 +42,7 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
   try {
     const current = resolveTolerant(req);
     deploymentMode = current.deploymentMode;
-  } catch {
-    // No readable config yet — allow PATCH through so user can set one up
-  }
+  } catch {}
 
   if (deploymentMode === "cloud") {
     return Response.json(
@@ -64,7 +55,6 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
     );
   }
 
-  // ── Parse body ────────────────────────────────────────────────────────────
   let body: unknown;
   try {
     body = await req.json();
@@ -82,7 +72,6 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
     );
   }
 
-  // ── Validate provider values if provided ──────────────────────────────────
   const VALID_LLM_PROVIDERS = new Set(["openai", "anthropic"]);
 
   const partial = body as Record<string, unknown>;
@@ -121,10 +110,7 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
     }
   }
 
-  // (embedding validation removed — embeddings are not used by the OSS
-  // webUI/CLI; the embedding field remains accepted/ignored for API compat.)
 
-  // ── Write to disk ─────────────────────────────────────────────────────────
   try {
     writeConfig(partial as Parameters<typeof writeConfig>[0]);
   } catch (err) {
@@ -137,7 +123,6 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
     );
   }
 
-  // ── Return updated masked config ──────────────────────────────────────────
   try {
     const updated = resolveTolerant(req);
     const safe    = maskConfig(updated);
@@ -155,7 +140,6 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
   }
 }
 
-// ── New provider endpoints ───────────────────────────────────────────────────
 
 /** GET /api/providers — return the provider catalog */
 export function handleGetProviders(): Response {
@@ -191,9 +175,6 @@ export async function handleGetProviderModels(params: Record<string, string>): P
     );
   }
 
-  // Resolve stored config for API key / baseUrl overrides.
-  // Look up the correct provider entry in the multi-provider map so we don't
-  // leak a stale baseUrl from a different provider (Bug #2 fix).
   let storedKey = "";
   let storedBaseUrl = "";
   try {
@@ -206,15 +187,11 @@ export async function handleGetProviderModels(params: Record<string, string>): P
       storedBaseUrl = providerEntry.baseUrl ?? "";
     }
   } catch {
-    // No config yet — use catalog defaults
   }
 
-  // Only use stored baseUrl when it was saved for THIS specific provider;
-  // otherwise it's stale from a previous provider and would break the request.
   const effectiveBase = storedBaseUrl || entry.baseUrl;
   const cKey = cacheKey(name, effectiveBase);
 
-  // Check cache
   const cached = getCachedModels(cKey);
   if (cached) {
     return Response.json({ success: true, data: { models: cached } });
@@ -286,7 +263,6 @@ export async function handlePostProviderModels(req: Request): Promise<Response> 
   }
 }
 
-// ── Multi-provider management endpoints ───────────────────────────────────
 
 /** PUT /api/config/active — switch the active provider. */
 export async function handleSetActiveProvider(req: Request): Promise<Response> {

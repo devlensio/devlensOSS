@@ -26,7 +26,6 @@ import { handleFatal } from "./fatal.js";
 const program = new Command();
 
 import { CLI_VERSION } from "./version.js";
-// Keep in sync with the `version` field in package.json. (version.ts)
 
 program
   .name("devlens")
@@ -36,11 +35,6 @@ program
   )
   .version(CLI_VERSION);
 
-// ════════════════════════════════════════════════════════════════════════════
-//  Per-command help examples — appended to each command's `--help` output.
-//  Keyed by command name (unique across the CLI). Group commands (e.g. `graphs`)
-//  also get an example that shows their typical subcommand usage.
-// ════════════════════════════════════════════════════════════════════════════
 const EXAMPLES: Record<string, string> = {
   analyze: `Examples:
   devlens analyze                                  analyze the current directory
@@ -149,16 +143,12 @@ const EXAMPLES: Record<string, string> = {
   devlens update --check                           only check, do not install`,
 };
 
-// Attach the example block to a command (and, recursively, its subcommands).
 function attachExamples(cmd: Command): void {
   const text = EXAMPLES[cmd.name()];
   if (text) cmd.addHelpText("after", "\n" + text + "\n");
   for (const sub of cmd.commands) attachExamples(sub);
 }
 
-// `devlens -h <cmd>` / `devlens --help <cmd>` should show THAT command's help,
-// not the root help. commander processes `-h` on the root immediately and exits,
-// so we intercept the pattern before parsing and print the subcommand's help.
 function interceptHelpWithCommand(): void {
   const argv = process.argv.slice(2);
   let seenPositional = false;
@@ -166,20 +156,16 @@ function interceptHelpWithCommand(): void {
     const tok = argv[i];
     if (tok.startsWith("-")) {
       if (tok === "-h" || tok === "--help") {
-        if (seenPositional) return; // help belongs to a subcommand; commander handles it
+        if (seenPositional) return;
         if (maybeShowHelp(program, argv.slice(i + 1))) process.exit(0);
-        return; // no matching command — fall through to normal root-help handling
+        return;
       }
-      // skip options that consume a value so the value isn't mistaken for a command
       continue;
     }
     seenPositional = true;
   }
 }
 
-// Try to resolve the deepest command named by the tokens after `-h`/`--help`
-// (handles both `devlens -h analyze` and `devlens -h graphs list`). Returns
-// true if it found one and printed its help.
 function maybeShowHelp(root: Command, tokens: string[]): boolean {
   const names = tokens.filter((t) => !t.startsWith("-"));
   for (let len = names.length; len >= 1; len--) {
@@ -192,7 +178,6 @@ function maybeShowHelp(root: Command, tokens: string[]): boolean {
   return false;
 }
 
-// Resolve a command by path of names, e.g. ["graphs", "list"] -> graphs.list.
 function findCommandPath(root: Command, names: string[]): Command | undefined {
   let current: Command | undefined = root;
   for (const name of names) {
@@ -202,38 +187,27 @@ function findCommandPath(root: Command, names: string[]): Command | undefined {
   return current;
 }
 
-// Show banner on startup (unless piped or quiet)
 banner(CLI_VERSION);
 
-//  Command groups 
-// Core lifecycle
 registerAnalyzeCommand(program);
 registerSummarizeCommand(program);
 registerConfigCommand(program);
 registerServeCommand(program);
-// Discovery
 registerReposCommand(program);
 registerDetectCommand(program);
-// Query (mirror the MCP tools)
 registerQueryCommands(program);
 registerGraphsCommand(program);
 registerReindexCommand(program);
-// MCP server
 registerMcpCommand(program);
-// Utilities
 registerStatusCommand(program);
 registerDoctorCommand(program);
 registerInitCommand(program);
 registerUpdateCommand(program);
-// TUI group mounts here in the next step.
 
-// Append per-command usage examples to every command's help.
 attachExamples(program);
 
-// `devlens -h <cmd>` / `--help <cmd>` -> show that command's help instead of root help.
 interceptHelpWithCommand();
 
-// Bare `devlens` → launch the interactive TUI (Part H). For now, show help.
 program.action(() => {
   program.help();
 });

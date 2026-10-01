@@ -45,11 +45,8 @@ describe("buildProviderChoices", () => {
   test("catalog + saved-only providers, deduped by name", () => {
     const { choices } = buildProviderChoices(CATALOG, SAVED, "openai:deepseek");
     const names = choices.map((c) => c.value.providerName);
-    // deepseek appears ONCE (catalog entry enhanced with saved data)
     expect(names.filter((n) => n === "deepseek")).toHaveLength(1);
-    // saved-only provider shows up (issue 12)
     expect(names).toContain("mycustom");
-    // Custom… always last
     expect(names[names.length - 1]).toBe("");
     expect(choices[choices.length - 1].id).toBe(CUSTOM);
   });
@@ -71,12 +68,10 @@ describe("buildProviderChoices", () => {
   });
 
   test("preselects the active provider; default to first otherwise", () => {
-    // ids are `<protocol>:<name>` of the ENTRY the choice represents
     const base = buildProviderChoices(CATALOG, SAVED, undefined);
     const anthIdx = base.choices.findIndex((c) => c.value.providerName === "anthropic");
     const active = buildProviderChoices(CATALOG, SAVED, base.choices[anthIdx].id);
     expect(active.choices[active.defaultIndex].value.providerName).toBe("anthropic");
-    // saved-backed entries match their composite key directly
     const ds = buildProviderChoices(CATALOG, SAVED, "openai:deepseek");
     expect(ds.choices[ds.defaultIndex].value.providerName).toBe("deepseek");
     const none = buildProviderChoices(CATALOG, SAVED, undefined);
@@ -114,7 +109,6 @@ describe("key prompt (issue 8)", () => {
     const spec = keyPromptSpec({ providerName: "deepseek", sameProvider: true, hasSavedKey: true, requiresKey: true });
     expect(spec.canKeep).toBe(true);
     expect(spec.message).toContain("keep the saved key for deepseek");
-    // the message must reference the SELECTED provider only
     expect(spec.message).not.toContain("commandcode");
   });
 
@@ -160,7 +154,7 @@ describe("buildSavePayload", () => {
 describe("withEscBack (issue 11)", () => {
   test("isLoneEsc only matches a single 0x1b byte (arrow keys excluded)", () => {
     expect(isLoneEsc(Buffer.from([0x1b]))).toBe(true);
-    expect(isLoneEsc(Buffer.from([0x1b, 0x5b, 0x41]))).toBe(false); // \x1b[A
+    expect(isLoneEsc(Buffer.from([0x1b, 0x5b, 0x41]))).toBe(false);
     expect(isLoneEsc(Buffer.from([0x03]))).toBe(false);
     expect(isLoneEsc("nope")).toBe(false);
   });
@@ -171,7 +165,6 @@ describe("withEscBack (issue 11)", () => {
     const promise = withEscBack(
       (signal) =>
         new Promise<string>((_res, rej) => {
-          // simulate @inquirer/core: rejects when the context signal aborts
           sawSignal = true;
           signal.addEventListener("abort", () =>
             rej(Object.assign(new Error("prompt aborted"), { name: "AbortPromptError" })),

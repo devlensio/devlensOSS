@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const CLI = path.join(import.meta.dir, "index.ts"); // src/cli/index.ts
+const CLI = path.join(import.meta.dir, "index.ts");
 
 interface RunResult {
   status: number;
@@ -21,7 +21,6 @@ function runCli(args: string[], home: string, timeout = 120_000): RunResult {
     env: {
       ...process.env,
       HOME: home,
-      // strip any ambient LLM config so fixtures are hermetic
       DEVLENS_LLM_KEY: undefined,
       DEVLENS_LLM_MODEL: undefined,
       DEVLENS_LLM_PROVIDER: undefined,
@@ -52,11 +51,10 @@ function mkRepo(): string {
   return repo;
 }
 
-// HOMEs + repo are process-wide fixtures (module scope → created before tests).
 const homeIncomplete = mkHome("incomplete", {
   ".devlens/config.json": JSON.stringify({ summarization: { provider: "openai", providerName: "deepseek", model: "deepseek-chat" } }, null, 2),
 });
-const homeFresh = mkHome("fresh", {}); // no .devlens at all
+const homeFresh = mkHome("fresh", {});
 const homeBroken = mkHome("broken", {
   ".devlens/config.json": "{ this is NOT valid json ]",
 });
@@ -138,15 +136,15 @@ describe("config display works on a broken/incomplete config (issues 3 + 5)", ()
     expect(r.status).toBe(0);
     const out = JSON.parse(r.stdout);
     expect(out.summarization.providerName).toBe("deepseek");
-    expect(out.embedding).toBeDefined(); // webUI/cloud API shape unchanged
+    expect(out.embedding).toBeDefined();
   }, 40_000);
 
   test("init reaches the provider prompt on an incomplete config (issue #10a)", () => {
-    const r = runCli(["init"], homeIncomplete, 30_000); // stdin closed → prompt EOF
+    const r = runCli(["init"], homeIncomplete, 30_000);
     expect(r.status).toBe(0);
     const all = r.stdout + r.stderr;
-    expect(all).toContain("Choose a summarization provider"); // prompt rendered
-    expect(all).not.toContain("apiKey is required"); // no config-error wall
+    expect(all).toContain("Choose a summarization provider");
+    expect(all).not.toContain("apiKey is required");
     expect(all).not.toContain("    at ");
   }, 40_000);
 });
@@ -167,7 +165,7 @@ describe("doctor survives an incomplete config", () => {
     expect(r.status).toBe(0);
     const out = JSON.parse(r.stdout);
     expect(out.checks.provider.ok).toBe(true);
-    expect(out.checks.apiKey.ok).toBe(false); // honest: no key yet
+    expect(out.checks.apiKey.ok).toBe(false);
     expect(out.checks.apiKey.detail).toContain("no API key");
   }, 70_000);
 });

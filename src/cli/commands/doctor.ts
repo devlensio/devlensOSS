@@ -14,7 +14,6 @@ interface Check {
   detail: string;
 }
 
-// `devlens doctor` — environment health for analyze/summarize.
 export function registerDoctorCommand(program: Command): void {
   withGlobalFlags(
     program
@@ -23,14 +22,12 @@ export function registerDoctorCommand(program: Command): void {
       .action(async () => {
         const checks: Record<string, Check> = {};
 
-        // git — engine shells out to it for commit info (not bundled in the binary)
         try {
           checks.git = { ok: true, detail: execSync("git --version").toString().trim() };
         } catch {
           checks.git = { ok: false, detail: "git not found — analyze falls back to a timestamp instead of a commit" };
         }
 
-        // storage / config dir writable
         const dir = path.join(os.homedir(), ".devlens");
         try {
           fs.mkdirSync(dir, { recursive: true });
@@ -40,7 +37,6 @@ export function registerDoctorCommand(program: Command): void {
           checks.storage = { ok: false, detail: `cannot write ${dir}` };
         }
 
-        // provider catalog load
         try {
           const catalog = loadCatalog();
           checks.catalog = { ok: true, detail: `${catalog.length} providers in catalog` };
@@ -48,15 +44,11 @@ export function registerDoctorCommand(program: Command): void {
           checks.catalog = { ok: false, detail: `failed to load catalog: ${err?.message ?? err}` };
         }
 
-        // summarization provider / key
         try {
-          // Tolerant read — doctor diagnoses an INCOMPLETE config, it must not
-          // throw on one (GitHub issue #10).
           const cfg = resolveTolerant();
           const provider = cfg.summarization.provider;
           const providerName = cfg.summarization.providerName ?? provider;
 
-          // Multi-provider count
           let providerCount = 1;
           try {
             const allProviders = resolveAllProviders();
@@ -82,7 +74,6 @@ export function registerDoctorCommand(program: Command): void {
             checks.apiKey = { ok: true, detail: `${entry?.label ?? providerName} — no API key needed` };
           }
 
-          // model list reachability (best-effort; pointless without a key)
           const canProbeModels = !needsKey || !!cfg.summarization.apiKey;
           if (!canProbeModels) {
             checks.models = { ok: false, detail: `skipped — no API key for ${providerName}` };
@@ -105,12 +96,6 @@ export function registerDoctorCommand(program: Command): void {
           checks.apiKey = { ok: false, detail: "N/A — config incomplete" };
         }
 
-        // ── Extractor runtimes (multi-language support) ─────────────────────
-        // Standalone binary: go/rust static binaries + java jar are embedded
-        // and materialised (see src/cli/extractors.ts). Python is resolved
-        // honestly (venv if present, else PATH python3) — it is not bundled.
-        // This deliberately avoids the old "walk for node_modules/devlensio"
-        // logic, which always failed for a globally-installed binary.
         const extStatuses = await extractorStatuses();
         for (const s of extStatuses) checks[s.name] = { ok: s.ok, detail: s.detail };
 

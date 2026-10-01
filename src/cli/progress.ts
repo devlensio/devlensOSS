@@ -1,19 +1,31 @@
-// Live job progress for the CLI: analysis spinner, summarization progress
-// BAR with pause/resume/cancel keys, and the graceful-cancel wiring.
+// Live job progress for the CLI: the analysis spinner, the summarization
+// progress bar with pause/resume/cancel keys, and graceful-cancel wiring.
 //
-// Mirrors the webUI JobsPanel state machine using the same engine events:
-//   analysis_started/progress/complete → spinner + step lines
-//   summarization_started/progress     → bar with total/summarized/remaining
+// Mirrors the webUI JobsPanel state machine on the same engine events:
+//   analysis_started/progress/complete → spinner (live step text) + summary
+//   summarization_started/progress     → bar with total/summarized/percent
+//                                         + current node, one-time key hint
 //   paused/resumed                     → status line, keys stay armed
-//   cancelled/failed/completed         → teardown
+//   cancelled/failed/completed         → line cleared, keys detached
 //
-// Keys (TTY, non-JSON only):  p = pause   r = resume   c = cancel
-// Ctrl+C: byte 0x03 in raw mode during summarization, SIGINT signal during
-// analysis — BOTH route to onInterrupt() → engine cancelJob → the job ends
-// terminal and the caller exits 130. Never a stack trace.
+// Rendering rules:
+//   - TTY: single \\r-redrawn line, throttled to `throttleMs` (default 120ms);
+//     paused renders a fixed status line with [r]/[c] hints.
+//   - non-TTY: a plain `summarizing X/Y (N%)` line every `nonTtyStepPct`
+//     percent, never one per event.
+//   - json mode: absolutely no output (stdout stays machine-parseable), and
+//     noteInterrupt/clearLine respect it too.
+//
+// Keys (TTY, non-JSON, armed only while summarizing → raw mode toggled on/off
+// around the job): p = pause, r = resume, c = cancel, each dispatched to the
+// engine queue control; 0x03 (Ctrl+C in raw mode, where no SIGINT fires)
+// routes to onInterrupt(), which the caller wires to a graceful cancelJob —
+// first press warns and waits for the terminal event (exit 130), a second
+// force-quits. Never a stack trace.
 //
 // Everything goes through the injectable `io` + `input` deps so unit tests
-// can drive it with fake streams and a fake queue.
+// drive it with fake streams and a fake queue.
+import { info as cliInfo, success as cliSuccess, warn as cliWarn } from "./output.js";
 
 export interface ProgressEventLike {
   event: string;
@@ -33,7 +45,6 @@ export interface ProgressEventLike {
 }
 
 export interface ProgressIO {
-  /** Direct write (spinner/bar redraws) — stderr. */
   out(s: string): void;
   info(s: string): void;
   success(s: string): void;
@@ -50,33 +61,24 @@ export interface JobProgressOpts {
   jobId: string;
   queue: QueueControl;
   io: ProgressIO;
-  /** stdin for keys; null/undefined disables key handling. */
   input?: Partial<NodeJS.ReadStream> | null;
-  /** Machine mode: suppress ALL human progress output. */
   json?: boolean;
-  /** Called on Ctrl+C (SIGINT signal or raw 0x03 byte). */
   onInterrupt?: () => void;
-  /** Bar redraw throttle in ms (tests use 0). */
   throttleMs?: number;
-  /** Non-TTY: print a plain line every N% of progress. */
   nonTtyStepPct?: number;
 }
-
-// ── Pure helpers (unit-tested) ───────────────────────────────────────────────
 
 export function clampPct(completed: number, total: number): number {
   if (!total || total <= 0) return 0;
   return Math.max(0, Math.min(100, Math.floor((completed / total) * 100)));
 }
 
-/** `[████████░░░░░░░░]` style bar for the given completion. */
 export function makeBar(completed: number, total: number, width = 24): string {
   const pct = total > 0 ? Math.max(0, Math.min(1, completed / total)) : 0;
   const filled = Math.round(pct * width);
   return `[${"█".repeat(filled)}${"░".repeat(Math.max(0, width - filled))}]`;
 }
 
-/** One status line: bar + counts + percent + current node. */
 export function makeBarLine(
   completed: number,
   total: number,
@@ -87,7 +89,14 @@ export function makeBarLine(
   return `${makeBar(completed, total, width)} ${completed}/${total} (${clampPct(completed, total)}%)${name}`;
 }
 
-// ── JobProgress ──────────────────────────────────────────────────────────────
+export function cliProgressIO(): ProgressIO {
+  return {
+    out: (s) => process.stderr.write(s),
+    info: cliInfo,
+    success: cliSuccess,
+    warn: cliWarn,
+  };
+}
 
 type Mode = "idle" | "analyzing" | "summarizing" | "paused" | "done";
 
@@ -103,6 +112,7 @@ export class JobProgress {
   private lastNonTtyPct = -1;
   private keysAttached = false;
   private hintShown = false;
+  private currentNodeName = "";
 
   constructor(opts: JobProgressOpts) {
     this.opts = { throttleMs: 120, nonTtyStepPct: 5, ...opts };
@@ -116,10 +126,8 @@ export class JobProgress {
     return !!this.opts.input?.isTTY;
   }
 
-  // ── Event dispatch ───────────────────────────────────────────────────────
-
   onEvent(ev: ProgressEventLike): void {
-    if (this.json) return; // machine mode: progress is noise
+    if (this.json) return;
     switch (ev.event) {
       case "analysis_started":
         this.mode = "analyzing";
@@ -183,7 +191,7 @@ export class JobProgress {
         this.mode = "done";
         this.clearLine();
         this.detachKeys();
-        break; // the command prints the error itself
+        break;
       case "completed":
         this.mode = "done";
         this.clearLine();
@@ -192,7 +200,6 @@ export class JobProgress {
     }
   }
 
-  /** Ctrl+C path: stop the spinner so the warning prints cleanly. */
   noteInterrupt(): void {
     if (this.json) return;
     this.stopSpinner();
@@ -200,21 +207,17 @@ export class JobProgress {
     this.opts.io.warn("Cancel requested — stopping at the next checkpoint (Ctrl+C again to force quit)");
   }
 
-  /** Final cleanup — safe to call multiple times. */
   stop(): void {
     this.stopSpinner();
     this.detachKeys();
     this.mode = "done";
   }
 
-  // ── Rendering ────────────────────────────────────────────────────────────
-
   private render(force = false): void {
     const now = Date.now();
     const pct = clampPct(this.completed, this.total);
 
     if (!this.tty) {
-      // Non-TTY: a plain line every nonTtyStepPct% (never spam per-event).
       if (force || pct >= this.lastNonTtyPct + this.opts.nonTtyStepPct || pct === 100) {
         this.lastNonTtyPct = pct;
         this.opts.io.info(`summarizing ${this.completed}/${this.total} (${pct}%)`);
@@ -228,8 +231,6 @@ export class JobProgress {
       `⠹ Summarizing ${makeBarLine(this.completed, this.total, this.currentNodeName)}`,
     );
   }
-
-  private currentNodeName = "";
 
   private renderPaused(): void {
     this.clearLine();
@@ -260,17 +261,15 @@ export class JobProgress {
     if (this.tty) this.opts.io.out("\r\x1b[K");
   }
 
-  // ── Spinner ──────────────────────────────────────────────────────────────
-
   private static FRAMES = ["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
 
   private startSpinner(text: string): void {
     if (!this.tty) {
-      this.opts.io.info(text); // non-TTY: one static line per step update
+      this.opts.io.info(text);
       return;
     }
     this.spinnerText = text;
-    if (this.spinnerTimer) return; // already running — text updated above
+    if (this.spinnerTimer) return;
     this.writeLine(`${JobProgress.FRAMES[0]} ${text}`);
     this.spinnerTimer = setInterval(() => {
       this.spinnerFrame = (this.spinnerFrame + 1) % JobProgress.FRAMES.length;
@@ -286,14 +285,12 @@ export class JobProgress {
     this.clearLine();
   }
 
-  // ── Keys (p / r / c + Ctrl+C byte) ───────────────────────────────────────
-
   private attachKeys(): void {
     if (this.keysAttached || !this.tty) return;
     const input = this.opts.input as NodeJS.ReadStream;
     try {
       input.setRawMode?.(true);
-    } catch { /* not a TTY after all */ }
+    } catch {}
     input.on?.("data", this.onData);
     this.keysAttached = true;
   }
@@ -304,7 +301,7 @@ export class JobProgress {
     input.removeListener?.("data", this.onData);
     try {
       input.setRawMode?.(false);
-    } catch { /* ignore */ }
+    } catch {}
     this.keysAttached = false;
   }
 
@@ -312,7 +309,6 @@ export class JobProgress {
     if (!buf?.length) return;
     const b = buf[0];
     if (b === 0x03) {
-      // Ctrl+C in raw mode (no SIGINT signal fires while raw)
       this.opts.onInterrupt?.();
       return;
     }
@@ -324,9 +320,7 @@ export class JobProgress {
         this.opts.io.info("\ncannot pause right now (only during summarization)");
       }
     } else if (ch === "r") {
-      if (this.queueControl().resumeJob(this.opts.jobId)) {
-        /* resumed event renders the state */
-      } else {
+      if (!this.queueControl().resumeJob(this.opts.jobId)) {
         this.opts.io.info("\ncannot resume — job is not paused");
       }
     } else if (ch === "c") {

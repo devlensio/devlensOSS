@@ -58,7 +58,7 @@ function setup(opts: { tty?: boolean; json?: boolean } = {}) {
 describe("bar math", () => {
   test("clampPct", () => {
     expect(clampPct(50, 100)).toBe(50);
-    expect(clampPct(0, 0)).toBe(0); // no divide-by-zero
+    expect(clampPct(0, 0)).toBe(0);
     expect(clampPct(150, 100)).toBe(100);
     expect(clampPct(-5, 100)).toBe(0);
     expect(clampPct(1, 3)).toBe(33);
@@ -72,7 +72,7 @@ describe("bar math", () => {
   test("makeBarLine carries counts, percent and node name", () => {
     expect(makeBarLine(42, 512, "foo.bar", 8)).toBe("[█░░░░░░░] 42/512 (8%) — foo.bar");
     expect(makeBarLine(42, 512, undefined, 8)).toBe("[█░░░░░░░] 42/512 (8%)");
-    expect(makeBarLine(0, 0)).toBe("[░░░░░░░░░░░░░░░░░░░░░░░░] 0/0 (0%)"); // default width 24
+    expect(makeBarLine(0, 0)).toBe("[░░░░░░░░░░░░░░░░░░░░░░░░] 0/0 (0%)");
   });
 });
 
@@ -90,7 +90,6 @@ describe("event state machine (mirrors webUI JobsPanel)", () => {
     expect(bars.length).toBeGreaterThan(0);
     expect(bars[bars.length - 1]).toContain("128/512 (25%)");
     expect(bars[bars.length - 1]).toContain("x.y");
-    // hint once
     expect(rec.info.filter((i) => i.includes("[p] pause")).length).toBe(1);
     p.stop();
   });
@@ -137,10 +136,9 @@ describe("event state machine (mirrors webUI JobsPanel)", () => {
     p.onEvent({ event: "summarization_started", totalNodes: 100 });
     for (let c = 1; c <= 20; c++) p.onEvent({ event: "summarization_progress", completed: c, total: 100 });
     const lines = rec.info.filter((i) => i.startsWith("summarizing "));
-    // 1%..20% → lines at 5% and 10% boundaries (start force-render + every ≥5%)
     expect(lines.length).toBeLessThanOrEqual(6);
     expect(lines.length).toBeGreaterThan(0);
-    expect(rec.out).toHaveLength(0); // no \r redraws off-TTY
+    expect(rec.out).toHaveLength(0);
     p.stop();
   });
 });

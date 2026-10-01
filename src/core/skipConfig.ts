@@ -11,7 +11,7 @@ import type { DevLensConfig } from "devlensio";
 export const SKIP_SUMMARIZATION_CONFIG: DevLensConfig = {
   deploymentMode: "local",
   summarization: {
-    provider: "openai", // never called — skipSummarization bypasses Phase 2
+    provider: "openai",
     model: "none",
     batchSize: 50,
   },

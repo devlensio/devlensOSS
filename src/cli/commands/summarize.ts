@@ -5,8 +5,6 @@ import { withGlobalFlags } from "../options.js";
 import { emit, die, info, isJsonMode } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
-// `devlens summarize [target] [commit]` — runs analysis then summarization.
-// `target` may be a repo path or an existing graphId.
 export function registerSummarizeCommand(program: Command): void {
   withGlobalFlags(
     program
@@ -39,7 +37,6 @@ export function registerSummarizeCommand(program: Command): void {
   );
 }
 
-// If target matches an existing graphId, summarize that repo; else treat as a path.
 function resolveTarget(target: string): string {
   const meta = storage.getGraphMeta(target);
   if (meta) return meta.repoPath;

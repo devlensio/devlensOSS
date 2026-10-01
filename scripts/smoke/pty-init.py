@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """M8 PTY smoke 1: init stage flow — issues 8, 9, 10, 11, 12."""
 import sys, os, json, re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -6,8 +5,6 @@ from ptydrive import Session
 
 HOME = "/tmp/dlinit-home"
 import os, json as _json
-# deterministic fixture: reset to a commandcode-ACTIVE config every run
-# (previous scenario runs may have switched the active provider)
 os.makedirs(f"{HOME}/.devlens", exist_ok=True)
 _json.dump({
     "summarization": {
@@ -30,15 +27,11 @@ def check(name, cond, detail=""):
     if not cond:
         fails.append(name)
 
-# ── Scenario A: full run — pick DeepSeek from a commandcode-active config ──
 s = Session(["bun", "src/cli/index.ts", "init"], HOME)
 check("A: stage0 renders provider list", s.expect("Choose a summarization provider", 30))
-# default cursor is on the saved active provider, visible in the viewport
 check("A: saved commandcode shows in list (issue 12)",
       s.expect("commandcode \u2014 OpenAI-compatible API", 10))
 check("A: no ollama in list (issue 13)", b"ollama" not in s.buf.lower())
-# walk the highlight up until DeepSeek is selected — index-agnostic so the
-# check works regardless of how many entries the engine catalog ships
 selected_ds = False
 for _ in range(14):
     s.send("\x1b[A")
@@ -52,7 +45,7 @@ s.send("\r")
 check("A: stage1 API type + proper wording (issue 10)",
       s.expect("API type for DeepSeek", 15) and s.expect("Chat Completions API", 5)
       and s.expect("Messages API", 5) and s.expect("← Back", 5))
-s.send("\r")  # default openai
+s.send("\r")
 check("A: key prompt names SELECTED provider, no 'keep' from another (issue 8)",
       s.expect("API key for deepseek", 15))
 seg = s.text()
@@ -82,15 +75,14 @@ cc = sm["providers"].get("openai:commandcode", {})
 check("A: commandcode entry untouched", cc.get("apiKey") == "cc-secret-key-123" and
       cc.get("baseUrl") == "https://api.commandcode.ai/provider/v1", str(cc))
 
-# ── Scenario B: ESC goes back one stage, ESC at stage0 cancels cleanly ──
 s = Session(["bun", "src/cli/index.ts", "init"], HOME)
 check("B: stage0", s.expect("Choose a summarization provider", 30))
-s.send("\r")  # select default (now deepseek active)
+s.send("\r")
 check("B: stage1", s.expect("API type for", 15))
-s.send("\x1b")  # ESC -> back to stage0
+s.send("\x1b")
 check("B: ESC returns to provider select (issue 11)",
       s.expect("Choose a summarization provider", 10), s.text()[-200:].replace("\x1b", "ESC"))
-s.send("\x1b")  # ESC at stage0 -> cancel
+s.send("\x1b")
 check("B: ESC at stage0 cancels without touching config",
       s.expect("Setup cancelled", 10), s.text()[-300:].replace("\x1b", "ESC"))
 rc = s.close()
@@ -98,7 +90,6 @@ check("B: cancel exits 0", rc == 0, f"rc={rc}")
 check("B: config still has our saved deepseek entry",
       json.load(open(f"{HOME}/.devlens/config.json"))["summarization"]["providers"]["openai:deepseek"]["apiKey"] == "sk-new-123")
 
-# ── Scenario C: Ctrl+C at a prompt → 'Cancelled.', exit 130 (issue 1) ──
 s = Session(["bun", "src/cli/index.ts", "init"], HOME)
 check("C: stage0", s.expect("Choose a summarization provider", 30))
 s.send("\x03")

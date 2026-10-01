@@ -1,6 +1,31 @@
+// `devlens config` — show or update ~/.devlens/config.json, plus the
+// interactive setup flow shared with `devlens init`.
+//
+// Surfaces:
+//   - bare `devlens config` / always after mutations: masked flat config
+//     (SafeConfig shape, embedding field kept for API compatibility but not
+//     rendered) via resolveTolerant(), then a best-effort listing of every
+//     saved provider with the active one starred.
+//   - flags (--provider/--model/--api-key/…): non-interactive scripting path;
+//     --provider accepts a wire protocol (openai|anthropic) or a catalog name
+//     (resolved to protocol + providerName).
+//   - --active <protocol:name> / --remove <key>: switch or delete a saved
+//     provider entry; both fail with the engine's message via die().
+//   - --set (alias `config set`): the interactive flow.
+//
+// configInteractive(prefill) is a 6-stage loop —
+//   0 provider → 1 API type → 2 API key → 3 base URL → 4 model → 5 batch size
+// — driven entirely by the pure helpers in ../initFlow.ts: every prompt value
+// is pinned to the SELECTED provider (saved entry ?? catalog), never to the
+// previously-active one; ESC (or a visible "← Back") returns one stage and ESC
+// at stage 0 cancels without writing; Custom… collects a name inline at stage
+// 0 and defaults its API type to openai. The model list is fetched live from
+// the selected provider's endpoint and falls back to manual entry; a keyless
+// save is allowed but warned (summarize stays disabled until a key is added).
+// writeConfig() upserts the entry and activates it.
 import { select, input, password, search } from "@inquirer/prompts";
 import type { Command } from "commander";
-import { resolveConfig, maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
+import { maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
 import type { LLMProvider } from "devlensio";
 import { withGlobalFlags } from "../options.js";
 import { resolveTolerant } from "../../core/tolerantConfig.js";
@@ -18,7 +43,6 @@ import {
   type ProviderChoice,
 } from "../initFlow.js";
 
-// `devlens config` — show config; with flags or --set, update it.
 export function registerConfigCommand(program: Command): void {
   const cmd = program
     .command("config")
@@ -36,7 +60,6 @@ export function registerConfigCommand(program: Command): void {
       const hasFlagUpdate =
         opts.provider || opts.providerName || opts.model || opts.apiKey || opts.baseUrl || opts.batchSize;
 
-      // ── --active: switch active provider ─────────────────────────────────
       if (opts.active) {
         try {
           setActiveProvider(opts.active);
@@ -48,7 +71,6 @@ export function registerConfigCommand(program: Command): void {
         return;
       }
 
-      // ── --remove: remove a provider entry ────────────────────────────────
       if (opts.remove) {
         try {
           removeProviderConfig(opts.remove);
@@ -61,7 +83,6 @@ export function registerConfigCommand(program: Command): void {
       }
 
       if (hasFlagUpdate && !opts.set) {
-        // Validate --provider: must be a valid protocol, or resolvable via catalog
         if (opts.provider && opts.provider !== "openai" && opts.provider !== "anthropic") {
           const entry = findProvider(opts.provider);
           if (entry) {
@@ -78,7 +99,6 @@ export function registerConfigCommand(program: Command): void {
           }
         }
 
-        // Non-interactive scripting path
         writeConfig({
           summarization: {
             ...(opts.provider && { provider: opts.provider as LLMProvider }),
@@ -91,17 +111,14 @@ export function registerConfigCommand(program: Command): void {
         });
         success("Config updated.");
       } else if (hasFlagUpdate && opts.set) {
-        // Flags + --set → interactive with pre-filled values
         await configInteractive(opts);
       } else if (opts.set) {
         await configInteractive({});
       }
 
-      // Always show the (masked) current config.
       showConfig();
     });
 
-  // Add `devlens config set` as an alias for `devlens config --set`
   withGlobalFlags(
     cmd
       .command("set")
@@ -112,17 +129,12 @@ export function registerConfigCommand(program: Command): void {
       })
   );
 
-  // Apply global flags to both the parent and subcommand
   withGlobalFlags(cmd);
 }
 
-// ── Display all configured providers ───────────────────────────────────────
-
 function showConfig(): void {
-  // Show masked flat config for backward compat
   emit(maskConfig(resolveTolerant()));
 
-  // Show all configured providers
   try {
     const allProviders = resolveAllProviders();
     if (allProviders.providers.length > 0) {
@@ -137,17 +149,8 @@ function showConfig(): void {
         if (p.baseUrl) info(`    Base: ${p.baseUrl}`);
       }
     }
-  } catch {
-    // best-effort — ignore errors
-  }
+  } catch {}
 }
-
-// ── Interactive config flow ──────────────────────────────────────────────────
-//
-// Stage loop with ESC / "← Back" navigation:
-//   0 provider → 1 API type → 2 API key → 3 base URL → 4 model → 5 batch size
-// Pure helpers (choices, messages, save payload, ESC wrapper) live in
-// ../initFlow.ts so they are unit-testable.
 
 export async function configInteractive(prefill: Record<string, any> = {}): Promise<void> {
   const catalog = loadCatalog();
@@ -157,15 +160,13 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
   const choices = built.choices;
   let defaultIndex = built.defaultIndex;
   if (prefill.providerName) {
-    // --set --provider-name X preselects X when it exists in the list.
     const i = choices.findIndex((c) => c.value.providerName === prefill.providerName);
     if (i >= 0) defaultIndex = i;
   }
 
-  // Stage state — survives going back and forth between stages.
   let stage = 0;
-  let picked: ProviderChoice | null = null;         // stage 0 (catalog/saved)
-  let isCustom = false;                             // stage 0 (Custom…)
+  let picked: ProviderChoice | null = null;
+  let isCustom = false;
   let customName = String(prefill.providerName ?? "");
   let protocol: "openai" | "anthropic" = "openai";
   let apiKey: string | undefined;
@@ -175,10 +176,9 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
   let model = "";
   let batchSize = 50;
   let preselected = choices[defaultIndex];
-  let savedId: string | undefined = undefined; // saved entry of the SELECTED provider
+  let savedId: string | undefined = undefined;
 
   while (true) {
-    // ── Stage 0: provider ───────────────────────────────────────────────────
     if (stage === 0) {
       const res = await withEscBack((signal) =>
         select<ProviderChoice["value"]>({
@@ -194,7 +194,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       const chosen = choices.find((c) => c.value === res.value);
 
       if (res.value && (res.value as { providerName?: string }).providerName === "" ) {
-        // Custom… → collect the name right here (staying on stage 0)
         const nameRes = await withEscBack((signal) =>
           input({
             message: "Provider name (e.g. my-lmalite)  ·  ESC = back",
@@ -202,14 +201,14 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
             validate: (s: string) => (s.trim() ? true : "Provider name is required"),
           }, { signal }),
         );
-        if (nameRes.kind === "back") continue; // re-show the provider select
+        if (nameRes.kind === "back") continue;
         customName = nameRes.value.trim();
         isCustom = true;
         picked = null;
         providerName = customName;
         label = customName;
         savedId = undefined;
-        protocol = "openai";   // default API type for customs (issue 10)
+        protocol = "openai";
         apiKey = undefined;
         baseUrl = prefill.baseUrl ?? undefined;
       } else if (chosen) {
@@ -218,9 +217,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
         providerName = chosen.value.providerName;
         label = chosen.value.label;
         protocol = chosen.value.protocol;
-        // Entering the key stage: retain this provider's own saved key so
-        // "Enter to keep" refers to the SELECTED provider — never the
-        // previously-active one (issue 8).
         apiKey = chosen.value.savedApiKey;
         baseUrl = prefill.baseUrl ?? chosen.value.baseUrl;
         preselected = chosen;
@@ -230,7 +226,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       continue;
     }
 
-    // ── Stage 1: API type (issue 10 — explicit, proper wording, openai default)
     if (stage === 1) {
       const res = await withEscBack((signal) =>
         select<"openai" | "anthropic" | typeof GO_BACK>({
@@ -248,7 +243,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       continue;
     }
 
-    // ── Stage 2: API key (issue 8 — keep-key ONLY for this provider) ────────
     if (stage === 2) {
       const requiresKey = pickRequiresKey(catalog, providerName, isCustom);
       const spec = keyPromptSpec({
@@ -280,7 +274,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       continue;
     }
 
-    // ── Stage 3: base URL (issue 9 — default is THIS provider's, never the old one)
     if (stage === 3) {
       const spec = urlPromptSpec(label, baseUrl);
       const res = await withEscBack((signal) =>
@@ -299,7 +292,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       continue;
     }
 
-    // ── Stage 4: model ──────────────────────────────────────────────────────
     if (stage === 4) {
       let models: string[] = [];
       try {
@@ -375,7 +367,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
       continue;
     }
 
-    // ── Stage 5: batch size ─────────────────────────────────────────────────
     const defaultBatch = String(
       prefill.batchSize ??
         (isCustom ? undefined : picked?.value.savedBatchSize) ??
@@ -412,8 +403,6 @@ export async function configInteractive(prefill: Record<string, any> = {}): Prom
   success(`Config saved — ${providerName} / ${model}`);
 }
 
-// requiresKey: catalog entries declare it; customs (and saved-only entries
-// missing from the catalog) are treated as key-requiring.
 function pickRequiresKey(
   catalog: ReturnType<typeof loadCatalog>,
   providerName: string,
