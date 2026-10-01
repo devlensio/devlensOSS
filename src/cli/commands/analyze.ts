@@ -2,7 +2,7 @@ import path from "node:path";
 import type { Command } from "commander";
 import { storage } from "devlensio";
 import { withGlobalFlags } from "../options.js";
-import { emit, die, info, step } from "../output.js";
+import { emit, die, info, isJsonMode } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
 // `devlens analyze [path] [commitHash]` — Phase 1 analysis; --summarize chains Phase 2.
@@ -22,18 +22,17 @@ export function registerAnalyzeCommand(program: Command): void {
         const repoPath = path.resolve(process.cwd(), repoArg ?? ".");
         info(`Repo: ${repoPath}`);
 
-        const res = await step(
-          opts.summarize || opts.forceSummarize
-            ? "Analyzing + summarizing repository"
-            : "Analyzing repository",
-          () =>
-            runAnalyzeJob({
-              repoPath,
-              summarize: !!(opts.summarize || opts.forceSummarize),
-              forceSummarize: !!opts.forceSummarize,
-            })
-        );
+        const res = await runAnalyzeJob({
+          repoPath,
+          summarize: !!(opts.summarize || opts.forceSummarize),
+          forceSummarize: !!opts.forceSummarize,
+        });
 
+        if (res.status === "cancelled") {
+          // Human mode already printed the cancelled-at-X/Y summary.
+          if (isJsonMode()) die("Job cancelled", 130);
+          process.exit(130);
+        }
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
 
         // Language/framework come from the persisted graph entry — cheap, exact,

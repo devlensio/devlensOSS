@@ -2,7 +2,7 @@ import path from "node:path";
 import type { Command } from "commander";
 import { storage } from "devlensio";
 import { withGlobalFlags } from "../options.js";
-import { emit, die, info, step } from "../output.js";
+import { emit, die, info, isJsonMode } from "../output.js";
 import { runAnalyzeJob } from "../jobRunner.js";
 
 // `devlens summarize [target] [commit]` — runs analysis then summarization.
@@ -21,16 +21,18 @@ export function registerSummarizeCommand(program: Command): void {
         const repoPath = resolveTarget(target ?? ".");
         info(`Repo: ${repoPath}`);
 
-        const res = await step("Analyzing + summarizing repository", () =>
-          runAnalyzeJob({
-            repoPath,
-            summarize: true,
-            forceSummarize: !!opts.forceSummarize,
-            model: opts.model,
-            provider: opts.provider,
-          })
-        );
+        const res = await runAnalyzeJob({
+          repoPath,
+          summarize: true,
+          forceSummarize: !!opts.forceSummarize,
+          model: opts.model,
+          provider: opts.provider,
+        });
 
+        if (res.status === "cancelled") {
+          if (isJsonMode()) die("Job cancelled", 130);
+          process.exit(130);
+        }
         if (res.status !== "completed") die(res.error ?? `Job ended with status: ${res.status}`);
         emit({ graphId: res.graphId, status: res.status });
       })
