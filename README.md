@@ -102,7 +102,7 @@ Only needed if you want AI summaries. Structure-only analysis works offline with
 devlens init
 ```
 
-This walks you through picking a provider and model interactively. Local models work too (Ollama, 8 GB+ RAM). See [Configuration](#configuration) for recommended models.
+This walks you through picking a provider, API type, key, endpoint, and model interactively — press **ESC** at any step to go back a stage. See [Configuration](#configuration) for recommended models.
 
 ### Step 3 — Analyze your repo
 
