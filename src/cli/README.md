@@ -63,6 +63,7 @@ devlens find-nodes -t COMPONENT
 | `devlens init` | First-time setup — configure the LLM provider interactively |
 | `devlens doctor` | Environment health check — git, storage, LLM provider + API key, and **all extractor runtimes** (go/rust/java/python) |
 | `devlens status` | Which repos are analyzed, their language + summary coverage |
+| `devlens update [--check]` | Update the CLI to the latest published version — npm registry lookup (bounded timeout), package manager auto-detected (npm/pnpm/yarn/bun). `--check` = dry run that only reports (pairs with `--json`); offline, up-to-date, source-checkout and non-global installs get explicit messages |
 | `devlens config …` | Show / update LLM provider config (see [Configuration](#configuration)) |
 | `devlens repos` | List analyzed repositories |
 | `devlens graphs list` / `devlens graphs delete <graphId>` | Manage stored graphs |

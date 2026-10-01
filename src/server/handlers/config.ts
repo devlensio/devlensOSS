@@ -1,4 +1,5 @@
 import { resolveConfig, maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
+import { resolveTolerant } from "../../core/tolerantConfig.js";
 
 // ── Simple in-memory cache for model listings ────────────────────────────────
 const modelCache = new Map<string, { models: string[]; expires: number }>();
@@ -28,7 +29,7 @@ export function handleGetConfig(req: Request): Response {
     // Tolerant read: an incomplete summarization config must still be
     // visible in the settings UI (issue #10a family) — it used to return
     // {} exactly when the user most needed to see and fix it.
-    const config = resolveConfig(req, { validate: false });
+    const config = resolveTolerant(req);
     const safe   = maskConfig(config);
     // Attach all configured providers for the multi-provider UI
     try {
@@ -46,7 +47,7 @@ export function handleGetConfig(req: Request): Response {
 export async function handlePatchConfig(req: Request): Promise<Response> {
   let deploymentMode = "local";
   try {
-    const current = resolveConfig(req, { validate: false });
+    const current = resolveTolerant(req);
     deploymentMode = current.deploymentMode;
   } catch {
     // No readable config yet — allow PATCH through so user can set one up
@@ -138,7 +139,7 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
 
   // ── Return updated masked config ──────────────────────────────────────────
   try {
-    const updated = resolveConfig(req, { validate: false });
+    const updated = resolveTolerant(req);
     const safe    = maskConfig(updated);
     return Response.json({
       success: true,

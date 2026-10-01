@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import { resolveConfig, maskConfig, writeConfig, resolveAllProviders, setActiveProvider, removeProviderConfig, loadCatalog, findProvider, listModels } from "devlensio";
 import type { LLMProvider } from "devlensio";
 import { withGlobalFlags } from "../options.js";
+import { resolveTolerant } from "../../core/tolerantConfig.js";
 import { emit, success, info, warn, die } from "../output.js";
 import {
   buildProviderChoices,
@@ -107,7 +108,7 @@ export function registerConfigCommand(program: Command): void {
       .description("Interactively set summarization configuration")
       .action(async () => {
         await configInteractive({});
-        emit(maskConfig(resolveConfig(undefined, { validate: false })));
+        emit(maskConfig(resolveTolerant()));
       })
   );
 
@@ -119,7 +120,7 @@ export function registerConfigCommand(program: Command): void {
 
 function showConfig(): void {
   // Show masked flat config for backward compat
-  emit(maskConfig(resolveConfig(undefined, { validate: false })));
+  emit(maskConfig(resolveTolerant()));
 
   // Show all configured providers
   try {

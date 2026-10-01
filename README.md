@@ -278,6 +278,7 @@ The Web UI runs from the source tree, it is not bundled into the installed CLI b
 | `devlens reindex [graphId] [commitHash] [--force]` | Rebuild the local search index (`.search.json`) without re-analyzing. No arguments reindexes the latest commit of every graph |
 | `devlens serve` | Start the backend HTTP API only (used by the MCP server and the Web UI) |
 | `devlens mcp` | Run the MCP server (see [Quick Start](#quick-start)) |
+| `devlens update [--check]` | Update the CLI to the latest published version — package manager auto-detected (npm/pnpm/yarn/bun). `--check` only checks and reports (pipeable with `--json`); offline, up-to-date, source-checkout, and non-global installs each get an explicit message |
 
 **Hands-on examples**
 

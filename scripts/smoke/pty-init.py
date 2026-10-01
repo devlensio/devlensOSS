@@ -33,15 +33,21 @@ def check(name, cond, detail=""):
 # ── Scenario A: full run — pick DeepSeek from a commandcode-active config ──
 s = Session(["bun", "src/cli/index.ts", "init"], HOME)
 check("A: stage0 renders provider list", s.expect("Choose a summarization provider", 30))
-# default cursor is on saved commandcode (index 8, visible in the viewport)
+# default cursor is on the saved active provider, visible in the viewport
 check("A: saved commandcode shows in list (issue 12)",
       s.expect("commandcode \u2014 OpenAI-compatible API", 10))
 check("A: no ollama in list (issue 13)", b"ollama" not in s.buf.lower())
-# 8x UP scrolls to DeepSeek (index 0) — the select viewport hides it before
-s.send("\x1b[A" * 8)
-check("A: DeepSeek scrolls into view with API-type wording (issue 10)",
-      s.expect("DeepSeek \u2014 OpenAI-compatible API", 10))
-s.pump(0.4)
+# walk the highlight up until DeepSeek is selected — index-agnostic so the
+# check works regardless of how many entries the engine catalog ships
+selected_ds = False
+for _ in range(14):
+    s.send("\x1b[A")
+    if s.expect("\u276f DeepSeek \u2014 OpenAI-compatible API", 2.5):
+        selected_ds = True
+        break
+check("A: DeepSeek selectable with API-type wording (issue 10)", selected_ds,
+      s.text()[-300:].replace("\x1b", "ESC"))
+s.pump(0.3)
 s.send("\r")
 check("A: stage1 API type + proper wording (issue 10)",
       s.expect("API type for DeepSeek", 15) and s.expect("Chat Completions API", 5)
