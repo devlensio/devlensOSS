@@ -25,7 +25,10 @@ function setCachedModels(key: string, models: string[]): void {
 
 export function handleGetConfig(req: Request): Response {
   try {
-    const config = resolveConfig(req);
+    // Tolerant read: an incomplete summarization config must still be
+    // visible in the settings UI (issue #10a family) — it used to return
+    // {} exactly when the user most needed to see and fix it.
+    const config = resolveConfig(req, { validate: false });
     const safe   = maskConfig(config);
     // Attach all configured providers for the multi-provider UI
     try {
@@ -43,10 +46,10 @@ export function handleGetConfig(req: Request): Response {
 export async function handlePatchConfig(req: Request): Promise<Response> {
   let deploymentMode = "local";
   try {
-    const current = resolveConfig(req);
+    const current = resolveConfig(req, { validate: false });
     deploymentMode = current.deploymentMode;
   } catch {
-    // No valid config yet — allow PATCH through so user can set one up
+    // No readable config yet — allow PATCH through so user can set one up
   }
 
   if (deploymentMode === "cloud") {
@@ -79,8 +82,7 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
   }
 
   // ── Validate provider values if provided ──────────────────────────────────
-  const VALID_LLM_PROVIDERS       = new Set(["openai", "anthropic"]);
-  const VALID_EMBEDDING_PROVIDERS = new Set(["openai", "anthropic", "openrouter", "gemini", "ollama"]);
+  const VALID_LLM_PROVIDERS = new Set(["openai", "anthropic"]);
 
   const partial = body as Record<string, unknown>;
   if (partial.summarization) {
@@ -118,19 +120,8 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
     }
   }
 
-  if (partial.embedding) {
-    const e = partial.embedding as Record<string, unknown>;
-    if (e.provider && !VALID_EMBEDDING_PROVIDERS.has(e.provider as string)) {
-      return Response.json(
-        {
-          success: false,
-          error:   `Invalid embedding provider: "${e.provider}"`,
-          valid:   [...VALID_EMBEDDING_PROVIDERS],
-        },
-        { status: 400 }
-      );
-    }
-  }
+  // (embedding validation removed — embeddings are not used by the OSS
+  // webUI/CLI; the embedding field remains accepted/ignored for API compat.)
 
   // ── Write to disk ─────────────────────────────────────────────────────────
   try {
@@ -147,7 +138,7 @@ export async function handlePatchConfig(req: Request): Promise<Response> {
 
   // ── Return updated masked config ──────────────────────────────────────────
   try {
-    const updated = resolveConfig(req);
+    const updated = resolveConfig(req, { validate: false });
     const safe    = maskConfig(updated);
     return Response.json({
       success: true,
