@@ -186,15 +186,9 @@ function formatConfig(obj: Record<string, unknown>): string {
     }
     lines.push("");
   }
-  const e = obj.embedding as Record<string, unknown> | undefined;
-  if (e) {
-    lines.push(`  ${colors.bold("Embedding")}`);
-    for (const [key, val] of Object.entries(e)) {
-      if (val == null || val === "") continue;
-      const display = key === "apiKey" ? `****${String(val).slice(-4)}` : String(val);
-      lines.push(`    ${key}: ${colors.cyan(display)}`);
-    }
-  }
+  // Note: the embedding block is intentionally NOT displayed — embeddings are
+  // not used by the OSS CLI/webUI (config surface cleanup). The SafeConfig
+  // payload still carries it for API/type compatibility.
   return lines.join("\n");
 }
 

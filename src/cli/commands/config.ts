@@ -97,7 +97,7 @@ export function registerConfigCommand(program: Command): void {
       .description("Interactively set summarization configuration")
       .action(async () => {
         await configInteractive({});
-        emit(maskConfig(resolveConfig()));
+        emit(maskConfig(resolveConfig(undefined, { validate: false })));
       })
   );
 
@@ -109,7 +109,7 @@ export function registerConfigCommand(program: Command): void {
 
 function showConfig(): void {
   // Show masked flat config for backward compat
-  emit(maskConfig(resolveConfig()));
+  emit(maskConfig(resolveConfig(undefined, { validate: false })));
 
   // Show all configured providers
   try {
@@ -134,7 +134,9 @@ function showConfig(): void {
 // ── Interactive config flow ──────────────────────────────────────────────────
 
 export async function configInteractive(prefill: Record<string, any> = {}): Promise<void> {
-  const cur = resolveConfig().summarization;
+  // Tolerant read: init/config must work on an INCOMPLETE config — fixing
+  // broken configs is exactly what this flow is for (GitHub issue #10).
+  const cur = resolveConfig(undefined, { validate: false }).summarization;
   const catalog = loadCatalog();
 
   // Build provider choices
