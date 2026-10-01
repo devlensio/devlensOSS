@@ -194,6 +194,7 @@ export class JobProgress {
 
   /** Ctrl+C path: stop the spinner so the warning prints cleanly. */
   noteInterrupt(): void {
+    if (this.json) return;
     this.stopSpinner();
     this.clearLine();
     this.opts.io.warn("Cancel requested — stopping at the next checkpoint (Ctrl+C again to force quit)");
@@ -255,6 +256,7 @@ export class JobProgress {
   }
 
   private clearLine(): void {
+    if (this.json) return;
     if (this.tty) this.opts.io.out("\r\x1b[K");
   }
 
