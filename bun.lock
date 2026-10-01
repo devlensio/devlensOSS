@@ -6,7 +6,7 @@
       "name": "@devlensio/cli",
       "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "devlensio": "1.0.3",
+        "devlensio": "^1.0.4",
         "minisearch": "^7.2.0",
         "stopword": "^3.1.5",
         "wink-porter2-stemmer": "^2.0.1",
@@ -621,7 +621,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "devlensio": ["devlensio@1.0.3", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-hvtFJFWFle48/rcnyDGX1Nb9q9D/KLFJcMq2KduVHHolEKLDcib+DAcI+AwwiNHiigyRAME1BV154nH61fllTw=="],
+    "devlensio": ["devlensio@1.0.4", "", { "dependencies": { "@anthropic-ai/sdk": "^0.104.2", "@google/genai": "^2.8.0", "dotenv": "^17.4.2", "openai": "^6.42.0", "simple-git": "^3.36.0", "ts-morph": "^28.0.0", "uuid": "^11.0.0" } }, "sha512-3tTLnHv1/2JI0Mah76kauF4ssqe9Cr/7o/SdgCsr2BMP1c/Z28z6RpJQrZ99pvjx9mat9geXgQuvVrdDCLQfMA=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
 
