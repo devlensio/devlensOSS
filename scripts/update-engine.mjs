@@ -18,7 +18,7 @@
 //   3. updates package.json dependencies.devlensio
 //   4. bun install  (fetches the new engine + its new extractor binaries/zip)
 //   5. node scripts/embed-python.mjs   (regenerate the python module zip)
-//   6. node scripts/embed-active.mjs linux-amd64  (regenerate host active.ts)
+//   6. node scripts/embed-active.mjs  (restore SOURCE-mode active.ts — path strings)
 //   7. npx tsc --noEmit  (sanity: types still clean)
 //   8. prints what changed + the exact next steps to release
 //
@@ -102,8 +102,8 @@ run("bun", ["install"], "bun install (fetch new devlensio)");
 // 5) regenerate the embedded python module zip from the NEW engine
 run("node", ["scripts/embed-python.mjs"], "regenerate embedded python zip");
 
-// 6) regenerate the host platform's active.ts from the NEW engine binaries
-run("node", ["scripts/embed-active.mjs", HOST_TARGET], `regenerate active.ts (${HOST_TARGET})`);
+// 6) restore SOURCE-mode active.ts (path strings — static binary imports crash source runs)
+run("node", ["scripts/embed-active.mjs"], "restore source-mode active.ts");
 
 // 7) typecheck
 run("npx", ["tsc", "--noEmit", "-p", "tsconfig.json"], "tsc --noEmit");

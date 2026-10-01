@@ -124,13 +124,13 @@ for (const target of targets) {
 }
 
 console.log(`\n  [build] done: ${ok} built, ${failed} failed.`);
-console.log(`  [build] regenerate host active.ts (linux-amd64) so source runs still work...`);
-const restore = spawnSync("node", ["scripts/embed-active.mjs", "linux-amd64"], {
+console.log(`  [build] restore SOURCE-mode active.ts (path strings) so source runs keep working...`);
+const restore = spawnSync("node", ["scripts/embed-active.mjs"], {
   cwd: root,
   stdio: "inherit",
 });
 if (restore.status !== 0) {
-  fail("could not restore host active.ts — run: node scripts/embed-active.mjs linux-amd64");
+  fail("could not restore source-mode active.ts — run: node scripts/embed-active.mjs");
 }
 
 process.exit(failed === 0 ? 0 : 1);
