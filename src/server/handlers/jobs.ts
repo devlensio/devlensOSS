@@ -1,7 +1,8 @@
-import { queue, DevLensConfig, resolveConfig, hasSummarizationConfigured, isTerminal, toJobSummary, JobInput, storage } from "devlensio";
+import { queue, DevLensConfig, resolveConfig, isTerminal, toJobSummary, JobInput, storage } from "devlensio";
 import { existsSync, lstatSync } from "node:fs";
 import { resolve, normalize } from "node:path";
 import { SKIP_SUMMARIZATION_CONFIG } from "../../core/skipConfig.js";
+import { summarizationConfigured } from "../../core/tolerantConfig.js";
 
 //  handleAnalyze 
 //
@@ -66,7 +67,7 @@ export async function handleAnalyze(req: Request): Promise<Response> {
   // (GitHub issue devlensio/devlensOSS#10). The explicit summarize endpoint
   // (POST .../summarize) still validates strictly — that path asks for it.
   let skip = !!skipSummarization;
-  if (!skip && !hasSummarizationConfigured(req)) {
+  if (!skip && !summarizationConfigured(req)) {
     skip = true;
     console.warn(
       "devlens: no usable summarization API key configured — running analysis only. " +

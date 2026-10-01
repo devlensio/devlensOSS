@@ -7,6 +7,7 @@ import { resolveConfig, resolveAllProviders, loadCatalog, findProvider, listMode
 import { withGlobalFlags } from "../options.js";
 import { emit, colors } from "../output.js";
 import { extractorStatuses } from "../extractors.js";
+import { resolveTolerant } from "../../core/tolerantConfig.js";
 
 interface Check {
   ok: boolean;
@@ -51,7 +52,7 @@ export function registerDoctorCommand(program: Command): void {
         try {
           // Tolerant read — doctor diagnoses an INCOMPLETE config, it must not
           // throw on one (GitHub issue #10).
-          const cfg = resolveConfig(undefined, { validate: false });
+          const cfg = resolveTolerant();
           const provider = cfg.summarization.provider;
           const providerName = cfg.summarization.providerName ?? provider;
 
