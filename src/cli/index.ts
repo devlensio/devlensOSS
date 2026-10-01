@@ -18,13 +18,14 @@ import { registerMcpCommand } from "./commands/mcp.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerInitCommand } from "./commands/init.js";
+import { registerUpdateCommand } from "./commands/update.js";
 import { registerDetectCommand } from "./commands/detect.js";
 import { banner } from "./output.js";
 
 const program = new Command();
 
-// Keep in sync with the `version` field in package.json.
-const CLI_VERSION = "0.6.0";
+import { CLI_VERSION } from "./version.js";
+// Keep in sync with the `version` field in package.json. (version.ts)
 
 program
   .name("devlens")
@@ -142,6 +143,9 @@ const EXAMPLES: Record<string, string> = {
   devlens doctor                                   check git, storage, LLM provider, extractors`,
   init: `Examples:
   devlens init                                     first-time LLM provider setup`,
+  update: `Examples:
+  devlens update                                   update the CLI to the latest version
+  devlens update --check                           only check, do not install`,
 };
 
 // Attach the example block to a command (and, recursively, its subcommands).
@@ -219,6 +223,7 @@ registerMcpCommand(program);
 registerStatusCommand(program);
 registerDoctorCommand(program);
 registerInitCommand(program);
+registerUpdateCommand(program);
 // TUI group mounts here in the next step.
 
 // Append per-command usage examples to every command's help.
