@@ -51,3 +51,4 @@ frontend/package-lock.json
 
 # Generated at prepack from plugins/devlens/skills/devlens (single source of truth)
 packages/skill-installer/skill/
+__pycache__/
