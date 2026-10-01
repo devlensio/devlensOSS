@@ -236,11 +236,17 @@ export function buildSavePayload(state: InitState): {
 // @inquirer prompts only handle enter/arrows/backspace — ESC is ignored and
 // Ctrl+C rejects with ExitPromptError. We arm a raw-data listener while a
 // prompt runs: a LONE ESC byte (arrow keys arrive as multi-byte chunks like
-// \x1b[A, so they never match) settles the prompt by injecting a ^C byte,
-// which readline turns into SIGINT and @inquirer/core rejects + cleans up —
-// exactly the normal Ctrl+C path. We then distinguish: injected (armed) →
-// GO_BACK; a real Ctrl+C → rethrow so the top-level handler prints
-// "Cancelled." and exits 130.
+// \x1b[A, so they never match) aborts the prompt's AbortSignal —
+// @inquirer/core rejects with AbortPromptError and runs its full cleanup
+// (rl.close, raw-mode restore, cursor) via promise.finally, so the next
+// stage's prompt starts from a clean slate. A REAL Ctrl+C reaches readline
+// natively and rejects with ExitPromptError, which we rethrow so the
+// top-level handler prints "Cancelled." and exits 130.
+//
+// Note: we originally tried injecting a ^C byte back into process.stdin —
+// Bun's readline reads TTY input natively and ignores stream-level
+// emit()/push(), so injection never reaches it. The AbortSignal path is
+// the public cancel API and works everywhere.
 
 export type EscResult<T> = { kind: "done"; value: T } | { kind: "back" };
 
@@ -249,25 +255,26 @@ export function isLoneEsc(buf: unknown): boolean {
 }
 
 export async function withEscBack<T>(
-  run: () => Promise<T>,
-  input: { on(ev: "data", fn: (b: Buffer) => void): unknown; removeListener(ev: "data", fn: (b: Buffer) => void): unknown; emit(ev: "data", b: Buffer): unknown } =
-    process.stdin as never,
+  run: (signal: AbortSignal) => Promise<T>,
+  input: {
+    on(ev: "data", fn: (b: Buffer) => void): unknown;
+    removeListener(ev: "data", fn: (b: Buffer) => void): unknown;
+  } = process.stdin as never,
 ): Promise<EscResult<T>> {
   let armed = true;
+  const controller = new AbortController();
   const onData = (buf: Buffer) => {
     if (!armed || !isLoneEsc(buf)) return;
     armed = false;
     input.removeListener("data", onData);
-    // Inject ^C so the pending readline raises SIGINT and the prompt rejects
-    // with cleanup (inquirer ignores the ESC byte itself).
-    input.emit("data", Buffer.from([0x03]));
+    controller.abort(); // inquirer rejects AbortPromptError + cleans up
   };
   input.on("data", onData);
   try {
-    const value = await run();
+    const value = await run(controller.signal);
     return { kind: "done", value };
   } catch (err) {
-    if (!armed) return { kind: "back" }; // we injected → user pressed ESC
+    if (!armed) return { kind: "back" }; // we aborted → user pressed ESC
     throw err; // real Ctrl+C / prompt failure → propagate
   } finally {
     armed = false;
