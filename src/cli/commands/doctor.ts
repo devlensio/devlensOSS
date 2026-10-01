@@ -49,7 +49,9 @@ export function registerDoctorCommand(program: Command): void {
 
         // summarization provider / key
         try {
-          const cfg = resolveConfig();
+          // Tolerant read — doctor diagnoses an INCOMPLETE config, it must not
+          // throw on one (GitHub issue #10).
+          const cfg = resolveConfig(undefined, { validate: false });
           const provider = cfg.summarization.provider;
           const providerName = cfg.summarization.providerName ?? provider;
 
@@ -79,8 +81,11 @@ export function registerDoctorCommand(program: Command): void {
             checks.apiKey = { ok: true, detail: `${entry?.label ?? providerName} — no API key needed` };
           }
 
-          // model list reachability (best-effort)
-          try {
+          // model list reachability (best-effort; pointless without a key)
+          const canProbeModels = !needsKey || !!cfg.summarization.apiKey;
+          if (!canProbeModels) {
+            checks.models = { ok: false, detail: `skipped — no API key for ${providerName}` };
+          } else try {
             const baseUrl = cfg.summarization.baseUrl ?? entry?.baseUrl ?? "";
             const models = await listModels({
               protocol: provider as "openai" | "anthropic",

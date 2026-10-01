@@ -1,6 +1,7 @@
-import { queue, DevLensConfig, resolveConfig, isTerminal, toJobSummary, JobInput, storage } from "devlensio";
+import { queue, DevLensConfig, resolveConfig, hasSummarizationConfigured, isTerminal, toJobSummary, JobInput, storage } from "devlensio";
 import { existsSync, lstatSync } from "node:fs";
 import { resolve, normalize } from "node:path";
+import { SKIP_SUMMARIZATION_CONFIG } from "../../core/skipConfig.js";
 
 //  handleAnalyze 
 //
@@ -59,33 +60,41 @@ export async function handleAnalyze(req: Request): Promise<Response> {
     }
   }
 
-  // dummy config in case if user has not configured the LLM and just wants to see the graph and not summaries
-  const SKIP_SUMMARIZATION_CONFIG: DevLensConfig = {
-  deploymentMode: "local",
-  summarization: {
-    provider:  "openai",   // won't be called — skipSummarization will bypass this
-    model:     "none",
-    batchSize: 50,
-  },
-  embedding: {  //embeddings will be used for cloud
-    provider: "openai",
-    model:    "none",
-  },
-};
-
-  // Resolve config for this request
-  let config: DevLensConfig;
-  if (skipSummarization) {
-    config = SKIP_SUMMARIZATION_CONFIG;
+  // Structure-only analysis never needs the LLM config. If summarization was
+  // requested but no usable key is configured, auto-skip summarization with a
+  // notice instead of failing the whole analyze with a config error
+  // (GitHub issue devlensio/devlensOSS#10). The explicit summarize endpoint
+  // (POST .../summarize) still validates strictly — that path asks for it.
+  let skip = !!skipSummarization;
+  if (!skip && !hasSummarizationConfigured(req)) {
+    skip = true;
+    console.warn(
+      "devlens: no usable summarization API key configured — running analysis only. " +
+      "Configure a provider in the webUI settings (or run `devlens init`) to enable summaries."
+    );
   }
-  else {
-    config = resolveConfig(req);
+
+  let config: DevLensConfig;
+  if (skip) {
+    config = SKIP_SUMMARIZATION_CONFIG;
+  } else {
+    try {
+      config = resolveConfig(req);
+    } catch (err) {
+      // Any other config problem (e.g. an incomplete neo4j block) must not
+      // block analysis either — run structure-only and surface why.
+      console.warn(
+        `devlens: ${err instanceof Error ? err.message : String(err)} — running analysis without summarization.`
+      );
+      skip = true;
+      config = SKIP_SUMMARIZATION_CONFIG;
+    }
   }
 
   const input: JobInput = {
     repoPath:                absolutePath,
     isGithubRepo:            isGithubRepo ?? false,
-    skipSummarization:       skipSummarization ?? false,
+    skipSummarization:       skip,
     forceSummarize:          forceSummarize ?? false,
     thresholds,
     config,
@@ -103,6 +112,7 @@ export async function handleAnalyze(req: Request): Promise<Response> {
       status: job.status,
       repoPath: job.repoPath,
       createdAt: job.createdAt,
+      ...(skip && !skipSummarization ? { summarizationSkipped: true } : {}),
       existing: job.status !== "queued",  // true = deduplication hit — returned an already-running job
     },
   });

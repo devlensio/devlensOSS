@@ -233,6 +233,18 @@ program.action(() => {
 });
 
 program.parseAsync(process.argv).catch((err) => {
-  console.error(err);
+  // Ctrl+C during an inquirer prompt rejects with ExitPromptError — a user
+  // action, not a crash. Report it as one clean line, never a stack trace.
+  if (err?.name === "ExitPromptError" || /User force closed the prompt/.test(err?.message ?? "")) {
+    process.stderr.write("\nCancelled.\n");
+    process.exit(130);
+  }
+  // Everything else: the message, not the stack (stack only with --verbose).
+  const msg = err instanceof Error ? err.message : String(err);
+  const wantsJson = process.argv.includes("--json");
+  const verbose = process.argv.includes("--verbose") || process.argv.includes("-v");
+  if (wantsJson) process.stdout.write(JSON.stringify({ error: msg }) + "\n");
+  else process.stderr.write(`✖ ${msg}\n`);
+  if (verbose && err instanceof Error && err.stack) process.stderr.write(err.stack + "\n");
   process.exit(1);
 });

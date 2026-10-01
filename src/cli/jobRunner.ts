@@ -5,10 +5,11 @@
 // asynchronously; we subscribe for progress events and resolve when terminal.
 
 import { queue, resolveConfig, storage } from "devlensio";
-import type { ProgressEvent, LLMProvider } from "devlensio";
+import type { ProgressEvent, LLMProvider, DevLensConfig } from "devlensio";
 import { info, success, isJsonMode } from "./output.js";
 import { buildIndex } from "../search/indexer.js";
 import { writeIndex, invalidate } from "../search/indexManager.js";
+import { SKIP_SUMMARIZATION_CONFIG } from "../core/skipConfig.js";
 
 export interface RunJobOpts {
   repoPath: string;
@@ -26,15 +27,22 @@ export interface JobResult {
 }
 
 export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
-  const config = resolveConfig();
+  // Structure-only analysis never resolves (validates) the user's LLM config —
+  // an incomplete/absent summarization config must not block `devlens analyze`
+  // (GitHub issue #10). Only --summarize paths resolve the real config, which
+  // fails fast here with one actionable message instead of mid-job.
+  let config: DevLensConfig = SKIP_SUMMARIZATION_CONFIG;
+  if (opts.summarize) {
+    config = resolveConfig();
 
-  // Per-run override of summarization provider/model (used by `summarize`).
-  if (opts.model || opts.provider) {
-    config.summarization = {
-      ...config.summarization,
-      ...(opts.provider ? { provider: opts.provider as LLMProvider } : {}),
-      ...(opts.model ? { model: opts.model } : {}),
-    };
+    // Per-run override of summarization provider/model (used by `summarize`).
+    if (opts.model || opts.provider) {
+      config.summarization = {
+        ...config.summarization,
+        ...(opts.provider ? { provider: opts.provider as LLMProvider } : {}),
+        ...(opts.model ? { model: opts.model } : {}),
+      };
+    }
   }
 
   const job = queue.enqueue({
