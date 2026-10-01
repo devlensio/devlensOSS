@@ -5,11 +5,12 @@
 // asynchronously; we subscribe for progress events and resolve when terminal.
 
 import { queue, resolveConfig, storage } from "devlensio";
-import type { ProgressEvent, LLMProvider, DevLensConfig } from "devlensio";
-import { info, success, isJsonMode } from "./output.js";
+import type { LLMProvider, DevLensConfig } from "devlensio";
+import { info, success, warn, isJsonMode } from "./output.js";
 import { buildIndex } from "../search/indexer.js";
 import { writeIndex, invalidate } from "../search/indexManager.js";
 import { SKIP_SUMMARIZATION_CONFIG } from "../core/skipConfig.js";
+import { JobProgress } from "./progress.js";
 
 export interface RunJobOpts {
   repoPath: string;
@@ -53,16 +54,49 @@ export async function runAnalyzeJob(opts: RunJobOpts): Promise<JobResult> {
     config,
   });
 
-  await new Promise<void>((resolve) => {
-    const unsub = queue.subscribe(
-      job.jobId,
-      (ev) => renderEvent(ev),
-      () => {
-        unsub();
-        resolve();
-      }
-    );
+  // Live view: analysis spinner → summarization bar with [p]/[r]/[c] keys.
+  const progress = new JobProgress({
+    jobId: job.jobId,
+    queue,
+    json: isJsonMode(),
+    input: process.stdin,
+    onInterrupt: () => requestCancel(),
+    io: { out: (s) => process.stderr.write(s), info, success, warn },
   });
+
+  // ── Graceful cancel (issue 17) ──────────────────────────────────────────
+  // Ctrl+C: SIGINT signal (cooked mode, e.g. during analysis) AND the raw
+  // 0x03 byte (raw mode, during the bar) both land here. First press asks
+  // the engine to stop at the next checkpoint and waits for the terminal
+  // event; a second press force-quits. Never a stack trace, exit code 130.
+  let interrupted = false;
+  function requestCancel(): void {
+    if (interrupted) {
+      process.stderr.write("\nForce quitting.\n");
+      process.exit(130);
+    }
+    interrupted = true;
+    progress.noteInterrupt();
+    queue.cancelJob(job.jobId);
+  }
+  const onSigint = () => requestCancel();
+  process.on("SIGINT", onSigint);
+
+  try {
+    await new Promise<void>((resolve) => {
+      const unsub = queue.subscribe(
+        job.jobId,
+        (ev) => progress.onEvent(ev),
+        () => {
+          unsub();
+          resolve();
+        }
+      );
+    });
+  } finally {
+    process.off("SIGINT", onSigint);
+    progress.stop();
+  }
 
   const final = queue.getJob(job.jobId);
   if (final?.graphId && !final.error) {
@@ -90,30 +124,5 @@ function indexLatestCommit(graphId: string): void {
     if (!isJsonMode()) {
       info(`search indexing failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
     }
-  }
-}
-
-function renderEvent(ev: ProgressEvent): void {
-  if (isJsonMode()) return; // progress is noise in machine mode
-  switch (ev.event) {
-    case "analysis_started":
-      info("Analyzing repository…");
-      break;
-    case "analysis_progress":
-      info(`  • ${ev.step}`);
-      break;
-    case "analysis_complete":
-      info(`  analysis complete — ${ev.nodeCount} nodes, ${ev.edgeCount} edges`);
-      break;
-    case "summarization_started":
-      info(`Summarizing ${ev.totalNodes} nodes…`);
-      break;
-    case "summarization_progress":
-      info(`  • ${ev.completed}/${ev.total} — ${ev.nodeName}`);
-      break;
-    case "summarization_complete":
-      success("Summarization complete");
-      break;
-    // failure surfaces via the final job status
   }
 }
