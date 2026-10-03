@@ -1808,7 +1808,14 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
       notes,
     },
     budget,
-    { intent: packetIntent, includeMeta: false, querySymbol: qSymbol, includeCode: true }
+    {
+      intent: packetIntent,
+      querySymbol: qSymbol,
+      // Stage-2 experiment toggles (env-driven; defaults = code ON, meta OFF).
+      // These vary PACKET CONTENT ONLY — no ranking or retrieval changes.
+      includeMeta: process.env.DEVLENS_PACKET_META === "1",
+      includeCode: process.env.DEVLENS_PACKET_CODE !== "0",
+    }
   );
 
   return {
