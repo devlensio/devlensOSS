@@ -1671,7 +1671,13 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
   const p99 = degrees.length ? degrees[Math.min(degrees.length - 1, Math.floor(degrees.length * 0.99))] : 0;
   const hubCutoff = Math.max(HUB_DEGREE_THRESHOLD, p99);
   for (const id of [...expanded.keys()]) {
-    if (!seedMap.has(id) && degreeOf(id) > hubCutoff) expanded.delete(id);
+    if (seedMap.has(id)) continue;
+    // FILE nodes are aggregation points (every import targets them) — they are
+    // structurally high-degree by design, not traversal shortcuts. Suppress
+    // only symbol hubs; dropping files would blind importers/blast intents.
+    const n = ctx.index.nodesById.get(id);
+    if (n?.type === "FILE") continue;
+    if (degreeOf(id) > hubCutoff) expanded.delete(id);
   }
 
   const packetIntent = packetIntentOf(intent);
