@@ -17,6 +17,12 @@ import {
   renderResolvePacket,
 } from "../mcp/packetRender.js";
 import {
+  alphaForIntent,
+  pathPenalty,
+  rrfFuse,
+  type PacketIntent,
+} from "../mcp/packet-shape.js";
+import {
   storage,
   analyzePipeline,
   getBlastRadius,
@@ -1553,6 +1559,32 @@ const HUB_DEGREE_THRESHOLD = 25;
 const HUB_PENALTY = 0.3;
 const RESOLVE_NODE_CAP = 1000;
 
+/** Map the 7 resolver intents onto the 4 coarse packet intents (packet-shape).
+ *  This is the ONLY allowed conditioning axis — no task/repo special cases. */
+function packetIntentOf(intent: string): PacketIntent {
+  switch (intent) {
+    case "reference-list": return "reference-list";
+    case "flow": return "flow";
+    case "overview":
+    case "concept": return "overview";
+    default: return "symbol"; // pinpoint, security-audit, exploratory
+  }
+}
+
+/** Extract the query symbol from free text: the longest identifier-like
+ *  token (contains an uppercase letter or underscore — i.e. code-shaped,
+ *  e.g. "QrCode", "use_discount_codes"). Compound tokens are taken whole
+ *  BEFORE any case splitting. Coarse by design — identifier tokenization
+ *  is prior art (bm25/semble), not a tuned heuristic. */
+function querySymbolOf(task: string): string | undefined {
+  const raw = task.split(/[^a-zA-Z0-9_]+/);
+  const codeShaped = raw.filter((t) => t.length >= 4 && /[A-Z_]/.test(t));
+  const pool = codeShaped.length ? codeShaped : raw.filter((t) => t.length >= 4);
+  return pool.sort((a, b) => b.length - a.length)[0];
+}
+
+const normIdent = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
 export function resolveContext(graphId: string, opts: ResolveContextOpts, commitHash?: string) {
   const ctx = requireContext(graphId, commitHash);
   const usedCommit = ctx.result.gitInfo.commitHash;
@@ -1630,9 +1662,60 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
     if (degreeOf(id) > HUB_DEGREE_THRESHOLD && !seedMap.has(id)) rank *= HUB_PENALTY;
     return rank;
   };
-  const ids = [...expanded.keys()].sort(
+
+  // Hub suppression (graphify prior art, max(50,p99) adapted to the existing
+  // threshold constant): hub nodes drop OUT of the candidate set (seeds
+  // exempt) instead of merely being penalized. Their useful neighbors remain
+  // — they were pushed during traversal.
+  const degrees = [...expanded.keys()].map(degreeOf).sort((a, b) => a - b);
+  const p99 = degrees.length ? degrees[Math.min(degrees.length - 1, Math.floor(degrees.length * 0.99))] : 0;
+  const hubCutoff = Math.max(HUB_DEGREE_THRESHOLD, p99);
+  for (const id of [...expanded.keys()]) {
+    if (!seedMap.has(id) && degreeOf(id) > hubCutoff) expanded.delete(id);
+  }
+
+  const packetIntent = packetIntentOf(intent);
+  const qSymbol = querySymbolOf(opts.task);
+
+  // RRF fusion (packet-shape prior art): three independent ranked lists over
+  // the expanded candidate set, fused on positions only.
+  const lexicalIds = [...expanded.keys()].sort(
     (a, b) => rankOf(b, expanded.get(b)!.similarity) - rankOf(a, expanded.get(a)!.similarity)
   );
+  const structuralIds = [...expanded.keys()].sort((a, b) => {
+    const ea = expanded.get(a)!;
+    const eb = expanded.get(b)!;
+    return ea.hop - eb.hop || eb.similarity - ea.similarity;
+  });
+  const fileNodeCounts = new Map<string, number>();
+  for (const id of expanded.keys()) {
+    const n = ctx.index.nodesById.get(id);
+    if (n) fileNodeCounts.set(n.filePath, (fileNodeCounts.get(n.filePath) ?? 0) + 1);
+  }
+  const heuristicScore = (id: string): number => {
+    const n = ctx.index.nodesById.get(id);
+    if (!n) return 0;
+    let s = 0;
+    if (qSymbol && normIdent(n.name) === normIdent(qSymbol)) s += 100; // definition boost, exact-name gated
+    s += pathPenalty(n.filePath);
+    s += (fileNodeCounts.get(n.filePath) ?? 0) * 0.1; // file coherence
+    return s;
+  };
+  const heuristicIds = [...expanded.keys()].sort((a, b) => heuristicScore(b) - heuristicScore(a));
+  const fused = rrfFuse(
+    { lexical: lexicalIds, structural: structuralIds, heuristic: heuristicIds },
+    alphaForIntent(packetIntent)
+  );
+  const ids = [...expanded.keys()].sort((a, b) => (fused.get(b) ?? 0) - (fused.get(a) ?? 0));
+
+  // Name ambiguity: same normalized name in N>1 distinct files, fused scores
+  // within 5% of the top — surface, never silently pick.
+  const topFused = ids.length ? fused.get(ids[0]) ?? 0 : 0;
+  const nameMatches = ids
+    .map((id) => ctx.index.nodesById.get(id))
+    .filter((n): n is CodeNode => !!n && !!qSymbol && normIdent(n.name) === normIdent(qSymbol));
+  const rivalFiles = [...new Set(nameMatches.map((n) => n.filePath))];
+  const ambiguous = qSymbol ? rivalFiles.length > 1 : false;
 
   // Stage 3: pack into the line-format packet.
   const microSummaries = opts.includeSummaries !== false;
@@ -1650,15 +1733,45 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
         microSummary: microSummaries
           ? requireMicro(n)
           : undefined,
+        metadata: n.metadata as Record<string, unknown> | undefined,
       };
     })
     .filter((n): n is NonNullable<typeof n> => n !== null);
 
   const includedIds = new Set(packetNodes.map((n) => n.id));
+  const nodesByIdForEdges = new Map(packetNodes.map((n) => [n.id, n]));
   const packetEdges = ctx.result.edges
     .filter((e) => includedIds.has(e.from) && includedIds.has(e.to))
     .slice(0, 40)
-    .map((e) => ({ from: e.from, to: e.to, type: e.type as string }));
+    .map((e) => {
+      const src = nodesByIdForEdges.get(e.from);
+      return {
+        from: e.from,
+        to: e.to,
+        type: e.type as string,
+        // Edge-site cite: the referencing node's location (graphify prior art
+        // renders the import/call site; our edges may lack their own site).
+        edgeSite: src ? { file: src.filePath, line: src.startLine } : undefined,
+      };
+    });
+
+  // Importers join (reference-list intents): files that IMPORT/REFERENCE the
+  // query symbol, resolved from full-graph incoming edges of the matched nodes.
+  let importerFiles: { filePath: string; line?: number }[] | undefined;
+  if (packetIntent === "reference-list" && qSymbol) {
+    const targetIds = new Set(nameMatches.map((n) => n.id));
+    const seen = new Set<string>();
+    importerFiles = [];
+    for (const e of ctx.result.edges) {
+      if (!targetIds.has(e.to)) continue;
+      if (e.type !== "IMPORTS" && e.type !== "CALLS") continue;
+      const src = ctx.index.nodesById.get(e.from);
+      if (!src || seen.has(src.filePath)) continue;
+      seen.add(src.filePath);
+      importerFiles.push({ filePath: src.filePath, line: src.startLine });
+      if (importerFiles.length >= 12) break;
+    }
+  }
 
   const codeTargets = packetNodes
     .filter((n) => n.type.toLowerCase() !== "file")
@@ -1681,10 +1794,15 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
       nodes: packetNodes,
       edges: packetEdges,
       code: codeTargets,
+      seeds: [...seedMap.keys()],
+      importerFiles,
+      ambiguous,
+      rivalFiles: ambiguous ? rivalFiles : undefined,
       nextHint: nextHintFor(intent),
       notes,
     },
-    budget
+    budget,
+    { intent: packetIntent, includeMeta: false, querySymbol: qSymbol, includeCode: true }
   );
 
   return {
