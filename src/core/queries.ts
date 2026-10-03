@@ -1712,7 +1712,11 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
     { lexical: lexicalIds, structural: structuralIds, heuristic: heuristicIds },
     alphaForIntent(packetIntent)
   );
-  const ids = [...expanded.keys()].sort((a, b) => (fused.get(b) ?? 0) - (fused.get(a) ?? 0));
+  // Ranker isolation (Stage-2 diagnosis): legacy = pre-RRF additive score.
+  const useLegacyRanker = process.env.DEVLENS_PACKET_RANKER === "legacy";
+  const ids = useLegacyRanker
+    ? lexicalIds
+    : [...expanded.keys()].sort((a, b) => (fused.get(b) ?? 0) - (fused.get(a) ?? 0));
 
   // Name ambiguity: same normalized name in N>1 distinct files, fused scores
   // within 5% of the top — surface, never silently pick.
