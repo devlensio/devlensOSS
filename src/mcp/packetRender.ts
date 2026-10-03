@@ -27,8 +27,10 @@ export const SECTION_SHARES: Record<string, number> = {
 
 export const PACKET_LIMITS = {
   filesCap: 200,
-  codeNodes: 5,
-  codeLines: 48,
+  // mcp-compact-test: include code for the top 10 ranked nodes, 40 compacted
+  // lines each. Compaction (dedent + blank-line removal) runs BEFORE the cap.
+  codeNodes: 10,
+  codeLines: 40,
   codeBudgetMs: 2500,
   idmapNodes: 20,
   microSummaryChars: 110,
@@ -90,6 +92,23 @@ export function microSummaryOf(text: string | undefined, max = PACKET_LIMITS.mic
   return chosen.length > max ? chosen.slice(0, max - 1) + "..." : chosen;
 }
 
+export function compactCodeLines(lines: string[], cap = PACKET_LIMITS.codeLines): { text: string; total: number } {
+  // Compaction for wire cost, semantics-preserving for whitespace-sensitive
+  // languages (Python): (1) drop blank lines — they carry no retrieval signal;
+  // (2) remove the COMMON leading indent, which preserves RELATIVE indentation.
+  // The cap applies AFTER compaction, so 40 lines are real content lines.
+  const kept = lines.filter((l) => l.trim().length > 0);
+  const indents = kept.map((l) => l.length - l.trimStart().length);
+  const dedent = indents.length ? Math.min(...indents) : 0;
+  const compact = dedent > 0 ? kept.map((l) => l.slice(dedent)) : kept;
+  const total = compact.length;
+  if (total > cap) {
+    compact.length = cap;
+    compact.push(`... (+${total - cap} more lines)`);
+  }
+  return { text: compact.join("\n"), total };
+}
+
 export function readCodeBody(
   code: PacketCode,
   deadline: number
@@ -100,12 +119,8 @@ export function readCodeBody(
     const lines = raw.split("\n");
     const start = Math.max(0, code.startLine - 1);
     const end = Math.min(lines.length, code.endLine);
-    const slice = lines.slice(start, end);
-    if (slice.length > PACKET_LIMITS.codeLines) {
-      slice.length = PACKET_LIMITS.codeLines;
-      slice.push("... (truncated)");
-    }
-    return { body: slice.join("\n") };
+    const { text } = compactCodeLines(lines.slice(start, end), PACKET_LIMITS.codeLines);
+    return { body: text || undefined };
   } catch {
     return { unavailable: true };
   }
@@ -132,12 +147,19 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number):
   nodes.forEach((n, i) => shortById.set(n.id, `N${i + 1}`));
 
   const header = `GRAPH ${packet.graphId} @ ${packet.commitHash.slice(0, 10)}`;
-  const budgetChars = tokenBudget * 4;
+  // mcp-compact-test: the CODE section rides on TOP of the caller's token
+  // budget — codeReserve guarantees space for up to codeNodes x codeLines
+  // compacted lines (~45 chars/line). Section shares still come off the base
+  // budget, so only CODE grows.
+  const baseBudget = tokenBudget * 4;
+  const codeTargetCount = Math.min(packet.code.length, PACKET_LIMITS.codeNodes);
+  const codeReserve = codeTargetCount * PACKET_LIMITS.codeLines * 45;
+  const budgetChars = baseBudget + codeReserve;
 
   const sections: string[] = [header];
   let used = header.length;
 
-  const budgetFor = (name: string) => Math.floor((SECTION_SHARES[name] ?? 0.1) * budgetChars);
+  const budgetFor = (name: string) => Math.floor((SECTION_SHARES[name] ?? 0.1) * baseBudget);
 
   const pushSection = (name: string, lines: string[]) => {
     if (lines.length === 0) return;
@@ -199,7 +221,7 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number):
       continue;
     }
     if (!body.body) continue;
-    if (used + head.length + body.body.length > budgetChars) break;
+    if (used + head.length + body.body.length > budgetFor("CODE") + codeReserve) break;
     codeLines.push(head, body.body);
   }
   pushSection("CODE", codeLines);

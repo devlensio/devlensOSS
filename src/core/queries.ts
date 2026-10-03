@@ -1662,7 +1662,7 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
 
   const codeTargets = packetNodes
     .filter((n) => n.type.toLowerCase() !== "file")
-    .slice(0, 5)
+    .slice(0, 10)
     .map((n) => ({
       nodeId: n.id,
       filePath: n.filePath,
