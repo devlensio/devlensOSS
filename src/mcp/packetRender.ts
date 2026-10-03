@@ -262,8 +262,10 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, 
 
   // ANSWER first: one top node, intent-shaped, degrade gracefully.
   // Shaping-path only: the legacy signature keeps its historical output shape.
+  // DEVLENS_PACKET_ANSWER=0 isolates the ANSWER section (diagnostic).
   const top = nodes[0];
-  if (top && shaping) {
+  const includeAnswer = shaping && process.env.DEVLENS_PACKET_ANSWER !== "0";
+  if (top && includeAnswer) {
     const seedConfident =
       opts?.querySymbol !== undefined &&
       normalizeIdent(opts.querySymbol) === normalizeIdent(top.name);
