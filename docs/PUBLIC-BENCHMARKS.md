@@ -20,6 +20,23 @@ All nine tools answered the same 133 questions about the dub repository (a large
 
 **The one-line read:** DevLens is the only tool that leads all four quality columns — and it does so with the fastest calls (67 ms, roughly 37× faster than the next graph tools) and a small response. The field is close on quality (first to last is 0.050 correctness), so the tie-breaker is speed and response size, where DevLens leads outright.
 
+## 1a. Consolidated 5-tool surface (agentic L2, follow-up round)
+
+After the public benchmark, the MCP surface was consolidated from 24 tools to 5 (`resolve_context`, `find_symbols`, `get_node`, `impact`, `repo`; no `graphId`) with plain-text packets. A same-run agentic round (133 questions, one model, one run, all arms identical conditions) measured it:
+
+| Arm | Correctness | F1 | Tokens per task | Turns |
+|---|---|---|---|---|
+| **DevLens V3 (5 tools, V3M packet)** | 0.712 | 0.595 | 35.5k | 5–6 |
+| old DevLens (24 tools, published) | 0.709 | — | 63.4k | — |
+| codegraph (published run) | 0.714 | — | 43.2k | — |
+| semble (published run) | 0.724 | — | 45.2k | — |
+| grep-and-read floor (same run) | 0.748–0.760 | 0.619–0.635 | 24.1–25.1k | 5 |
+
+- The consolidation cut **43% of task tokens vs the old 24-tool surface** at equal-or-better correctness, moving DevLens from last in the field to tied with the strongest competitors.
+- Measured packet size: ~1.2–1.5k tokens (2,631 → ~1,400).
+- Where every tool (including grep) fails — multi-file synthesis questions — V3 leads the field on cost: feature-intent at 154k tokens vs the floor's 223k at equal correctness.
+- Run-by-run data with per-type tables and the full experiment log: [`oss-mcp/V3-RESULTS-LOG.md`](../../benchmarks/oss-mcp/V3-RESULTS-LOG.md).
+
 **Head to head against Graphify, on identical questions**
 
 - **Packet size:** 2,230 tokens against 15,020 — 6.7× smaller, and smaller on all 54 of 54 questions where both tools record a size.

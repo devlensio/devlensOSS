@@ -54,6 +54,17 @@ DevLens is **the only tool ranked first on correctness, F1, recall, and precisio
 
 **Full methodology, all nine tools, five languages:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
 
+### Agentic benchmark: the consolidated 5-tool surface
+
+A follow-up agentic round (L2 — full agent loop, 133 questions, one run, same model for every arm) measured the consolidated 5-tool surface against the field and the grep-and-read floor:
+
+| | **DevLens V3 (5 tools)** | old DevLens (24 tools) | codegraph | semble | grep floor |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Correctness | 0.712–0.724 | 0.709 | 0.714 | 0.724 | **0.748–0.760** |
+| Tokens per task | **35.5k** | 63.4k | 43.2k | 45.2k | **24.1k** |
+
+DevLens V3 ties the strongest competitors at **43% fewer tokens than the old 24-tool surface**, with packets measured at ~1.2–1.5k tokens each. Where no graph tool (or grep) wins — multi-file synthesis questions — DevLens leads the field on cost (feature-intent at 154k vs the floor's 223k at equal correctness). Full run-by-run data: [`oss-mcp/V3-RESULTS-LOG.md`](../benchmarks/oss-mcp/V3-RESULTS-LOG.md).
+
 ---
 
 ## How DevLens compares
@@ -169,26 +180,15 @@ The server self-describes its full tool list through `tools/list`, so your agent
 
 ## What your agent can ask
 
-The server self-describes every tool's parameters through `tools/list` — your agent fills them in automatically. Every graph tool takes a `graphId` (returned by `list_analyzed_repos` / `analyze`) plus the arguments below.
+The server self-describes every tool's parameters through `tools/list` — your agent fills them in automatically. **Five tools, no `graphId` anywhere** — the repo is resolved from your working folder.
 
 | Tool | Key arguments | What it does |
 | :-- | :-- | :-- |
-| `resolve_context` | `task` (required), `intent`, `focus`, `tokenBudget` | **The front door.** One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, key code bodies, security flags, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
-| `blast_radius` | `symbol` (required) | Cheap change-impact wrapper: what depends on a symbol, packed small. |
-| `find_symbols` | `query` (required) | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
-| `get_node` | `nodeId` (required) | Full detail for one node: technical, business, and security summaries plus metadata. |
-| `get_node_code` | `nodeId` (required) | Raw source for one node (expensive, so use it last). |
-| `get_blast_radius` / `get_khop` | `nodeId` (required), `radius` | Upstream dependents or downstream dependencies out to a chosen radius. |
-| `get_summaries` | `nodeIds` (required) | Batch-read summaries for several node ids. |
-| `get_security_issues` | `minSeverity` | Security findings ranked by severity then impact, with the severity distribution and how much of the graph was assessed. |
-| `check_freshness` | — | Is the graph stale versus the working tree? |
-| `get_subgraph` | `seedNodeId` (required) | The cohesive cluster (module) a node belongs to. |
-| `list_cycles` | — | Circular dependencies. |
-| `get_nodes_in_path` | `path` (required) | Every node in a file or folder. |
-| `find_nodes` | filters (`name`, `nodeTypes`, `filePath`, `minScore`, `severity`) | Flexible node search. |
-| `get_coverage` | — | How much of the graph has summaries. |
-
-Plus repo-level tools: `architecture_brief` (one-call architecture report), `security_brief` (ranked security report), `review_pr` (`from`/`to` commits — PR review packet), `onboarding_tour` (modules, routes, flows, glossary), `analyze_changes` (`from`/`to` commits — commit diff impact), `analyze` (analyze a repo path), `get_repo_overview`, and `get_context` (raw keyword/seed context query) — **24 tools in total**.
+| `resolve_context` | `task` (required), `intent?`, `focus?`, `tokenBudget?` | **The front door.** One call returns a task-shaped plain-text packet: an ANSWER line, ranked nodes with one-line meanings, call flow, involved files with matched-line snippets, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory`. |
+| `find_symbols` | `query` (required), `limit?` | Cheap BM25F name lookup: nodeIds plus `file:line`, no graph, no source. |
+| `get_node` | `node` (required), `include?` | Full detail for one node: technical, business, and security summaries plus callers, callees, and (opt-in) raw source. |
+| `impact` | `target?` or `from`+`to` commits | Change impact: what breaks if a symbol changes; commit-range diff mode for two analyzed commits. |
+| `repo` | `action` | Manage analyzed graphs: `list`, `analyze`, `freshness`, `health`. |
 
 Every response carries a `provenance` block (`commitHash`, `analyzedAt`, `hasGit`), so your agent always knows which snapshot answered the question.
 
