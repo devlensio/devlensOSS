@@ -1817,8 +1817,11 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
       querySymbol: qSymbol,
       // Stage-2 experiment toggles (env-driven; defaults = code ON, meta OFF).
       // These vary PACKET CONTENT ONLY — no ranking or retrieval changes.
-      includeMeta: process.env.DEVLENS_PACKET_META === "1",
-      includeCode: process.env.DEVLENS_PACKET_CODE !== "0",
+      // V3M measured-best defaults (full-scale arbiter 0.712/0.595/35.5k ran
+      // with META on, CODE off): meanings in, code bodies out — get_node
+      // include=['code'] covers code when needed.
+      includeMeta: process.env.DEVLENS_PACKET_META !== "0",
+      includeCode: process.env.DEVLENS_PACKET_CODE === "1",
     }
   );
 
