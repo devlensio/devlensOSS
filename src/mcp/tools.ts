@@ -1,466 +1,373 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as q from "../core/queries.js";
-import { ok, fail } from "./helpers.js";
+import { textOut, failText } from "./helpers.js";
+import { compactCodeLines } from "./packetRender.js";
 
-// Adapters: run a core query and wrap the result as an MCP content block.
-// All query logic lives in src/core/queries.ts so the CLI shares it verbatim.
-// Responses are trimmed at this boundary: the packet already renders the node
-// table, the file list and the id map, so the structured arrays are opt-in.
-const run = (fn: () => unknown) => {
+// mcp-compact-test: the 24-tool surface is consolidated to FIVE tools.
+//
+//   resolve_context  — the answer packet (all intents; includes code bodies)
+//   find_symbols     — cheap BM25F symbol lookup (compact refs)
+//   get_node         — one node's detail, code opt-in
+//   impact           — blast radius / k-hop / commit-range changes, merged
+//   repo             — graph lifecycle: list / analyze / freshness / health
+//
+// Two structural changes vs main:
+//   1. NO graphId parameter anywhere. The graph is resolved from the working
+//      folder (the graph index stores each graph's repoPath); `repoPath` is an
+//      optional disambiguator. This kills the list_analyzed_repos discovery
+//      call, which measured 15k chars in the dub benchmark.
+//   2. ALL responses are plain line-oriented text (no JSON envelope, no
+//      pretty-printing, no escaping). Cloud parity: one text block, errors are
+//      "ERROR <code>: <message>" + a TRY line.
+
+interface GraphEntry {
+  graphId: string;
+  repoPath: string;
+  framework?: string;
+  language?: string;
+  latestCommit?: string;
+  commitCount?: number;
+}
+
+const normPath = (p: string) => p.replace(/\/+$/, "");
+
+function resolveGraph(repoPath?: string): GraphEntry {
+  const graphs = q.listRepos() as unknown as GraphEntry[];
+  if (!graphs || graphs.length === 0) {
+    throw new q.DevLensError("NO_GRAPHS", "No analyzed graphs exist yet. Use repo(action='analyze', path='<repo folder>') first.", "repo", { action: "analyze" });
+  }
+  const target = normPath(repoPath ?? process.cwd());
+  const base = target.split("/").filter(Boolean).pop() ?? target;
+  const hit =
+    graphs.find((g) => normPath(g.repoPath) === target) ??                       // exact
+    graphs.find((g) => {                                                          // nested either way
+      const rp = normPath(g.repoPath);
+      return target.startsWith(rp + "/") || rp.startsWith(target + "/");
+    }) ??
+    graphs.find((g) => normPath(g.repoPath).endsWith("/" + base));                // folder name
+  if (hit) return hit;
+  if (graphs.length === 1) return graphs[0];
+  throw new q.DevLensError(
+    "GRAPH_AMBIGUOUS",
+    `No analyzed graph matches "${target}". Analyzed repos:\n` +
+      graphs.map((g) => `- ${g.repoPath}`).join("\n") +
+      `\nPass repoPath to disambiguate, or run repo(action='analyze').`,
+    "repo",
+    { action: "list" }
+  );
+}
+
+const runText = (fn: () => string) => {
   try {
-    return ok(fn());
+    return textOut(fn());
   } catch (e) {
     if (e instanceof q.DevLensError) {
-      return fail(e.message, e.code, e.suggestedTool, e.suggestedArgs);
+      return failText(e.message, e.code, e.suggestedTool, e.suggestedArgs);
     }
-    return fail((e as Error).message);
+    return failText((e as Error).message);
   }
 };
-const runAsync = async (fn: () => Promise<unknown>) => {
+const runTextAsync = async (fn: () => Promise<string>) => {
   try {
-    return ok(await fn());
+    return textOut(await fn());
   } catch (e) {
     if (e instanceof q.DevLensError) {
-      return fail(e.message, e.code, e.suggestedTool, e.suggestedArgs);
+      return failText(e.message, e.code, e.suggestedTool, e.suggestedArgs);
     }
-    return fail((e as Error).message);
+    return failText((e as Error).message);
   }
 };
+
+// ── text renderers ───────────────────────────────────────────────────────────
+
+function renderFindSymbols(res: Awaited<ReturnType<typeof q.findSymbols>>): string {
+  const lines = [`SYMBOLS ${res.total}  query="${res.query}"${res.needsReanalyze ? "  NOTE: graph has no search index; run repo(action='analyze')" : ""}`];
+  res.symbols.forEach((s, i) => {
+    lines.push(`${i + 1}. ${s.name} ${s.type.toLowerCase()} ${s.filePath}:${s.startLine}-${s.endLine} rel:${s.relevance}${s.exactMatch ? " exact" : ""}`);
+  });
+  if (res.total === 0) lines.push("(no matches — try a shorter query or different wording)");
+  return lines.join("\n");
+}
+
+function renderGraphNode(
+  res: ReturnType<typeof q.getNodeDetail> & { code?: string; codeSource?: string },
+  filePath: string,
+  span: string
+): string {
+  const lines: string[] = [];
+  lines.push(`NODE ${res.name} ${String(res.type).toLowerCase()} ${filePath}:${span} score:${res.score}`);
+  const meta = res.metadata as Record<string, unknown> | undefined;
+  if (meta && Object.keys(meta).length) {
+    lines.push(`METADATA ${JSON.stringify(meta)}`);
+  }
+  if (res.technicalSummary) lines.push(`TECHNICAL ${String(res.technicalSummary).replace(/\s+/g, " ").slice(0, 300)}`);
+  if (res.businessSummary) lines.push(`BUSINESS ${String(res.businessSummary).replace(/\s+/g, " ").slice(0, 300)}`);
+  const sec = res.security as { severity?: string; notes?: string } | undefined;
+  if (sec) lines.push(`SECURITY ${sec.severity ?? "none"} ${sec.notes ? `— ${String(sec.notes).replace(/\s+/g, " ").slice(0, 200)}` : ""}`.trim());
+  const refs = (arr: unknown, label: string) => {
+    const list = Array.isArray(arr) ? (arr as Array<Record<string, unknown>>) : [];
+    if (!list.length) return;
+    lines.push(`${label} ${list.length}`);
+    for (const r of list.slice(0, 25)) {
+      lines.push(`  ${r.name ?? r.id} ${String(r.type ?? "").toLowerCase()} ${r.filePath}:${r.lines ?? ""}${r.hop !== undefined ? ` hop:${r.hop}` : ""}${r.viaEdge ? ` via:${r.viaEdge}` : ""}`);
+    }
+    if (list.length > 25) lines.push(`  ... (+${list.length - 25} more)`);
+  };
+  refs(res.callers, "CALLERS");
+  refs(res.callees, "CALLEES");
+  if (res.code) {
+    lines.push(`CODE ${filePath}:${span}`);
+    const { text, total } = compactCodeLines(String(res.code).split("\n"), 120);
+    lines.push(text);
+    if (total > 120) lines.push(`(code capped at 120 compacted lines; call include=['code'] again or read ${filePath} for the rest)`);
+  }
+  return lines.join("\n");
+}
+
+function renderImpact(res: ReturnType<typeof q.blastRadius>, label: string): string {
+  const lines = [
+    `${label} ${res.count}  radius:${res.radiusUsed ?? "?"}${res.truncated ? " TRUNCATED (re-call with explicit radius for more)" : ""}`,
+  ];
+  for (const n of res.nodes as Array<Record<string, unknown>>) {
+    lines.push(`${n.name ?? n.id} ${String(n.type ?? "").toLowerCase()} ${n.filePath}:${n.lines ?? ""} hop:${n.hop}${n.viaEdge ? ` via:${n.viaEdge}` : ""}`);
+  }
+  if (res.count === 0) lines.push("(no reachable nodes — the target may be isolated or the direction has no edges)");
+  return lines.join("\n");
+}
+
+// ── tool registration ────────────────────────────────────────────────────────
 
 export function registerTools(server: McpServer) {
 
-  //  1. list_analyzed_repos
-  server.registerTool(
-    "list_analyzed_repos",
-    {
-      description: "List repositories DevLens has already analyzed. Returns each graphId, repo path, framework, and commit count. Call this first to discover what graphs exist — every other tool needs a graphId. (Also exposed as the devlens://repos resource.)",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {},
-    },
-    async () => run(() => q.listRepos())
-  );
-
-  //  2. get_repo_overview
-  server.registerTool(
-    "get_repo_overview",
-    {
-      description: "High-level orientation for one repo: framework/language fingerprint, route count, and the highest-scoring (most central) nodes. Use this instead of reading package.json or scanning directories.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string().describe("Graph id from list_analyzed_repos"),
-        commitHash: z.string().optional().describe("Defaults to latest commit"),
-      },
-    },
-    async ({ graphId, commitHash }) => run(() => q.repoOverview(graphId, commitHash))
-  );
-
-  //  3. find_nodes
-  server.registerTool(
-    "find_nodes",
-    {
-      description: "Search/filter nodes in a graph. Returns COMPACT refs (id, name, type, path, score, 1-line summary) — not source. Combine filters (AND). Use nodeIds for an exact batch fetch. Results are score-ranked and capped by `limit` (default 25).",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        name: z.string().optional().describe("Substring match on node name"),
-        nodeIds: z.array(z.string()).optional().describe("Exact ids to resolve; ignores other filters"),
-        nodeTypes: z.array(z.string()).optional().describe("e.g. COMPONENT, HOOK, FUNCTION, ROUTE"),
-        filePath: z.string().optional().describe("Nodes in exactly this file"),
-        dir: z.string().optional().describe("Nodes under this folder (prefix)"),
-        minScore: z.number().optional(),
-        severity: z.enum(["low", "medium", "high"]).optional().describe("Min security severity"),
-        limit: z.number().optional().describe("Default 25"),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, commitHash, ...filters }) => run(() => q.findNodes(graphId, filters, commitHash))
-  );
-
-  //  3a. resolve_context (the front door)
+  //  1. resolve_context — THE front door
   server.registerTool(
     "resolve_context",
     {
-      description: "THE front door. One call returns a task-shaped packet: the nodes that matter (with one-line meanings), call flow, involved files, key code bodies, security flags, and an id map, all within a token budget. The packet is the deliverable and already lists every node with its path and line range, so the structured node and file arrays are returned only when includeStructured is set. Answering 'where/how/what' about a supported-language repo should start here, not with grep or find_symbols. Intents: pinpoint (find a symbol's story), reference-list (who uses X), flow (trace a path), overview (map of the area), concept (explain a domain), security-audit, exploratory (default).",
+      description:
+        "THE front door. For ANY where/how/what/who-depends-on question call this FIRST instead of grep. " +
+        "One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, " +
+        "code bodies of the top 10 nodes, security flags, and an id map, within a token budget. " +
+        "Intents: pinpoint, reference-list, flow, overview, concept, security-audit, exploratory (default). " +
+        "The repo is resolved from the working folder — no graphId needed.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
-        graphId: z.string().describe("Graph id of the analyzed repo"),
         task: z.string().min(1).describe("The actual question or task, in plain words"),
         intent: z.enum(["pinpoint", "reference-list", "flow", "overview", "concept", "security-audit", "exploratory"]).optional().describe("Default exploratory"),
-        focus: z.array(z.string()).optional().describe("nodeIds or filePaths to center the packet on"),
-        tokenBudget: z.number().optional().describe("500..100000; default scales with repo size"),
-        includeSummaries: z.boolean().optional().describe("One-line business meanings on nodes, default true"),
-        includeStructured: z.boolean().optional().describe("Also return the structured nodes and files arrays (ids, paths, line ranges). Default false because the packet already lists both and the arrays are not bounded by tokenBudget."),
+        focus: z.array(z.string()).optional().describe("nodeIds, symbol names or filePaths to center the packet on"),
+        tokenBudget: z.number().optional().describe("500..100000; default scales with repo size. Code bodies ride on top of this budget."),
+        repoPath: z.string().optional().describe("Only needed when several repos are analyzed and the working folder is ambiguous"),
         commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
       },
     },
-    async ({ graphId, commitHash, includeStructured, ...opts }) =>
-      run(() => {
-        const res = q.resolveContext(graphId, opts as q.ResolveContextOpts, commitHash) as Record<string, unknown>;
-        if (includeStructured) return res;
-        const compact = { ...res };
-        delete compact.nodes;
-        delete compact.files;
-        return compact;
+    async ({ task, intent, focus, tokenBudget, repoPath, commitHash }) =>
+      runText(() => {
+        const { graphId } = resolveGraph(repoPath);
+        const res = q.resolveContext(graphId, { task, intent, focus, tokenBudget }, commitHash) as Record<string, unknown>;
+        return String(res.packet ?? "");
       })
   );
 
-  //  3a2. blast_radius (cheap wrapper over the front door)
-  server.registerTool(
-    "blast_radius",
-    {
-      description: "What breaks if a symbol changes: incoming callers and dependents, packed tight as files and node refs within a small budget. Pass the symbol name or path as `symbol`. For full meaning, code, and flow around the same area use resolve_context instead.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string().describe("Graph id of the analyzed repo"),
-        symbol: z.string().min(1).describe("Symbol name, nodeId, or file path"),
-        commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
-      },
-    },
-    async ({ graphId, symbol, commitHash }) =>
-      run(() =>
-        q.resolveContext(
-          graphId,
-          { task: symbol, intent: "reference-list", tokenBudget: 1200 },
-          commitHash
-        )
-      )
-  );
-
-  //  3b. find_symbols
+  //  2. find_symbols — cheap locator
   server.registerTool(
     "find_symbols",
     {
-      description: "Cheap symbol lookup by name, path, or concept. Returns nodeIds plus file:line refs, no graph structure and no source. Use this to locate a symbol before get_node_details/get_node_code; use resolve_context when you need meaning and impact instead. Lexical BM25F search (field-weighted, stemmed), not embeddings.",
+      description:
+        "Cheap symbol lookup by name, path fragment, or concept words (lexical BM25F). " +
+        "Returns ranked nodeIds with path:line refs — no code, no structure. " +
+        "Use it to locate a symbol; use resolve_context when you need meaning, flow, or code.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
-        graphId: z.string().describe("Graph id; defaults to the current repo when omitted only if exactly one graph is known"),
         query: z.string().min(1).describe("Symbol name, identifier, path fragment, or concept words"),
-        summaryType: z.enum(["technical", "business", "both"]).optional().describe("Which summaries to weight in ranking, default both"),
         limit: z.number().optional().describe("1..25, default 10"),
-        commitHash: z.string().optional().describe("Defaults to latest analyzed commit"),
-      },
-    },
-    async ({ graphId, commitHash, ...opts }) => run(() => q.findSymbols(graphId, opts as { query: string; summaryType?: "technical" | "business" | "both"; limit?: number }, commitHash))
-  );
-
-  //  4. get_nodes_in_path
-  server.registerTool(
-    "get_nodes_in_path",
-    {
-      description: "List all nodes in a specific FILE or FOLDER. Pass a file path for one file's nodes, or a folder path for everything beneath it (recursive). Great for orienting in an unfamiliar area of the codebase.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        path: z.string().describe("A file (src/api/users.ts) or folder (src/api)"),
-        nodeTypes: z.array(z.string()).optional(),
+        summaryType: z.enum(["technical", "business", "both"]).optional().describe("Which summaries to weight in ranking, default both"),
+        repoPath: z.string().optional(),
         commitHash: z.string().optional(),
       },
     },
-    async ({ graphId, path: p, nodeTypes, commitHash }) => run(() => q.nodesInPath(graphId, p, nodeTypes, commitHash))
+    async ({ query, limit, summaryType, repoPath, commitHash }) =>
+      runText(() => {
+        const { graphId } = resolveGraph(repoPath);
+        return renderFindSymbols(q.findSymbols(graphId, { query, limit, summaryType }, commitHash));
+      })
   );
 
-  //  5. get_node
+  //  3. get_node — one node, code opt-in
   server.registerTool(
     "get_node",
     {
-      description: "Full detail for ONE node: metadata, callers (who depends on it), callees (what it calls), and its technical/business/security summaries. Returns precomputed summaries (~50 tokens) instead of source — use this before opening a file. `include` selects which sections; default = everything. `edgeTypes` filters callers/callees by edge kind.",
+      description:
+        "Full detail for ONE node: technical/business/security summaries, callers (who uses it), callees (what it calls). " +
+        "Pass a nodeId from resolve_context/find_symbols, or a symbol name to auto-locate. " +
+        "include=['code'] adds the raw source. Prefer this over reading whole files.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
-        graphId: z.string(),
-        nodeId: z.string(),
-        include: z.array(z.enum(["metadata", "callers", "callees", "technical", "business", "security"]))
-          .optional().describe("Default: all sections"),
+        node: z.string().min(1).describe("nodeId, or a symbol/file name to locate first"),
+        include: z.array(z.enum(["metadata", "callers", "callees", "technical", "business", "security", "code"])).optional().describe("Default: summaries + callers + callees. Add 'code' for raw source."),
         edgeTypes: z.array(z.string()).optional().describe("Restrict callers/callees to these edge types"),
+        repoPath: z.string().optional(),
         commitHash: z.string().optional(),
       },
     },
-    async ({ graphId, nodeId, include, edgeTypes, commitHash }) =>
-      run(() => q.getNodeDetail(graphId, nodeId, include, edgeTypes, commitHash))
+    async ({ node, include, edgeTypes, repoPath, commitHash }) =>
+      runText(() => {
+        const { graphId } = resolveGraph(repoPath);
+        // Accept a raw nodeId, or locate by name via BM25F (exact matches win).
+        const wantCode = include?.includes("code") ?? false;
+        const inc = (include ?? ["metadata", "callers", "callees", "technical", "business", "security"])
+          .filter((k) => k !== "code") as q.NodeInclude[];
+        let detail: ReturnType<typeof q.getNodeDetail>;
+        let filePath = "";
+        let span = "";
+        try {
+          detail = q.getNodeDetail(graphId, node, inc, edgeTypes, commitHash);
+          filePath = String(detail.filePath);
+          span = String(detail.lines);
+        } catch {
+          const found = q.findSymbols(graphId, { query: node, limit: 1 }, commitHash);
+          const hit = found.symbols[0];
+          if (!hit) throw new q.DevLensError("NOT_FOUND", `No node matches "${node}" (tried id and symbol search).`, "find_symbols", { query: node });
+          detail = q.getNodeDetail(graphId, hit.nodeId, inc, edgeTypes, commitHash);
+          filePath = String(detail.filePath);
+          span = String(detail.lines);
+        }
+        const out: Record<string, unknown> = { ...detail };
+        if (wantCode) {
+          const codeRes = q.getNodeCodeFor(graphId, String(detail.id), commitHash) as { code?: string; source?: string };
+          out.code = codeRes.code;
+          out.codeSource = codeRes.source;
+        }
+        return renderGraphNode(out as Parameters<typeof renderGraphNode>[0], filePath, span);
+      })
   );
 
-  //  6. get_summaries
+  //  4. impact — blast radius + k-hop + commit-range, merged
   server.registerTool(
-    "get_summaries",
+    "impact",
     {
-      description: "Batch-fetch summaries for many nodes at once. Pass the nodeIds (e.g. from a blast-radius result) and get their technical/business/security summaries in one call — far cheaper than reading each file. `include` defaults to all three.",
+      description:
+        "Change impact. Default: the UPSTREAM dependents of a symbol/node (what breaks if it changes); " +
+        "direction='downstream' for what it depends on. radius controls hops (default 2; hub-fanout auto-caps at 1 unless explicit). " +
+        "Pass from+to commit hashes instead of a target to diff two analyzed commits with per-change impact. " +
+        "Returns compact file:line refs.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
-        graphId: z.string(),
-        nodeIds: z.array(z.string()),
-        include: z.array(z.enum(["technical", "business", "security"])).optional(),
+        target: z.string().optional().describe("nodeId, symbol name, or file path (required unless from/to given)"),
+        direction: z.enum(["upstream", "downstream", "both"]).optional().describe("Default upstream (who depends on it). 'both' runs both traversals."),
+        radius: z.number().optional().describe("Hops. Default 2, capped at hub fanout; explicit value is uncapped."),
+        from: z.string().optional().describe("Older commit hash — commit-range diff mode"),
+        to: z.string().optional().describe("Newer commit hash — commit-range diff mode"),
+        diffRadius: z.number().optional().describe("Blast-radius hops for changed nodes in diff mode. Default 1."),
+        repoPath: z.string().optional(),
         commitHash: z.string().optional(),
       },
     },
-    async ({ graphId, nodeIds, include, commitHash }) => run(() => q.getSummariesFor(graphId, nodeIds, include, commitHash))
+    async ({ target, direction, radius, from, to, diffRadius, repoPath, commitHash }) =>
+      runText(() => {
+        const { graphId } = resolveGraph(repoPath);
+        if (from && to) {
+          const changes = q.analyzeChanges(graphId, from, to, diffRadius ?? 1) as Record<string, unknown>;
+          const lines = [`CHANGES ${from.slice(0, 10)}..${to.slice(0, 10)}`];
+          for (const bucket of ["added", "removed", "codeChanged", "scoreChanged"] as const) {
+            const arr = changes[bucket] as Array<Record<string, unknown>> | undefined;
+            if (!arr?.length) continue;
+            lines.push(`${bucket.toUpperCase()} ${arr.length}`);
+            for (const c of arr.slice(0, 40)) {
+              lines.push(`  ${c.name ?? c.id} ${String(c.type ?? "").toLowerCase()} ${c.filePath ?? ""}:${c.lines ?? c.startLine ?? ""}${c.blastRadius ? ` impact:${(c.blastRadius as Array<unknown>).length} dependents` : ""}`);
+            }
+          }
+          return lines.join("\n");
+        }
+        if (!target) {
+          throw new q.DevLensError("VALIDATION_FAILED", "impact needs `target` (symbol/nodeId/path) or a commit range (from+to).");
+        }
+        // Resolve target: nodeId, else symbol name, else file path.
+        let nodeId = target;
+        const dirs = direction ?? "upstream";
+        const resolveId = (): string => {
+          const found = q.findSymbols(graphId, { query: target, limit: 1 }, commitHash);
+          const hit = found.symbols[0];
+          if (!hit) throw new q.DevLensError("NOT_FOUND", `No node matches "${target}".`, "find_symbols", { query: target });
+          return hit.nodeId;
+        };
+        const parts: string[] = [];
+        const run1 = (dir: "upstream" | "downstream") => {
+          try {
+            const res = dir === "upstream"
+              ? q.blastRadius(graphId, nodeId, radius, undefined, commitHash)
+              : q.kHop(graphId, nodeId, radius, undefined, commitHash);
+            parts.push(renderImpact(res, dir === "upstream" ? `UPSTREAM (dependents)` : "DOWNSTREAM (dependencies)"));
+          } catch {
+            nodeId = resolveId();
+            const res = dir === "upstream"
+              ? q.blastRadius(graphId, nodeId, radius, undefined, commitHash)
+              : q.kHop(graphId, nodeId, radius, undefined, commitHash);
+            parts.push(renderImpact(res, dir === "upstream" ? `UPSTREAM (dependents)` : "DOWNSTREAM (dependencies)"));
+          }
+        };
+        if (dirs === "both") { run1("upstream"); run1("downstream"); }
+        else run1(dirs);
+        parts.unshift(`IMPACT ${target} → ${nodeId}`);
+        return parts.join("\n");
+      })
   );
 
-  //  7. get_node_code
+  //  5. repo — graph lifecycle
   server.registerTool(
-    "get_node_code",
+    "repo",
     {
-      description: "Raw source code for a node. EXPENSIVE in tokens — only call when the summary from get_node is not enough. Returns the exact line range from the analyzed commit.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
+      description:
+        "Manage analyzed graphs. action='list' shows analyzed repos (one line each); action='analyze' indexes a repo folder " +
+        "(run once per repo, or after large structural changes); action='freshness' compares the graph to the current HEAD; " +
+        "action='health' reports summary coverage and circular-dependency groups. Repo resolved from the working folder when omitted.",
+      annotations: { readOnlyHint: false, idempotentHint: false },
       inputSchema: {
-        graphId: z.string(),
-        nodeId: z.string(),
-        commitHash: z.string().optional(),
+        action: z.enum(["list", "analyze", "freshness", "health"]).describe("list | analyze | freshness | health"),
+        path: z.string().optional().describe("For analyze: local repo path (or GitHub URL with isGithubRepo=true)"),
+        isGithubRepo: z.boolean().optional().describe("For analyze: path is a GitHub URL"),
+        repoPath: z.string().optional().describe("For freshness/health: disambiguate the graph"),
       },
     },
-    async ({ graphId, nodeId, commitHash }) => run(() => q.getNodeCodeFor(graphId, nodeId, commitHash))
-  );
-
-  //  8. get_security_issues
-  server.registerTool(
-    "get_security_issues",
-    {
-      description: "List nodes flagged with a security concern, ranked by severity then impact score. Deterministic: it reads the stored graph directly, with no model call. The response includes the severity distribution and how many nodes were assessed, so '0 high' can be read against coverage instead of being mistaken for 'safe'. Severity labels are a model-generated review aid, not a security audit. When `truncated` is true, page with `offset`. Fetch bodies with get_node_code.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        minSeverity: z.enum(["low", "medium", "high"]).optional().describe("At or above this severity. Default low, which means every finding."),
-        exactSeverity: z.enum(["low", "medium", "high"]).optional().describe("Exact bucket instead of at or above. Overrides minSeverity when set."),
-        includeTechnical: z.boolean().optional().describe("Include a one-line technical summary beside the security one. Default true."),
-        limit: z.number().optional().describe("Page size. Default 20, max 500."),
-        offset: z.number().optional().describe("Skip this many findings, for paging."),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, minSeverity, exactSeverity, includeTechnical, limit, offset, commitHash }) =>
-      run(() => q.securityFindings(graphId, { minSeverity, exactSeverity, includeTechnical, limit, offset, commitHash }))
-  );
-
-  //  9. get_blast_radius — upstream dependents
-  server.registerTool(
-    "get_blast_radius",
-    {
-      description: "Impact analysis: the UPSTREAM nodes that depend on the target (who calls/uses it). Answers 'if I change this node, what could break'. Each result carries its hop distance. `radius` defaults to 2; when omitted and the direct (hop-1) fanout is >=100, it returns hop-1 only and sets truncated=true — re-call with an explicit `radius` to traverse deeper, uncapped.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        nodeId: z.string(),
-        radius: z.number().optional().describe("Hops to traverse. Default 2 (capped); explicit value is uncapped."),
-        edgeTypes: z.array(z.string()).optional().describe("Restrict traversal to these edge types"),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, nodeId, radius, edgeTypes, commitHash }) => run(() => q.blastRadius(graphId, nodeId, radius, edgeTypes, commitHash))
-  );
-
-  //  10. get_khop — downstream dependencies
-  server.registerTool(
-    "get_khop",
-    {
-      description: "Dependency expansion: the DOWNSTREAM nodes the target calls/uses, out to `radius` hops. Answers 'what does this node depend on'. Same radius/cap behavior as get_blast_radius (default 2, capped at hop-1 fanout >=100 unless radius is explicit).",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        nodeId: z.string(),
-        radius: z.number().optional().describe("Hops to traverse. Default 2 (capped); explicit value is uncapped."),
-        edgeTypes: z.array(z.string()).optional().describe("Restrict traversal to these edge types"),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, nodeId, radius, edgeTypes, commitHash }) => run(() => q.kHop(graphId, nodeId, radius, edgeTypes, commitHash))
-  );
-
-  //  11. get_subgraph — cohesive cluster around a node
-  server.registerTool(
-    "get_subgraph",
-    {
-      description: "Return the cohesive cluster (feature/module) that the seed node belongs to: its sibling nodes plus the edges internal to that cluster. Use to understand the bounded context around a node without pulling the whole graph.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        seedNodeId: z.string(),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, seedNodeId, commitHash }) => run(() => q.subgraph(graphId, seedNodeId, commitHash))
-  );
-
-  //  12. list_cycles — cyclic dependency groups
-  server.registerTool(
-    "list_cycles",
-    {
-      description: "List groups of nodes that form cyclic dependencies (circular imports/calls). Useful for spotting refactor hotspots and tangled modules. Each group lists the participating nodes.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, commitHash }) => run(() => q.cycles(graphId, commitHash))
-  );
-
-  //  13. analyze — run the pipeline on a repo path and store the graph
-  server.registerTool(
-    "analyze",
-    {
-      description: "Analyze a repository at a local path (or GitHub URL) into a DevLens graph and persist it. Returns the graphId, commit, and compact stats — NOT the node dump. Run this once before using the query tools on a new repo.",
-      annotations: { idempotentHint: true, destructiveHint: false },
-      inputSchema: {
-        path: z.string().describe("Local repo path or GitHub URL"),
-        isGithubRepo: z.boolean().optional().describe("Default false"),
-      },
-    },
-    async ({ path: repoPath, isGithubRepo }) => runAsync(() => q.analyzeRepo(repoPath, isGithubRepo ?? false))
-  );
-
-  //  14. analyze_changes — diff two commits + blast radius of what changed
-  server.registerTool(
-    "analyze_changes",
-    {
-      description: "Compare two analyzed commits and report what changed (added/removed/code-changed/score-changed nodes). For added and code-changed nodes it also computes the upstream blast radius so you can see the impact of the change set. Both commits must already be analyzed.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        from: z.string().describe("Older commit hash"),
-        to: z.string().describe("Newer commit hash"),
-        radius: z.number().optional().describe("Blast-radius hops for changed nodes. Default 1."),
-      },
-    },
-    async ({ graphId, from, to, radius }) => run(() => q.analyzeChanges(graphId, from, to, radius))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  S1  check_freshness
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "check_freshness",
-    {
-      description: "Check if the analyzed graph is stale vs the current HEAD of the repo. Reports whether the working tree is dirty, whether HEAD is ahead of the last analyzed commit, and summary coverage. Also called internally by workflow tools — call this before relying on architecture_brief / security_brief / review_pr to decide whether to re-analyze. One call; read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-      },
-    },
-    async ({ graphId }) => run(() => q.checkFreshness(graphId))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  S2  get_coverage
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "get_coverage",
-    {
-      description: "Graph health report: how many nodes are summarized vs structure-only, by type, plus the model and prompt version used. Use to surface 'the graph is only 60% summarized' so you can warn the user instead of silently operating on a partial graph. One call; read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, commitHash }) => run(() => q.getCoverage(graphId, commitHash))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  T1  architecture_brief
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "architecture_brief",
-    {
-      description: "One-call repo architecture brief: modules, routes, stores, hooks, key flows, connections, and health (cycles + security). Replaces the 7-step orchestration of overview+subgraph+find_nodes+khop+blast_radius+get_summaries+cycles — one call instead of 7-12. The architectural backbone (modules/routes/stores/hooks/flows) is enumerated fully and never truncated; only the long-tail core-node inventory is capped to protect budget. Read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        tokenBudget: z.number().optional().describe("Output token budget (caps the core-node inventory). Default 8000."),
-        maxRoutesTraced: z.number().optional().describe("Routes to trace call paths for. Default 8."),
-        maxModules: z.number().optional().describe("Central nodes to cluster into modules. Default 5."),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, tokenBudget, maxRoutesTraced, maxModules, commitHash }) =>
-      run(() => q.architectureBrief(graphId, { tokenBudget, maxRoutesTraced, maxModules, commitHash }))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  T2  security_brief
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "security_brief",
-    {
-      description: "One-call prioritized security report: all findings at or above minSeverity, enriched with blast radius for high-severity issues, plus a ranked 'fixTheseFirst' list and the assessed-node coverage. Replaces the 3-step security-analysis recipe. Never truncates high-severity findings. Read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        minSeverity: z.enum(["low", "medium", "high"]).optional().describe("Minimum severity. Default low."),
-        tokenBudget: z.number().optional().describe("Output token budget. Default 8000."),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, minSeverity, tokenBudget, commitHash }) =>
-      run(() => q.securityBrief(graphId, { minSeverity, tokenBudget, commitHash }))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  T3  review_pr
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "review_pr",
-    {
-      description: "One-call PR review packet: diff summary, per-changed-node impact (blast radius), test coverage (incoming TESTS edges — the agent previously could not produce this at all), and security delta (new vs resolved findings). Includes a reviewer checklist. Replaces 6-10 calls with one. Requires both commits already analyzed. Read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        from: z.string().describe("Older commit hash (base of PR)."),
-        to: z.string().describe("Newer commit hash (head of PR)."),
-        radius: z.number().optional().describe("Blast-radius hops for changed nodes. Default 1."),
-        tokenBudget: z.number().optional().describe("Output token budget. Default 10000."),
-        commitHash: z.string().optional().describe("Defaults to 'to'."),
-      },
-    },
-    async ({ graphId, from, to, radius, tokenBudget, commitHash }) =>
-      run(() => q.reviewPr(graphId, from, to, { radius, tokenBudget, commitHash }))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  T4  onboarding_tour
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "onboarding_tour",
-    {
-      description: "One-call onboarding skeleton: modules, entry points (routes), state (stores/hooks), key flows, a reading path, a domain glossary (from business summaries), and gotchas (cycles, high-severity security, load-bearing nodes). The graph-derived half of onboarding. The skill then reads package.json / .env.example / README from disk for setup facts and merges. Replaces the graph half of the 5-step onboard recipe. Read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        tokenBudget: z.number().optional().describe("Output token budget. Default 8000."),
-        maxModules: z.number().optional().describe("Central nodes to cluster. Default 8."),
-        maxFlows: z.number().optional().describe("Routes to trace call paths for. Default 4."),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, tokenBudget, maxModules, maxFlows, commitHash }) =>
-      run(() => q.onboardingTour(graphId, { tokenBudget, maxModules, maxFlows, commitHash }))
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  T5  get_context
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  server.registerTool(
-    "get_context",
-    {
-      description: "One-call token-budgeted context packet: keyword-seeded retrieval (no embeddings — OSS limitation; cloud adds embeddings), intent-aware traverse, and budget-capped assembly. Replaces find_nodes -> get_node -> blast_radius -> get_summaries fan-out (5-8 calls). Keyword scoring: +3 for name match, +2 for path match, +1 for business-summary match — blended 60/40 with PageRank. Falls back to central nodes on keyword miss. Pass seedNodeIds to bypass keyword search when you already have target node ids. For intent='impact' you must pass focus or seedNodeIds (else the tool errors with IMPACT_REQUIRES_FOCUS and points to review_pr). Read-only.",
-      annotations: { readOnlyHint: true, idempotentHint: true },
-      inputSchema: {
-        graphId: z.string(),
-        query: z.string().describe("Keyword query for seeding retrieval (name/path/business-summary substring match)."),
-        intent: z.enum(["explain", "architecture", "impact", "security", "generic"]).optional().describe("Controls seed count, edge types, and direction. Default generic."),
-        focus: z.string().optional().describe("Optional nodeId or filePath to force as a seed (prepended to keyword seeds). Required for intent='impact'."),
-        seedNodeIds: z.array(z.string()).optional().describe("Skip keyword seeding — use these node ids directly as seeds."),
-        hops: z.union([z.literal(1), z.literal(2)]).optional().describe("Traversal radius. Default 1; pass 2 for deeper context."),
-        tokenBudget: z.number().optional().describe("Output token budget. Default 8000."),
-        commitHash: z.string().optional(),
-      },
-    },
-    async ({ graphId, query, intent, focus, seedNodeIds, hops, tokenBudget, commitHash }) =>
-      run(() => q.getContext(graphId, query, { intent, focus, seedNodeIds, hops, tokenBudget, commitHash }))
+    async ({ action, path: analyzePath, isGithubRepo, repoPath }) =>
+      action === "analyze"
+        ? runTextAsync(async () => {
+            if (!analyzePath) throw new q.DevLensError("VALIDATION_FAILED", "repo(action='analyze') needs path='<repo folder>'.");
+            const res = await q.analyzeRepo(analyzePath, isGithubRepo ?? false) as Record<string, unknown>;
+            const stats = (res.stats ?? {}) as Record<string, number>;
+            return [
+              `ANALYZED ${res.graphId ?? "?"}`,
+              `repo ${analyzePath}  commit ${String(res.commitHash ?? "").slice(0, 10)}`,
+              `nodes ${stats.totalNodesAfterFilter ?? "?"}  edges ${stats.totalEdgesAfterFilter ?? "?"}`,
+            ].join("\n");
+          })
+        : runText(() => {
+            const { graphId } = repoPath ? resolveGraph(repoPath) : { graphId: "" };
+            if (action === "list") {
+              const graphs = q.listRepos() as unknown as GraphEntry[];
+              const lines = [`REPOS ${graphs.length}`];
+              for (const g of graphs) {
+                lines.push(`${g.graphId}  ${g.repoPath}  ${g.framework ?? g.language ?? ""}  commit:${String(g.latestCommit ?? "").slice(0, 10)}  graphs:${g.commitCount ?? 1}`);
+              }
+              return lines.join("\n");
+            }
+            if (!graphId) throw new q.DevLensError("VALIDATION_FAILED", `repo(action='${action}') needs repoPath to identify the graph (several repos analyzed).`, "repo", { action: "list" });
+            if (action === "freshness") {
+              const f = q.checkFreshness(graphId) as Record<string, unknown>;
+              return [
+                `FRESHNESS ${graphId}`,
+                ...Object.entries(f).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`),
+              ].join("\n");
+            }
+            // health
+            const cov = q.getCoverage(graphId) as Record<string, unknown>;
+            const cyc = q.cycles(graphId) as { total: number; cycles: Array<{ size: number; nodes: Array<{ name?: string; filePath?: string }> }> };
+            const lines = [`HEALTH ${graphId}`];
+            lines.push(`coverage: ${JSON.stringify(cov)}`);
+            lines.push(`cycles: ${cyc.total}`);
+            for (const c of cyc.cycles.slice(0, 5)) {
+              lines.push(`  cycle(${c.size}): ${c.nodes.map((n) => n.name ?? n.filePath).join(" -> ")}`);
+            }
+            return lines.join("\n");
+          })
   );
 }

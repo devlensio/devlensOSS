@@ -47,9 +47,27 @@ export function pickSummaries(n: CodeNode, include: SummaryKind[] = ALL_SUMMARIE
   return out;
 }
 
-// MCP tool responses must be content blocks. Agents consume JSON text.
+// MCP tool responses must be content blocks. This build (mcp-compact-test)
+// returns PLAIN LINE-ORIENTED TEXT: the JSON envelope pretty-printing cost ~2x
+// on the wire (indent + quote escaping), and agents parse the lines directly.
+// Cloud parity: success and error share one text block; errors are
+// "ERROR <code>: <message>" plus an optional TRY line.
+export function textOut(text: string) {
+  return { content: [{ type: "text" as const, text }] };
+}
+
+export function failText(message: string, code?: string, suggestedTool?: string, suggestedArgs?: Record<string, unknown>) {
+  const lines = [`ERROR ${code ?? "INTERNAL"}: ${message}`];
+  if (suggestedTool) {
+    lines.push(`TRY: ${suggestedTool} ${suggestedArgs ? JSON.stringify(suggestedArgs) : ""}`.trim());
+  }
+  return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
+}
+
+// Legacy JSON shapes — kept only for the resources layer and any caller that
+// has not migrated to textOut yet. NOT pretty-printed anymore.
 export function ok(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(data) }] };
 }
 export function fail(message: string, code?: string, suggestedTool?: string, suggestedArgs?: Record<string, unknown>) {
   return {
