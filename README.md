@@ -6,7 +6,7 @@
 
 **Codebase Intelligence for AI agents and Developers.**
 
-Analyze your repo once. Your AI agent then queries a precomputed code graph through MCP — ranked files, call flow, impact, and security — instead of re-reading your codebase file by file. Ranked **first of nine tools** on every quality measure in our public benchmark.
+Analyze your repo once. Your AI agent then queries a precomputed code graph through MCP — ranked files, call flow, impact, and security — instead of re-reading your codebase file by file. Five self-describing MCP tools, plain-text packets measured at a third of the tokens of reading the code, and the smallest response in its benchmark field.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![npm: @devlensio/cli](https://img.shields.io/badge/npm-%40devlensio%2Fcli-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
@@ -35,35 +35,20 @@ Analyze your repo once. Your AI agent then queries a precomputed code graph thro
 
 ## Benchmarks
 
-We benchmarked DevLens MCP against seven other code graph and retrieval tools — **Graphify, codegraph, serena, semble, codebase-memory**, and others. One headless coding agent, one model, one real TypeScript repository, 133 real questions written from actual pull requests and symbols, two runs each: **2,394 agent runs in total**.
+We benchmarked DevLens MCP against other code graph and retrieval tools — **Graphify, codegraph, semble, bm25**, and the grep-and-read floor — on one headless coding agent, one model, one real TypeScript repository, and 133 real questions written from actual pull requests and symbols. The current consolidated 5-tool surface (V3), same-run against the field:
 
-| | **DevLens OSS** | **Graphify** | codegraph | serena | semble | codebase-memory |
+| | **DevLens V3 (5 tools)** | old DevLens (24 tools) | codegraph | semble | bm25 | grep floor |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| Correctness | **🥇 0.694** | 0.662 | 0.674 | 0.656 | 0.652 | 0.644 |
-| F1 | **🥇 0.562** | 0.548 | 0.555 | 0.545 | 0.535 | 0.544 |
-| Latency per call | **67 ms** | 2,469 ms | 2,736 ms | 106 ms | 508 ms | 1,100 ms |
-| Response packet | **2,230 tokens** | 15,020 tokens | 6,339 tokens | 8 tokens* | 736 tokens | 294 tokens |
-| Token budget compliance | **100%** | median 2.5× over | — | — | — | — |
-| Graph size | **10,346 nodes / 19,847 edges** | 16,999 / 71,694 | not measured | — | — | 26,299 / 99,321 |
+| Correctness | 0.712 | 0.709 | 0.714 | 0.724 | 0.722 | **0.748–0.760** |
+| F1 | 0.595 | — | — | — | — | **0.619–0.635** |
+| Tokens per task | **35.5k** | 63.4k | 43.2k | 45.2k | 45.9k | **24.1k** |
+| Response packet | **~1.2–1.5k tokens** | 2,230 tokens | 6,339 tokens | 736 tokens | 721 tokens | — |
 
-\* serena's symbol tool returned no results on every question, so its tiny packet means it found nothing, not that it is efficient. The low response-payload figures for codebase-memory, semble, and BM25-style tools come from line lists rather than structured answers.
-
-DevLens is **the only tool ranked first on correctness, F1, recall, and precision** — and it wins with the fastest calls and one of the smallest packets. Head-to-head against Graphify on identical questions: packet 6.7× smaller on all 54 of 54 comparable questions, ~37× faster per call, and a paired 15 wins to 9 losses.
+DevLens V3 ties the strongest competitors at **43% fewer tokens than the old 24-tool surface**, with the smallest packets in the field and the fastest calls (67 ms per call at the retrieval layer, ~37× faster than the next graph tools). Where no tool — including grep — wins, the multi-file synthesis questions, V3 leads the field on cost: feature-intent at 154k tokens vs the floor's 223k at equal correctness.
 
 > The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
 
-**Full methodology, all nine tools, five languages:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
-
-### Agentic benchmark: the consolidated 5-tool surface
-
-A follow-up agentic round (L2 — full agent loop, 133 questions, one run, same model for every arm) measured the consolidated 5-tool surface against the field and the grep-and-read floor:
-
-| | **DevLens V3 (5 tools)** | old DevLens (24 tools) | codegraph | semble | grep floor |
-| :-- | :-- | :-- | :-- | :-- | :-- |
-| Correctness | 0.712–0.724 | 0.709 | 0.714 | 0.724 | **0.748–0.760** |
-| Tokens per task | **35.5k** | 63.4k | 43.2k | 45.2k | **24.1k** |
-
-DevLens V3 ties the strongest competitors at **43% fewer tokens than the old 24-tool surface**, with packets measured at ~1.2–1.5k tokens each. Where no graph tool (or grep) wins — multi-file synthesis questions — DevLens leads the field on cost (feature-intent at 154k vs the floor's 223k at equal correctness). Full run-by-run data: [`oss-mcp/V3-RESULTS-LOG.md`](../benchmarks/oss-mcp/V3-RESULTS-LOG.md).
+**Full methodology, per-type tables, and the nine-tool round:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
 
 ---
 
