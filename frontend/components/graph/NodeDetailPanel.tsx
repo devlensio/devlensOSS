@@ -1916,6 +1916,7 @@ export default function NodeDetailPanel({
                       <ConnectionGroup
                         key={type}
                         type={type}
+                        label={type === "CALLS" && node?.type === "FILE" ? "Module-scope calls" : undefined}
                         ids={ids}
                         nodesById={nodesById}
                         color={EDGE_COLORS[type] ?? C.textSub}
@@ -2252,12 +2253,14 @@ function ToolBtn({
 
 function ConnectionGroup({
   type,
+  label,
   ids,
   nodesById,
   color,
   onNodeFocus,
 }: {
   type: string;
+  label?: string;
   ids: string[];
   nodesById: Record<string, CodeNode>;
   color: string;
@@ -2281,7 +2284,7 @@ function ConnectionGroup({
           className="text-sm font-semibold tracking-wide"
           style={{ color }}
         >
-          {type.replace(/_/g, " ")}
+          {label ?? type.replace(/_/g, " ")}
         </span>
         <span
           className="ml-auto text-sm tabular-nums font-mono"

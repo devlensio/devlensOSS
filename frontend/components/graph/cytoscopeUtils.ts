@@ -121,6 +121,7 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
         target:   e.to,
         type:     e.type,
         metadata: e.metadata,
+        scope:    (e.metadata as any)?.scope,
       }
     }));
 

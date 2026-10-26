@@ -305,6 +305,16 @@ export function getCytoscapeStyles(
       } as any,
     })),
 
+    // ── Module-scope CALLS (FILE → symbol) ───────────────────────────────────
+    // The edge type stays CALLS; the dashed line only signals that the caller
+    // is the file's top-level code, not a function body.
+    {
+      selector: 'edge[scope="module"]',
+      style: {
+        "line-style": "dashed",
+      } as any,
+    },
+
     // ── Selected ─────────────────────────────────────────────────────────────
     {
       selector: "node:selected",
