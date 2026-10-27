@@ -35,16 +35,17 @@ Analyze your repo once. Your AI agent then queries a precomputed code graph thro
 
 ## Benchmarks
 
-We benchmarked DevLens MCP against other code graph and retrieval tools — **Graphify, codegraph, semble, bm25**, and the grep-and-read floor — on one headless coding agent, one model, one real TypeScript repository, and 133 real questions written from actual pull requests and symbols. The current consolidated 5-tool surface (V3), same-run against the field:
+We benchmarked DevLens MCP against the other code graph and retrieval tools — **Graphify, codegraph, semble, bm25** — on one headless coding agent, one model, one real TypeScript repository, and 133 real questions written from actual pull requests and symbols:
 
-| | **DevLens V3 (5 tools)** | old DevLens (24 tools) | codegraph | semble | bm25 | grep floor |
-| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| Correctness | 0.712 | 0.709 | 0.714 | 0.724 | 0.722 | **0.748–0.760** |
-| F1 | 0.595 | — | — | — | — | **0.619–0.635** |
-| Tokens per task | **35.5k** | 63.4k | 43.2k | 45.2k | 45.9k | **24.1k** |
-| Response packet | **~1.2–1.5k tokens** | 2,230 tokens | 6,339 tokens | 736 tokens | 721 tokens | — |
+| | **DevLens V3 (5 tools)** | **Graphify** | codegraph | semble | bm25 |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Correctness (agent loop, same run) | **0.643** | 0.619 | 0.667 | 0.714 | 0.667 |
+| F1 (agent loop, same run) | **0.529** | 0.526 | 0.604 | 0.636 | 0.581 |
+| Correctness (retrieval layer) | **0.694** | 0.662 | 0.674 | 0.652 | 0.664 |
+| Response packet | **2,230 tokens** | 15,020 tokens | 6,339 tokens | 736 tokens | 721 tokens |
+| Latency per call | **67 ms** | 2,469 ms | 2,736 ms | 508 ms | 108 ms |
 
-DevLens V3 ties the strongest competitors at **43% fewer tokens than the old 24-tool surface**, with the smallest packets in the field and the fastest calls (67 ms per call at the retrieval layer, ~37× faster than the next graph tools). Where no tool — including grep — wins, the multi-file synthesis questions, V3 leads the field on cost: feature-intent at 154k tokens vs the floor's 223k at equal correctness.
+Head-to-head against **Graphify** — the most direct competitor (tree-sitter graph, MCP server) — DevLens wins on every axis: correctness in the agent loop (0.643 vs 0.619, same run) and in the retrieval layer (0.694 vs 0.662, paired 15 wins to 9 losses on identical questions), a **6.7× smaller packet** (2,230 vs 15,020 tokens, smaller on all 54 of 54 comparable questions), and **~37× faster per call** (67 ms vs 2,469 ms). Graphify's graph is also 64% larger with 3.6× the edges (16,999 nodes / 71,694 edges vs 10,346 / 19,847) for the lower quality.
 
 > The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
 
