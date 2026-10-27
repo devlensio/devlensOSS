@@ -52,7 +52,7 @@ Five tools. `resolve_context` is the front door and answers most questions in a 
 | :-- | :-- | :-- |
 | `resolve_context` | `task` (required), `intent?`, `focus?`, `tokenBudget?`, `repoPath?`, `commitHash?` | **The front door.** One call returns a task-shaped plain-text packet: an ANSWER line, ranked nodes with one-line meanings, call flow, involved files with matched-line snippets, and an id map — all within a token budget. Intents: `pinpoint`, `reference-list`, `flow`, `overview`, `concept`, `security-audit`, `exploratory` (default). The repo is resolved from the working folder. |
 | `find_symbols` | `query` (required), `limit?` | Cheap symbol lookup by name, path fragment, or concept words (lexical BM25F). Returns ranked nodeIds with `file:line` — no code, no structure. |
-| `get_node` | `node` (required), `include?`, `edgeTypes?` | Full detail for one node: technical/business/security summaries, callers, callees. Pass a nodeId from `resolve_context`/`find_symbols`, or a symbol name to auto-locate. `include=['code']` adds the raw source. |
+| `get_node` | `node` (required), `include?`, `codeLines?`, `edgeTypes?` | Full detail for one node: technical/business/security summaries, callers, callees. Pass a nodeId from `resolve_context`/`find_symbols`, or a symbol name to auto-locate. `include=['code']` adds raw source (default: first 120 lines). `codeLines=[start,end]` pages it using absolute 1-based file lines (max 400 per call); the response banner names the next window. |
 | `impact` | `target?`, `direction?`, `radius?` — or `from`+`to` commits | Change impact. Default: upstream dependents of a symbol/node (what breaks if it changes); `direction='downstream'` reverses. `from`+`to` commit hashes switch to commit-range diff mode with per-change impact. Compact `file:line` refs. |
 | `repo` | `action`: `list` \| `analyze` \| `freshness` \| `health` | Manage analyzed graphs: list repos, analyze a repo folder, compare the graph to the current HEAD, report summary coverage and circular-dependency groups. |
 
@@ -77,8 +77,10 @@ find_symbols({ query: string, limit?: number })   // 1..25, default 10
 //                   relevance, exactMatch }] }
 
 get_node({ node: string, include?: ("metadata" | "callers" | "callees"
-          | "technical" | "business" | "security" | "code")[] })
-// => summaries + callers + callees for one node; add "code" for raw source
+          | "technical" | "business" | "security" | "code")[],
+          codeLines?: [number, number], edgeTypes?: string[] })
+// => summaries + callers + callees for one node; add "code" for raw source,
+//    and codeLines=[start,end] (absolute 1-based file lines) to page long bodies
 
 impact({ target?: string, direction?: "upstream" | "downstream" | "both",
          radius?: number, from?: string, to?: string })
@@ -244,7 +246,11 @@ in that order; a query never errors because of index state.
 //     callees (what it calls) with edge types — without reading the source file.
 
 // get_node({ node: "loginUser", include: ["code"] })
-//   ⇒ adds the raw source for the node's range.
+//   ⇒ adds the raw source for the node's range (first 120 lines).
+
+// get_node({ node: "loginUser", include: ["code"], codeLines: [201, 400] })
+//   ⇒ that absolute file-line window, numbered. If more lines remain, the
+//     trailer prints: next: codeLines [401, 600].
 ```
 
 ### Impact analysis before a refactor

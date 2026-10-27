@@ -442,7 +442,7 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, 
   // NEXT
   const nextParts: string[] = [];
   if (packet.nextHint) nextParts.push(packet.nextHint);
-  if (unavailable) nextParts.push("code bodies partly unavailable on disk; use get_node_code for exact source");
+  if (unavailable) nextParts.push("code bodies partly unavailable on disk; use get_node with include=['code'] (codeLines to page) for exact source");
   if (packet.ambiguous) {
     nextParts.push(
       `ambiguous symbol "${opts?.querySymbol ?? "?"}" exists in ${(packet.rivalFiles ?? []).length} files (${(packet.rivalFiles ?? []).join(", ")}) — retry with focus=<path> to disambiguate`

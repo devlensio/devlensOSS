@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as q from "../core/queries.js";
 import { textOut, failText } from "./helpers.js";
-import { compactCodeLines } from "./packetRender.js";
+import { renderCodeWindow, validateCodeWindowRequest } from "./codeWindow.js";
 
 // mcp-compact-test: the 24-tool surface is consolidated to FIVE tools.
 //
@@ -90,10 +90,17 @@ function renderFindSymbols(res: Awaited<ReturnType<typeof q.findSymbols>>): stri
   return lines.join("\n");
 }
 
+function parseNodeSpan(span: string): { startLine: number; endLine: number } {
+  const match = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(span);
+  if (!match) return { startLine: 1, endLine: Number.MAX_SAFE_INTEGER };
+  return { startLine: Number(match[1]), endLine: Number(match[2]) };
+}
+
 function renderGraphNode(
   res: ReturnType<typeof q.getNodeDetail> & { code?: string; codeSource?: string },
   filePath: string,
-  span: string
+  span: string,
+  codeWindow?: readonly [number, number]
 ): string {
   const lines: string[] = [];
   lines.push(`NODE ${res.name} ${String(res.type).toLowerCase()} ${filePath}:${span} score:${res.score}`);
@@ -117,10 +124,20 @@ function renderGraphNode(
   refs(res.callers, "CALLERS");
   refs(res.callees, "CALLEES");
   if (res.code) {
-    lines.push(`CODE ${filePath}:${span}`);
-    const { text, total } = compactCodeLines(String(res.code).split("\n"), 120);
-    lines.push(text);
-    if (total > 120) lines.push(`(code capped at 120 compacted lines; call include=['code'] again or read ${filePath} for the rest)`);
+    const { startLine, endLine } = parseNodeSpan(span);
+    const window = renderCodeWindow(String(res.code), {
+      filePath,
+      startLine,
+      endLine,
+      window: codeWindow,
+    });
+    if (!window.ok) {
+      throw new q.DevLensError("VALIDATION_FAILED", window.error, "get_node", {
+        node: res.id,
+        include: ["code"],
+      });
+    }
+    lines.push(window.text);
   }
   return lines.join("\n");
 }
@@ -199,21 +216,30 @@ export function registerTools(server: McpServer) {
       description:
         "Full detail for ONE node: technical/business/security summaries, callers (who uses it), callees (what it calls). " +
         "Pass a nodeId from resolve_context/find_symbols, or a symbol name to auto-locate. " +
-        "include=['code'] adds the raw source. Prefer this over reading whole files.",
+        "include=['code'] adds the raw source (first 120 lines; page with codeLines=[start,end]). " +
+        "Prefer this over reading whole files.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
         node: z.string().min(1).describe("nodeId, or a symbol/file name to locate first"),
         include: z.array(z.enum(["metadata", "callers", "callees", "technical", "business", "security", "code"])).optional().describe("Default: summaries + callers + callees. Add 'code' for raw source."),
+        codeLines: z.tuple([z.number().int().positive(), z.number().int().positive()]).optional().describe("With include:['code'] — absolute 1-based [start, end] file lines. Defaults to the first 120 lines of the node; max 400 per call. Follow the banner's next hint to page."),
         edgeTypes: z.array(z.string()).optional().describe("Restrict callers/callees to these edge types"),
         repoPath: z.string().optional(),
         commitHash: z.string().optional(),
       },
     },
-    async ({ node, include, edgeTypes, repoPath, commitHash }) =>
+    async ({ node, include, codeLines, edgeTypes, repoPath, commitHash }) =>
       runText(() => {
         const { graphId } = resolveGraph(repoPath);
         // Accept a raw nodeId, or locate by name via BM25F (exact matches win).
         const wantCode = include?.includes("code") ?? false;
+        const invalidCodeRequest = validateCodeWindowRequest(wantCode, codeLines);
+        if (invalidCodeRequest) {
+          throw new q.DevLensError("VALIDATION_FAILED", invalidCodeRequest, "get_node", {
+            node,
+            include: ["code"],
+          });
+        }
         const inc = (include ?? ["metadata", "callers", "callees", "technical", "business", "security"])
           .filter((k) => k !== "code") as q.NodeInclude[];
         let detail: ReturnType<typeof q.getNodeDetail>;
@@ -237,7 +263,7 @@ export function registerTools(server: McpServer) {
           out.code = codeRes.code;
           out.codeSource = codeRes.source;
         }
-        return renderGraphNode(out as Parameters<typeof renderGraphNode>[0], filePath, span);
+        return renderGraphNode(out as Parameters<typeof renderGraphNode>[0], filePath, span, codeLines);
       })
   );
 

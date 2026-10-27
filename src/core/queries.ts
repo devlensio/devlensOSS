@@ -1864,13 +1864,13 @@ function requireMicro(n: { businessSummary?: string }): string | undefined {
 function nextHintFor(intent: ResolveIntent): string {
   switch (intent) {
     case "pinpoint":
-      return "use get_node_code on a short id for full source; get_neighbors for structure";
+      return "use get_node on a short id with include=['code'] (page long bodies with codeLines [start,end]); impact(direction='downstream') for structure";
     case "reference-list":
-      return "each FILE line lists dependent locations; use blast_radius(symbol) to re-run on one symbol";
+      return "each FILE line lists dependent locations; use impact(target=<symbol>) to re-run on one symbol";
     case "flow":
-      return "FLOW lines are call order; use get_node_code to inspect a hop";
+      return "FLOW lines are call order; use get_node with include=['code'] to inspect a hop";
     case "security-audit":
-      return "use get_security_issues for the full finding list";
+      return "use resolve_context with intent='security-audit' for the full finding list";
     default:
       return "use find_symbols for cheap lookups; resolve_context with intent=flow to trace a path";
   }
