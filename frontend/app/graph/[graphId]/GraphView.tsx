@@ -366,12 +366,12 @@ export default function GraphView({ params }: Props) {
 
   //  Re-analyze 
 
-  async function handleReanalyze(skipSummarization = false) {
+  async function handleReanalyze(skipSummarization = false, forceSummarize = false) {
     const repoPath = graph?.repoPath ?? meta?.repoPath;
     if (!repoPath) return;
     setReanalyzing(true);
     try {
-      const job = await analyze.mutateAsync({ repoPath, skipSummarization });
+      const job = await analyze.mutateAsync({ repoPath, skipSummarization, forceSummarize });
       setReanalyzing(false);
       router.replace(
         `/graph/${graphId}?jobId=${job.jobId}&pSkippedSummarization=${skipSummarization}`,
@@ -695,7 +695,7 @@ function ReanalyzeButton({
 }: {
   repoPath: string;
   disabled: boolean;
-  onReanalyze: (skipSummarization: boolean) => void;
+  onReanalyze: (skipSummarization: boolean, forceSummarize?: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -747,6 +747,29 @@ function ReanalyzeButton({
           className="absolute top-full right-0 mt-1.5 rounded-xl py-1 w-52
                         bg-surface border border-border shadow-xl z-50"
         >
+          <button
+            onClick={() => {
+              setOpen(false);
+              // Re-summarize from Scratch discards existing summaries — confirm first
+              if (
+                confirm(
+                  "Re-summarize from Scratch will discard the existing summaries for the latest commit and re-run the full analysis + summarization (LLM calls).\n\nContinue?"
+                )
+              ) {
+                onReanalyze(false, true);
+              }
+            }}
+            className="w-full flex flex-col gap-0.5 px-3 py-2.5 text-left
+                       hover:bg-elevated transition-colors"
+          >
+            <span className="text-xs font-medium text-primary">
+              Re-summarize from Scratch
+            </span>
+            <span className="text-xs text-dim">
+              Fresh analysis + re-summary, discards cached summaries
+            </span>
+          </button>
+
           <button
             onClick={() => {
               onReanalyze(false);

@@ -12,7 +12,7 @@ export default function HomePage() {
   const { data: graphs, isLoading } = useGraphList();
   const analyze = useAnalyze();
   const [repoPath, setRepoPath] = useState("");
-  const [skipSummarization, setSkipSummarization] = useState(false);
+  const [skipSummarization, setSkipSummarization] = useState(true);
   const [preScanResult, setPreScanResult] = useState<PreScanResult | null>(null);
   const [preScanLoading, setPreScanLoading] = useState(false);
 

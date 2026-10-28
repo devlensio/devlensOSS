@@ -59,30 +59,26 @@ export function RepoCard({ graph }: RepoCardProps) {
     router.push(`/graph/${graph.graphId}`);
   }
 
-  function handleSummarize() {
+  // Re-run analysis on this repo.
+  // skipSummarization=true → graph refresh only (no LLM calls)
+  // forceSummarize=true    → fresh analysis + re-summary of the latest commit,
+  //                          discards cached summaries (existing engine flag)
+  function handleReanalyze(skipSummarization: boolean, forceSummarize = false) {
     setMenuOpen(false);
+    // Re-summarize from Scratch discards existing summaries for the latest
+    // commit and re-runs full analysis + summarization — require confirmation.
+    if (
+      forceSummarize &&
+      !confirm(
+        "Re-summarize from Scratch will discard the existing summaries for the latest commit and re-run the full analysis + summarization (LLM calls).\n\nContinue?"
+      )
+    )
+      return;
     analyze.mutate(
       {
         repoPath: graph.repoPath,
-        skipSummarization: false,
-        forceSummarize: false,
-      },
-      {
-        onSuccess: (job) => {
-          router.push(`/graph/${graph.graphId}?jobId=${job.jobId}`);
-        },
-      },
-    );
-  }
-
-  // Force re-summarize — clears checkpoint + summarizedCommits, restarts
-  function handleForceSummarize() {
-    setMenuOpen(false);
-    analyze.mutate(
-      {
-        repoPath: graph.repoPath,
-        skipSummarization: false,
-        forceSummarize: true,
+        skipSummarization,
+        forceSummarize,
       },
       {
         onSuccess: (job) => {
@@ -171,16 +167,22 @@ export function RepoCard({ graph }: RepoCardProps) {
                   onClick={handleOpen}
                 />
                 <MenuItem
+                  icon={<HiOutlineTableCells />}
+                  label="Re-analyze Only"
+                  description="Graph refresh — no LLM calls, no summaries"
+                  onClick={() => handleReanalyze(true)}
+                />
+                <MenuItem
                   icon={<HiOutlineSparkles />}
-                  label="Run Summarization"
-                  description="Resumes from last checkpoint if available"
-                  onClick={handleSummarize}
+                  label="Re-analyze + Summarize"
+                  description="Re-runs analysis and summaries"
+                  onClick={() => handleReanalyze(false)}
                 />
                 <MenuItem
                   icon={<HiOutlineArrowPath />}
-                  label="Force Re-summarize"
-                  description="Full Re-analyze of the latest commit"
-                  onClick={handleForceSummarize}
+                  label="Re-summarize from Scratch"
+                  description="Fresh analysis + re-summary, discards cached summaries"
+                  onClick={() => handleReanalyze(false, true)}
                 />
                 <div className="h-px bg-border mx-2 my-1" />
                 <MenuItem
