@@ -56,6 +56,51 @@ const hitRef = (ctx: Ctx, nodeId: string, viaEdge: string) => {
   return { id: nodeId, name: n?.name, type: n?.type, filePath: n?.filePath, viaEdge };
 };
 
+//  callOrder/v1 
+// Node metadata is the ordering truth (docs/CALL_ORDER.md §7); edges only mirror
+// it. Absent data is not zero: consumers keep their pre-ordering behaviour rather
+// than inventing a position.
+
+export interface CalleePosition {
+  /** 1-based source position of the call inside the caller. */
+  order: number;
+  /** Line of that call site in the caller's file. */
+  line?: number;
+}
+
+/** Repeated call ordinals of ONE edge, from the display-only edge mirror:
+ *  node metadata keeps only the first occurrence per target. Absent -> undefined. */
+function repeatOrdersOf(metadata: Record<string, unknown> | undefined): number[] | undefined {
+  const orders = metadata?.callOrder;
+  if (!Array.isArray(orders)) return undefined;
+  const nums = orders.filter((n): n is number => typeof n === "number");
+  return nums.length > 1 ? [...nums].sort((a, b) => a - b) : undefined;
+}
+
+/** Source position of every resolved callee of ONE caller node, keyed by target
+ *  nodeId. Empty when the node predates callOrder/v1 (no `resolvedCalls`), which
+ *  is exactly the signal to fall back to edge order.
+ *
+ *  Only the FIRST occurrence per target is in node metadata; repeat ordinals of a
+ *  twice-called target live in the edge mirror (`metadata.callOrder`). */
+export function buildCalleeOrder(
+  metadata: Record<string, unknown> | undefined
+): Map<string, CalleePosition> {
+  const out = new Map<string, CalleePosition>();
+  const resolved = metadata?.resolvedCalls;
+  if (!Array.isArray(resolved)) return out;
+  for (const entry of resolved as Array<Record<string, unknown>>) {
+    const target = typeof entry?.nodeId === "string" ? entry.nodeId : undefined;
+    const order = typeof entry?.firstOrder === "number" ? entry.firstOrder : undefined;
+    if (!target || order === undefined) continue;
+    out.set(target, {
+      order,
+      ...(typeof entry.line === "number" ? { line: entry.line } : {}),
+    });
+  }
+  return out;
+}
+
 // Shapes a blast-radius / k-hop result into compact JSON with truncation flags.
 export const formatTraversal = (ctx: Ctx, res: ReturnType<typeof getBlastRadius>) => ({
   seedId: res.seedId,
@@ -448,7 +493,15 @@ export function getNodeDetail(
 
   // radius:1 is explicit → uncapped, returns ALL direct neighbors
   const opts = { radius: 1, edgeTypes: edgeTypes as EdgeType[] | undefined };
-  if (inc.has("callees")) out.callees = getKHop(ctx.index, nodeId, opts).hits.map((h) => hitRef(ctx, h.nodeId, h.viaEdge));
+  if (inc.has("callees")) {
+    const callees = getKHop(ctx.index, nodeId, opts).hits.map((h) => hitRef(ctx, h.nodeId, h.viaEdge));
+    // Callees are read as what-this-node-calls-first, so source position beats
+    // adjacency order. Callees with no recorded position (third-party mirrors,
+    // non-CALLS edges) keep edge order after the ordered ones.
+    const positions = buildCalleeOrder(node.metadata);
+    const orderOf = (id: string) => positions.get(id)?.order ?? Number.MAX_SAFE_INTEGER;
+    out.callees = positions.size ? callees.sort((a, b) => orderOf(a.id) - orderOf(b.id)) : callees;
+  }
   if (inc.has("callers")) out.callers = getBlastRadius(ctx.index, nodeId, opts).hits.map((h) => hitRef(ctx, h.nodeId, h.viaEdge));
 
   return out;
@@ -1750,18 +1803,28 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
 
   const includedIds = new Set(packetNodes.map((n) => n.id));
   const nodesByIdForEdges = new Map(packetNodes.map((n) => [n.id, n]));
+  const positionsByCaller = new Map(
+    packetNodes.map((n) => [n.id, buildCalleeOrder(n.metadata)])
+  );
   const packetEdges = ctx.result.edges
     .filter((e) => includedIds.has(e.from) && includedIds.has(e.to))
     .slice(0, 40)
     .map((e) => {
       const src = nodesByIdForEdges.get(e.from);
+      // Edge-site cite: the real call site when callOrder/v1 recorded one
+      // (graphify prior art cites the import/call site); the source node's
+      // start line stays the fallback for edges that carry no position.
+      const pos = positionsByCaller.get(e.from)?.get(e.to);
+      const orders = repeatOrdersOf(e.metadata);
       return {
         from: e.from,
         to: e.to,
         type: e.type as string,
-        // Edge-site cite: the referencing node's location (graphify prior art
-        // renders the import/call site; our edges may lack their own site).
-        edgeSite: src ? { file: src.filePath, line: src.startLine } : undefined,
+        edgeSite: src
+          ? { file: src.filePath, line: pos?.line ?? src.startLine }
+          : undefined,
+        ...(pos ? { order: pos.order } : {}),
+        ...(orders ? { orders } : {}),
       };
     });
 

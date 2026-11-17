@@ -3,6 +3,64 @@ export type { LLMProvider, SummarizationConfig, DevLensConfig, EmbeddingProvider
 
 export type RenderingBoundary = "client" | "server" | null;
 
+// ── callOrder/v1 (see the engine's docs/CALL_ORDER.md) ───────────────────────
+// Every field below is optional: graphs analysed by an older engine lack them
+// entirely and the UI must fall back to rendering without any ordering claim.
+
+export type CallSiteKind = "call" | "hook";
+
+export type CallScope = "inline" | "callback" | "handler" | "nested" | "module";
+
+export type CallDefer =
+  | "timer"
+  | "promise"
+  | "microtask"
+  | "event"
+  | "postRender"
+  | "onReturn"
+  | "unknown";
+
+export interface CallSite {
+  name:     string;
+  argCount: number;
+  argTypes?: string[];
+  hasSpread?: boolean;
+  kind?:       CallSiteKind;
+  /** 1-based lexical rank among every recorded call site of the owner node. */
+  order?:      number;
+  line?:       number;
+  col?:        number;
+  /** `order` of the enclosing call expression: foo(bar()) -> bar.nested = foo.order. */
+  nested?:     number;
+  scope?:      CallScope;
+  awaited?:    boolean;
+  defer?:      CallDefer;
+  deferDetail?: string;
+  conc?:       boolean;
+  repeat?:     boolean;
+  maybe?:      boolean;
+  earlyExit?:  boolean;
+}
+
+export interface ResolvedCall {
+  name:     string;
+  nodeId:   string;
+  /** `order` of the first call site that resolved to this node. */
+  firstOrder?: number;
+  line?:       number;
+  defer?:      CallDefer;
+  deferDetail?: string;
+  awaited?:    boolean;
+  conc?:       boolean;
+  repeat?:     boolean;
+  maybe?:      boolean;
+}
+
+export interface CodeNodeMetadata extends Record<string, unknown> {
+  callSites?:     CallSite[];
+  resolvedCalls?: ResolvedCall[];
+}
+
 export type NodeType =
   | "COMPONENT"
   | "HOOK"
@@ -117,7 +175,7 @@ export interface CodeNode {
   summarizedAt?:    string;
   parentFile?:      string;
   score?:           number;
-  metadata:         Record<string, unknown>;
+  metadata:         CodeNodeMetadata;
 }
 
 export const getRenderingBoundary = (node: CodeNode): RenderingBoundary =>

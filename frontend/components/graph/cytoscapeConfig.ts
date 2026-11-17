@@ -183,7 +183,7 @@ export function getLayoutConfig(nodeCount: number) {
 // ─── Cytoscape styles ─────────────────────────────────────────────────────────
 
 export function getCytoscapeStyles(
-  rootNodeId?: string
+  rootNodeId?: string,
 ): cytoscape.StylesheetStyle[] {
   return [
     // ── Base node ────────────────────────────────────────────────────────────
@@ -277,7 +277,7 @@ export function getCytoscapeStyles(
     {
       selector: "edge",
       style: {
-        label:                     "data(type)",
+        label:                     "data(label)",
         "font-size":               "9px",
         "font-weight":             "500",
         color:                     "#e2e8f0",

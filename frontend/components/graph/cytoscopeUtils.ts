@@ -1,4 +1,5 @@
-import { CodeEdge, CodeNode, EdgeType, NodeType} from "@/lib/types";
+import { CodeEdge, CodeNode, EdgeType, NodeType } from "@/lib/types";
+import { buildCalleeOrder } from "@/lib/callOrder";
 
 export function getScoreRange(nodes: CodeNode[]): { min: number; max: number } {
   const scores = nodes.map(n => n.score ?? 0);
@@ -90,6 +91,11 @@ export function filterNodes(nodes: CodeNode[]): CodeNode[] {
 export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
   const nodeIds = new Set(nodes.map(n => n.id));
   const { min, max } = getScoreRange(nodes);
+  // callOrder/v1 lives on the caller node; edges are assembled from it here so
+  // the canvas never depends on the denormalised edge mirror.
+  const calleeOrder = buildCalleeOrder(
+    Object.fromEntries(nodes.map((n) => [n.id, n])),
+  );
 
   const cyNodes = nodes.map(n => ({
     data: {
@@ -114,16 +120,36 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
 
   const cyEdges = edges
     .filter(e => nodeIds.has(e.from) && nodeIds.has(e.to))
-    .map(e => ({
-      data: {
-        id:       `${e.from}-${e.to}-${e.type}`,
-        source:   e.from,
-        target:   e.to,
-        type:     e.type,
-        metadata: e.metadata,
-        scope:    (e.metadata as any)?.scope,
-      }
-    }));
+    .map(e => {
+      const call = e.type === "CALLS" || e.type === "USES"
+        ? calleeOrder.get(e.from)?.get(e.to)
+        : undefined;
+      const mirror = (e.metadata as any)?.firstCallOrder;
+      const callOrder = call?.order ?? (typeof mirror === "number" ? mirror : null);
+
+      return {
+        data: {
+          id:       `${e.from}-${e.to}-${e.type}`,
+          source:   e.from,
+          target:   e.to,
+          type:     e.type,
+          metadata: e.metadata,
+          scope:    (e.metadata as any)?.scope,
+          // Hoisted from the caller's metadata so Cytoscape CSS can target it.
+          // null means "no ordering data", never order 0.
+          callOrder,
+          // Edge labels are data(label) in cytoscapeConfig: prefixing the rank keeps
+          // one label per edge instead of stacking two.
+          label: callOrder !== null ? `#${callOrder} ${e.type}` : e.type,
+          callAwaited: call?.markers.awaited ?? false,
+          callDefer:   call?.markers.defer ?? null,
+          callConc:    call?.markers.conc ?? false,
+          callRepeat:  call?.markers.repeat ?? false,
+          callMaybe:   call?.markers.maybe ?? false,
+          callHandler: call?.markers.handler ?? false,
+        }
+      };
+    });
 
   return [...cyNodes, ...cyEdges];
 }

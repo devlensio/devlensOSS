@@ -96,7 +96,48 @@ function parseNodeSpan(span: string): { startLine: number; endLine: number } {
   return { startLine: Number(match[1]), endLine: Number(match[2]) };
 }
 
-function renderGraphNode(
+/** Occurrence cap for the CALLS section. The node's call list is a map, not a
+ *  transcript; the tail is a hint, like every other section in this file. */
+export const CALLS_LIMIT = 25;
+
+/** One `#n name() :line markers` line per recorded call occurrence, capped.
+ *  `#n` and `:line` render only when callOrder/v1 recorded them, so an older
+ *  graph lists its call sites without claiming an order. */
+export function renderCallSiteLines(callSites: unknown, limit = CALLS_LIMIT): string[] {
+  const sites = Array.isArray(callSites) ? (callSites as Array<Record<string, unknown>>) : [];
+  const lines: string[] = [];
+  for (const site of sites.slice(0, limit)) {
+    const name = typeof site?.name === "string" ? site.name : undefined;
+    if (!name) continue;
+    const order = typeof site.order === "number" ? `#${site.order} ` : "";
+    const line = typeof site.line === "number" ? ` :${site.line}` : "";
+    const markers = callSiteMarkers(site);
+    lines.push(`  ${order}${name}()${line}${markers ? ` ${markers}` : ""}`);
+  }
+  if (sites.length > limit) lines.push(`  ... (+${sites.length - limit} more)`);
+  return lines;
+}
+
+/** Flags of one call site as display tokens. Every token is evidence recorded by
+ *  the extractor (docs/CALL_ORDER.md §2); nothing is inferred here. */
+function callSiteMarkers(site: Record<string, unknown>): string {
+  const out: string[] = [];
+  if (site.kind === "hook") out.push("hook");
+  if (site.awaited === true) out.push("await");
+  if (typeof site.defer === "string") {
+    out.push(typeof site.deferDetail === "string" ? `${site.defer}:${site.deferDetail}` : site.defer);
+  }
+  if (site.scope === "callback" || site.scope === "handler" || site.scope === "nested") {
+    out.push(site.scope);
+  }
+  if (site.conc === true) out.push("conc");
+  if (site.repeat === true) out.push("repeat");
+  if (site.maybe === true) out.push("maybe");
+  if (site.earlyExit === true) out.push("early-exit");
+  return out.join(" ");
+}
+
+export function renderGraphNode(
   res: ReturnType<typeof q.getNodeDetail> & { code?: string; codeSource?: string },
   filePath: string,
   span: string,
@@ -105,8 +146,19 @@ function renderGraphNode(
   const lines: string[] = [];
   lines.push(`NODE ${res.name} ${String(res.type).toLowerCase()} ${filePath}:${span} score:${res.score}`);
   const meta = res.metadata as Record<string, unknown> | undefined;
-  if (meta && Object.keys(meta).length) {
-    lines.push(`METADATA ${JSON.stringify(meta)}`);
+  // callSites and resolvedCalls are occurrence-level: inlined into METADATA they
+  // blow past the transport's 50 KiB cap on real components. They are rendered
+  // as the compact CALLS section below instead.
+  const callSites = meta?.callSites;
+  const metaRest = meta
+    ? Object.fromEntries(Object.entries(meta).filter(([k]) => k !== "callSites" && k !== "resolvedCalls"))
+    : {};
+  if (Object.keys(metaRest).length) {
+    lines.push(`METADATA ${JSON.stringify(metaRest)}`);
+  }
+  const callLines = renderCallSiteLines(callSites);
+  if (callLines.length) {
+    lines.push(`CALLS ${(callSites as unknown[]).length}`, ...callLines);
   }
   if (res.technicalSummary) lines.push(`TECHNICAL ${String(res.technicalSummary).replace(/\s+/g, " ").slice(0, 300)}`);
   if (res.businessSummary) lines.push(`BUSINESS ${String(res.businessSummary).replace(/\s+/g, " ").slice(0, 300)}`);

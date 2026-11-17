@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CodeNode, CodeEdge, NodeType, OverlayGraph } from "@/lib/types";
 import { getRenderingBoundary } from "@/lib/types";
+import { buildCalleeOrder, type CallMarkers, type CalleeOrder } from "@/lib/callOrder";
 import { useNodeCode } from "@/lib/hooks";
 import { bfsReachable, blastRadius, buildAdjacency } from "@/lib/graphAlgo";
 import hljs from "highlight.js/lib/core";
@@ -252,6 +253,70 @@ const MIN_CODE_H = 120;
 const MAX_CODE_H = 800;
 const DEF_CODE_H = 300;
 const SHOW_N = 6;
+
+// ─── Call-site markers ────────────────────────────────────────────────────────
+//
+// Each marker is a claim the engine recorded for that call site. A missing flag
+// renders nothing: absent ordering data is not evidence of a plain call.
+
+const MARKER_COLORS = {
+  awaited:   "#22d3ee",
+  timer:     "#f59e0b",
+  promise:   "#a78bfa",
+  microtask: "#38bdf8",
+  event:     "#c084fc",
+  postRender:"#fb923c",
+  onReturn:  "#34d399",
+  deferred:  "#94a3b8",
+  conc:      "#34d399",
+  repeat:    "#818cf8",
+  maybe:     "#d29922",
+  handler:   "#f472b6",
+};
+
+const DEFER_LABELS: Record<string, { text: string; color: string; title: string }> = {
+  timer:     { text: "timer",      color: MARKER_COLORS.timer,      title: "runs on a timer, after this frame" },
+  promise:   { text: "promise",    color: MARKER_COLORS.promise,    title: "runs as a promise continuation" },
+  microtask: { text: "microtask",  color: MARKER_COLORS.microtask,  title: "runs as a microtask" },
+  event:     { text: "event",      color: MARKER_COLORS.event,      title: "externally triggered, may run many times or never" },
+  postRender:{ text: "post-render",color: MARKER_COLORS.postRender, title: "runs in a commit or post-render phase" },
+  onReturn:  { text: "on-return",  color: MARKER_COLORS.onReturn,   title: "runs when this frame exits, last in first out" },
+  unknown:   { text: "deferred",   color: MARKER_COLORS.deferred,   title: "runs through a scheduler the engine cannot classify" },
+};
+
+interface CallMarkerBadge {
+  text:  string;
+  color: string;
+  title: string;
+}
+
+function callMarkerBadges(markers: CallMarkers): CallMarkerBadge[] {
+  const badges: CallMarkerBadge[] = [];
+  if (markers.awaited) {
+    badges.push({ text: "↓ await", color: MARKER_COLORS.awaited, title: "awaited: this frame suspends on the call" });
+  }
+  const defer = markers.defer ? DEFER_LABELS[markers.defer] : undefined;
+  if (defer) {
+    badges.push({
+      text:  defer.text,
+      color: defer.color,
+      title: markers.deferDetail ? `${defer.title} (${markers.deferDetail})` : defer.title,
+    });
+  }
+  if (markers.conc) {
+    badges.push({ text: "conc", color: MARKER_COLORS.conc, title: "may run concurrently with this frame" });
+  }
+  if (markers.repeat) {
+    badges.push({ text: "repeat", color: MARKER_COLORS.repeat, title: "may run 0 or more times, once per loop iteration" });
+  }
+  if (markers.maybe) {
+    badges.push({ text: "maybe", color: MARKER_COLORS.maybe, title: "may not run: branch, short-circuit or catch" });
+  }
+  if (markers.handler) {
+    badges.push({ text: "handler", color: MARKER_COLORS.handler, title: "registered as an event handler" });
+  }
+  return badges;
+}
 
 // ─── DiffInfo type ────────────────────────────────────────────────────────────
 
@@ -608,7 +673,7 @@ const META_IGNORE = new Set([
   "category", "packageVersion", "isThirdParty", "isDynamic",
   // Internal engine / bookkeeping keys — not useful to end users reading the
   // panel, so we suppress them from the generic "Other" fallback.
-  "resolvedCalls", "hookCalls", "apiCalls", "contextRefs",
+  "resolvedCalls", "callSites", "hookCalls", "apiCalls", "contextRefs",
   "childNodeIds", "nodeCount", "lineCount", "hasErrorHandling",
   "referencedTypes", "parameters", // duplicates of calls / params / returnType
   "isUnresolved", "isInlineHandler", "isHttpHandler",
@@ -1426,6 +1491,14 @@ export default function NodeDetailPanel({
 
   const node = nodeId ? nodesById[nodeId] : null;
 
+  // Callee ids -> declared call order + markers, read from this caller's own
+  // metadata. null when the graph predates callOrder/v1.
+  const calleeOrder = useMemo(
+    () => (node ? (buildCalleeOrder(nodesById).get(node.id) ?? null) : null),
+    [nodesById, node],
+  );
+  const hasCallOrder = (calleeOrder?.size ?? 0) > 0;
+
   const outgoing = edges
     .filter((e) => e.from === nodeId)
     .reduce<Record<string, string[]>>((acc, e) => {
@@ -1911,6 +1984,15 @@ export default function NodeDetailPanel({
                       {isRoute ? "Handles" : "Calls / Uses"}
                     </span>
                   </div>
+                  {hasCallOrder && (
+                    <p
+                      className="text-[10px] leading-4 -mt-2 mb-2"
+                      style={{ color: C.textGhost }}
+                    >
+                      #n is the declared call order: source position in this
+                      node, not a runtime guarantee.
+                    </p>
+                  )}
                   <div className="space-y-2">
                     {Object.entries(outgoing).map(([type, ids]) => (
                       <ConnectionGroup
@@ -1921,6 +2003,7 @@ export default function NodeDetailPanel({
                         nodesById={nodesById}
                         color={EDGE_COLORS[type] ?? C.textSub}
                         onNodeFocus={onNodeFocus}
+                        calleeOrder={calleeOrder ?? undefined}
                       />
                     ))}
                   </div>
@@ -2258,6 +2341,7 @@ function ConnectionGroup({
   nodesById,
   color,
   onNodeFocus,
+  calleeOrder,
 }: {
   type: string;
   label?: string;
@@ -2265,10 +2349,20 @@ function ConnectionGroup({
   nodesById: Record<string, CodeNode>;
   color: string;
   onNodeFocus: (id: string) => void;
+  calleeOrder?: Map<string, CalleeOrder>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const overflow = ids.length - SHOW_N;
-  const visible = expanded ? ids : ids.slice(0, SHOW_N);
+  // Callees are listed in declared call order when the caller carries one.
+  // Callees without ordering data keep the engine's order behind them.
+  const ordered = useMemo(
+    () =>
+      ids
+        .map((id) => ({ id, hit: calleeOrder?.get(id) }))
+        .sort((a, b) => (a.hit?.order ?? Number.POSITIVE_INFINITY) - (b.hit?.order ?? Number.POSITIVE_INFINITY)),
+    [ids, calleeOrder],
+  );
+  const overflow = ordered.length - SHOW_N;
+  const visible = expanded ? ordered : ordered.slice(0, SHOW_N);
 
   return (
     <div
@@ -2295,7 +2389,7 @@ function ConnectionGroup({
       </div>
 
       <div className="flex flex-wrap gap-1.5 p-2.5">
-        {visible.map((id) => {
+        {visible.map(({ id, hit }) => {
           const n = nodesById[id];
           const dotColor = n ? (TYPE_DOT[n.type] ?? C.textSub) : C.textSub;
           return (
@@ -2304,6 +2398,8 @@ function ConnectionGroup({
               name={n?.name ?? id}
               dotColor={dotColor}
               hoverColor={color}
+              order={hit?.order ?? null}
+              markers={hit?.markers ?? null}
               onNodeFocus={() => onNodeFocus(id)}
             />
           );
@@ -2333,13 +2429,29 @@ function NodeChip({
   name,
   dotColor,
   hoverColor,
+  order,
+  markers,
   onNodeFocus,
 }: {
   name: string;
   dotColor: string;
   hoverColor: string;
+  order: number | null;
+  markers: CallMarkers | null;
   onNodeFocus: () => void;
 }) {
+  const badges = markers ? callMarkerBadges(markers) : [];
+  const tooltip =
+    order === null && badges.length === 0
+      ? name
+      : [
+          name,
+          order === null ? null : `call #${order}`,
+          ...badges.map((b) => b.title),
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
   return (
     <button
       onClick={onNodeFocus}
@@ -2358,15 +2470,32 @@ function NodeChip({
         el.style.color = C.textSub;
         el.style.background = C.bg;
       }}
-      title={name}
+      title={tooltip}
     >
       <span
         className="w-1.5 h-1.5 rounded-full shrink-0"
         style={{ background: dotColor }}
       />
+      {order !== null && (
+        <span
+          className="font-mono text-[10px] tabular-nums shrink-0"
+          style={{ color: C.teal }}
+        >
+          #{order}
+        </span>
+      )}
       <span className="truncate" style={{ maxWidth: 148 }}>
         {name}
       </span>
+      {badges.map((b) => (
+        <span
+          key={b.text}
+          className="font-mono text-[9px] leading-4 px-1 rounded shrink-0"
+          style={{ color: b.color, background: `${b.color}18`, border: `1px solid ${b.color}33` }}
+        >
+          {b.text}
+        </span>
+      ))}
     </button>
   );
 }

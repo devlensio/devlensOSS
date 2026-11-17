@@ -66,6 +66,11 @@ export interface PacketEdge {
   type: string;
   /** Rendered as at=file:line on FLOW edges (the referencing node's site). */
   edgeSite?: { file: string; line: number };
+  /** Source position of the call inside the caller (callOrder/v1). Absent on
+   *  graphs analysed before the feature: FLOW then renders exactly as before. */
+  order?: number;
+  /** Every position when the same target is called more than once. */
+  orders?: number[];
 }
 
 export interface PacketCode {
@@ -211,6 +216,15 @@ function fileSnippets(filePath: string, terms: string[]): string[] {
   }
 }
 
+/** `[#3]` / `[#3,#7]` for the source position(s) of the call in the caller, or
+ *  "" when the graph carries no position. Display only: the number is a lexical
+ *  rank, never a runtime guarantee (docs/CALL_ORDER.md §2). */
+function callRank(edge: PacketEdge): string {
+  if (edge.orders && edge.orders.length > 1) return `[${edge.orders.map((o) => `#${o}`).join(",")}]`;
+  if (typeof edge.order === "number") return `[#${edge.order}]`;
+  return "";
+}
+
 export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, opts?: RenderOpts): RenderedPacket {
   const intent = opts?.intent;
   // Budget basis: with opts, the intent budget from packet-shape.ts (chars =
@@ -313,7 +327,7 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, 
   const flowLines: string[] = [];
   for (const e of eligibleEdges) {
     const site = e.edgeSite ? ` at=${e.edgeSite.file}:${e.edgeSite.line}` : "";
-    const line = `${shortById.get(e.from)} -${e.type.toLowerCase()}-> ${shortById.get(e.to)}${site}`;
+    const line = `${shortById.get(e.from)} -${e.type.toLowerCase()}${callRank(e)}-> ${shortById.get(e.to)}${site}`;
     if (used + line.length > budgetFor("FLOW") + budgetFor("NODES") - nodeBudget + budgetFor("FLOW")) {
       cut.flow = true;
       break;
