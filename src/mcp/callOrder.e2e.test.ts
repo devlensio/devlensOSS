@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { analyzeRepo, resolveContext, getNodeDetail, findSymbols } from "../core/queries.js";
+import * as tools from "./tools.js";
 import { storage } from "devlensio";
 
 // End to end: a real analysis of a real temp repo, then the two surfaces the MCP
@@ -68,6 +69,19 @@ describe("callOrder reaches the MCP output", () => {
       const names = (detail.callees ?? []).map((c) => c.name);
       expect(names[0]).toBe("first");
       expect(names).toContain("third");
+
+      // Callee refs carry their position, so the agent does not need a second
+      // call to learn the order, and the renderer prints it as `#n`.
+      const first = (detail.callees ?? []).find((c) => c.name === "first") as any;
+      expect(first?.order).toBe(1);
+
+      const rendered = tools.renderGraphNode(
+        { ...(getNodeDetail(graphId, runId!, ["callees", "metadata"]) as any) },
+        "src/flow.ts",
+        "1-20"
+      );
+      expect(rendered).toMatch(/CALLEES \d+\n  #1 first/);
+      expect(rendered).toContain("ORDER #n = position of the call inside this node");
 
       const ordered = (detail.metadata?.resolvedCalls ?? []).filter((c) => c.firstOrder !== undefined);
       expect(ordered.length).toBeGreaterThanOrEqual(3);

@@ -52,6 +52,40 @@ describe("FLOW — call position", () => {
     expect(section(r.text, "FLOW")).toEqual(["N1 -calls[#3]-> N2 at=src/x.ts:42"]);
   });
 
+  test("markers ride on the same bracket as the position", () => {
+    const r = renderResolvePacket(
+      packetWith([
+        { from: "n1", to: "n2", type: "CALLS", edgeSite: { file: "src/x.ts", line: 9 },
+          order: 2, flags: ["await"] },
+        { from: "n1", to: "n3", type: "CALLS", edgeSite: { file: "src/x.ts", line: 11 },
+          flags: ["defer:timer"] },
+      ]),
+      2000
+    );
+    expect(section(r.text, "FLOW")).toEqual([
+      "N1 -calls[#2 await]-> N2 at=src/x.ts:9",
+      "N1 -calls[defer:timer]-> N3 at=src/x.ts:11",
+    ]);
+  });
+
+  test("the legend is its own section, only when ordering data exists", () => {
+    const ordered = renderResolvePacket(
+      packetWith([{ from: "n1", to: "n2", type: "CALLS", order: 3 }]),
+      2000
+    );
+    const legend = section(ordered.text, "LEGEND");
+    expect(legend).toHaveLength(1);
+    expect(legend[0]).toContain("position inside caller");
+    // FLOW still counts edges only
+    expect(section(ordered.text, "FLOW")).toHaveLength(1);
+
+    const plain = renderResolvePacket(
+      packetWith([{ from: "n1", to: "n2", type: "CALLS" }]),
+      2000
+    );
+    expect(section(plain.text, "LEGEND")).toEqual([]);
+  });
+
   test("a twice-called target lists every position", () => {
     const r = renderResolvePacket(
       packetWith([

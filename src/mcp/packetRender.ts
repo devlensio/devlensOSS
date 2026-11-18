@@ -60,6 +60,12 @@ export interface PacketNode {
   metadata?: Record<string, unknown>;
 }
 
+/** One-line FLOW legend, printed once when any edge carries a position or flag,
+ *  so an agent reads `[#3 await]` without spending another call on docs. */
+export const FLOW_LEGEND =
+  "LEGEND [#n]=position inside caller, defer:X=runs after return, conc=parallel, " +
+  "repeat=loop, maybe=conditional, xN=called N times";
+
 export interface PacketEdge {
   from: string;
   to: string;
@@ -71,6 +77,8 @@ export interface PacketEdge {
   order?: number;
   /** Every position when the same target is called more than once. */
   orders?: number[];
+  /** Control-flow flags of that call (await, conc, defer:X, repeat, maybe, xN). */
+  flags?: string[];
 }
 
 export interface PacketCode {
@@ -220,9 +228,11 @@ function fileSnippets(filePath: string, terms: string[]): string[] {
  *  "" when the graph carries no position. Display only: the number is a lexical
  *  rank, never a runtime guarantee (docs/CALL_ORDER.md §2). */
 function callRank(edge: PacketEdge): string {
-  if (edge.orders && edge.orders.length > 1) return `[${edge.orders.map((o) => `#${o}`).join(",")}]`;
-  if (typeof edge.order === "number") return `[#${edge.order}]`;
-  return "";
+  const parts: string[] = [];
+  if (edge.orders && edge.orders.length > 1) parts.push(edge.orders.map((o) => `#${o}`).join(","));
+  else if (typeof edge.order === "number") parts.push(`#${edge.order}`);
+  for (const flag of edge.flags ?? []) parts.push(flag);
+  return parts.length ? `[${parts.join(" ")}]` : "";
 }
 
 export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, opts?: RenderOpts): RenderedPacket {
@@ -351,6 +361,13 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, 
       ? truncationBanner(flowLines.length, eligibleEdges.length, budgetTokens)
       : undefined
   );
+
+  // LEGEND: one line, only when the packet actually carries ordering data. Kept
+  // out of FLOW so the section's line count still means "edges".
+  if (flowLines.length > 0
+    && eligibleEdges.some((e) => typeof e.order === "number" || e.flags?.length)) {
+    pushSection("LEGEND", [FLOW_LEGEND.replace(/^LEGEND /, "")]);
+  }
 
   // FILES
   // FILES: display cap from packet-shape; per-file matched-line snippets;

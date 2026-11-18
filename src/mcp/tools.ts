@@ -96,6 +96,12 @@ function parseNodeSpan(span: string): { startLine: number; endLine: number } {
   return { startLine: Number(match[1]), endLine: Number(match[2]) };
 }
 
+/** One-line legend so an agent can read `#n` and the marker tokens without a
+ *  second call. Emitted only when the response actually carries ordering data. */
+export const ORDER_LEGEND =
+  "ORDER #n = position of the call inside this node; markers: await, conc (parallel), " +
+  "defer:X (runs after return), repeat, maybe (conditional), xN (called N times), hook";
+
 /** Occurrence cap for the CALLS section. The node's call list is a map, not a
  *  transcript; the tail is a hint, like every other section in this file. */
 export const CALLS_LIMIT = 25;
@@ -160,6 +166,9 @@ export function renderGraphNode(
   if (callLines.length) {
     lines.push(`CALLS ${(callSites as unknown[]).length}`, ...callLines);
   }
+  const orderedRefs = [...((res.callees ?? []) as any[]), ...((res.callers ?? []) as any[])]
+    .some((r) => typeof r?.order === "number" || Array.isArray(r?.flags));
+  if (orderedRefs || callLines.length) lines.push(ORDER_LEGEND);
   if (res.technicalSummary) lines.push(`TECHNICAL ${String(res.technicalSummary).replace(/\s+/g, " ").slice(0, 300)}`);
   if (res.businessSummary) lines.push(`BUSINESS ${String(res.businessSummary).replace(/\s+/g, " ").slice(0, 300)}`);
   const sec = res.security as { severity?: string; notes?: string } | undefined;
@@ -169,7 +178,11 @@ export function renderGraphNode(
     if (!list.length) return;
     lines.push(`${label} ${list.length}`);
     for (const r of list.slice(0, 25)) {
-      lines.push(`  ${r.name ?? r.id} ${String(r.type ?? "").toLowerCase()} ${r.filePath}:${r.lines ?? ""}${r.hop !== undefined ? ` hop:${r.hop}` : ""}${r.viaEdge ? ` via:${r.viaEdge}` : ""}`);
+      const pos = typeof (r as any).order === "number" ? `#${(r as any).order} ` : "";
+      const flags = Array.isArray((r as any).flags) && (r as any).flags.length
+        ? ` ${((r as any).flags as string[]).join(" ")}`
+        : "";
+      lines.push(`  ${pos}${r.name ?? r.id} ${String(r.type ?? "").toLowerCase()} ${r.filePath}:${r.lines ?? ""}${flags}${r.hop !== undefined ? ` hop:${r.hop}` : ""}${r.viaEdge ? ` via:${r.viaEdge}` : ""}`);
     }
     if (list.length > 25) lines.push(`  ... (+${list.length - 25} more)`);
   };
@@ -215,8 +228,11 @@ export function registerTools(server: McpServer) {
     {
       description:
         "THE front door. For ANY where/how/what/who-depends-on question call this FIRST instead of grep. " +
-        "One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow, involved files, " +
-        "code bodies of the top 10 nodes, security flags, and an id map, within a token budget. " +
+        "One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow in execution order, " +
+        "involved files, code bodies of the top 10 nodes, security flags, and an id map, within a token budget. " +
+        "FLOW edges carry the position inside the caller: -calls[#3]->  (repeats as [#1,#3]), executed-after-return " +
+        "as -calls[defer:X]->, parallel as -calls[conc]->, plus at=file:line for the real call site, so you do not " +
+        "need a second call to establish what runs in what order. " +
         "Intents: pinpoint, reference-list, flow, overview, concept, security-audit, exploratory (default). " +
         "The repo is resolved from the working folder — no graphId needed.",
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -266,7 +282,9 @@ export function registerTools(server: McpServer) {
     "get_node",
     {
       description:
-        "Full detail for ONE node: technical/business/security summaries, callers (who uses it), callees (what it calls). " +
+        "Full detail for ONE node: technical/business/security summaries, callers (who uses it), callees in execution " +
+        "order (what it calls, with #n, line and control-flow markers such as await, defer:X, conc, repeat, maybe), " +
+        "and its own call sites. " +
         "Pass a nodeId from resolve_context/find_symbols, or a symbol name to auto-locate. " +
         "include=['code'] adds the raw source (first 120 lines; page with codeLines=[start,end]). " +
         "Prefer this over reading whole files.",

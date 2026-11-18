@@ -69,14 +69,16 @@ export interface CalleePosition {
   /** Every position that reached this target, ascending. Node metadata only:
    *  no consumer reads the edge mirror (docs/CALL_ORDER.md §3.2). */
   orders?: number[];
+  /** Control-flow flags of that first occurrence, as display tokens. */
+  flags?: string[];
 }
 
 /** Source position of every resolved callee of ONE caller node, keyed by target
  *  nodeId. Empty when the node predates callOrder/v1 (no `resolvedCalls`), which
  *  is exactly the signal to fall back to edge order.
  *
- *  Only the FIRST occurrence per target is in node metadata; repeat ordinals of a
- *  twice-called target live in the edge mirror (`metadata.callOrder`). */
+ *  Only the FIRST occurrence per target is in node metadata; `orders` carries
+ *  every other position that reached it. */
 export function buildCalleeOrder(
   metadata: Record<string, unknown> | undefined
 ): Map<string, CalleePosition> {
@@ -91,10 +93,23 @@ export function buildCalleeOrder(
       ? (entry.orders as unknown[]).filter((n): n is number => typeof n === "number")
       : [];
     const orders = rawOrders.length > 1 ? [...new Set(rawOrders)].sort((a, b) => a - b) : undefined;
+
+    const flags: string[] = [];
+    if (entry.awaited === true) flags.push("await");
+    if (entry.conc === true) flags.push("conc");
+    if (typeof entry.defer === "string") {
+      flags.push(typeof entry.deferDetail === "string"
+        ? `defer:${entry.deferDetail}` : `defer:${entry.defer}`);
+    }
+    if (entry.repeat === true) flags.push("repeat");
+    if (entry.maybe === true) flags.push("maybe");
+    if (orders && orders.length > 1) flags.push(`x${orders.length}`);
+
     out.set(target, {
       order,
       ...(typeof entry.line === "number" ? { line: entry.line } : {}),
       ...(orders ? { orders } : {}),
+      ...(flags.length ? { flags } : {}),
     });
   }
   return out;
@@ -499,7 +514,18 @@ export function getNodeDetail(
     // non-CALLS edges) keep edge order after the ordered ones.
     const positions = buildCalleeOrder(node.metadata);
     const orderOf = (id: string) => positions.get(id)?.order ?? Number.MAX_SAFE_INTEGER;
-    out.callees = positions.size ? callees.sort((a, b) => orderOf(a.id) - orderOf(b.id)) : callees;
+    if (positions.size) {
+      out.callees = callees
+        .map((c) => {
+          const pos = positions.get(c.id);
+          return pos
+            ? { ...c, order: pos.order, ...(pos.flags ? { flags: pos.flags } : {}) }
+            : c;
+        })
+        .sort((a: any, b: any) => orderOf(a.id) - orderOf(b.id));
+    } else {
+      out.callees = callees;
+    }
   }
   if (inc.has("callers")) out.callers = getBlastRadius(ctx.index, nodeId, opts).hits.map((h) => hitRef(ctx, h.nodeId, h.viaEdge));
 
@@ -1818,6 +1844,7 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
         from: e.from,
         to: e.to,
         type: e.type as string,
+        ...(pos?.flags ? { flags: pos.flags } : {}),
         edgeSite: src
           ? { file: src.filePath, line: pos?.line ?? src.startLine }
           : undefined,
