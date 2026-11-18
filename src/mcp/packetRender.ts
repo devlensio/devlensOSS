@@ -320,19 +320,28 @@ export function renderResolvePacket(packet: ResolvePacket, tokenBudget: number, 
   );
   const nodesIncluded = new Set(nodes.slice(0, nodeLines.length).map((n) => n.id));
 
-  // FLOW (edges whose both endpoints made the NODES cut)
+  // FLOW (edges whose both endpoints made the NODES cut). The cap is applied
+  // AFTER the filter so every slot is an edge that can actually print; a
+  // non-admitted endpoint must not consume a slot.
   const eligibleEdges = packet.edges
-    .slice(0, PACKET_LIMITS.flowEdgesCap)
-    .filter((e) => nodesIncluded.has(e.from) && nodesIncluded.has(e.to));
+    .filter((e) => nodesIncluded.has(e.from) && nodesIncluded.has(e.to))
+    .slice(0, PACKET_LIMITS.flowEdgesCap);
   const flowLines: string[] = [];
+  // FLOW is measured against its own share. `used` already contains the NODES
+  // section (45% of the budget), so testing the running total against the FLOW
+  // share fails on the first edge of any graph whose NODES section filled up.
+  // pushSection still advances `used` for FILES/CODE below.
+  const flowBudget = budgetFor("FLOW");
+  let flowUsed = 0;
   for (const e of eligibleEdges) {
     const site = e.edgeSite ? ` at=${e.edgeSite.file}:${e.edgeSite.line}` : "";
     const line = `${shortById.get(e.from)} -${e.type.toLowerCase()}${callRank(e)}-> ${shortById.get(e.to)}${site}`;
-    if (used + line.length > budgetFor("FLOW") + budgetFor("NODES") - nodeBudget + budgetFor("FLOW")) {
+    if (flowUsed + line.length > flowBudget) {
       cut.flow = true;
       break;
     }
     flowLines.push(line);
+    flowUsed += line.length + 1;
   }
   if (flowLines.length < eligibleEdges.length) cut.flow = true;
   pushSection(

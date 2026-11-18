@@ -107,3 +107,84 @@ describe("FLOW — call position", () => {
     expect(r.approxTokens).toBe(Math.ceil(r.text.length / 4));
   });
 });
+
+// FLOW budget accounting. The section used to compare the running total (which
+// already contains NODES, 45% of the budget) against a bound of 2x the FLOW
+// share (16%), so it broke on the first edge on any graph whose NODES section
+// filled up. These four tests are the regression net for that and for the
+// filter-before-slice rule on the edge cap.
+
+function flowNodes(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `n${i + 1}`,
+    name: `handler_${i + 1}_for_the_flow_section`,
+    type: "FUNCTION",
+    filePath: `src/mod${i % 9}.ts`,
+    startLine: 10 + i,
+    endLine: 20 + i,
+  }));
+}
+
+function flowPacket(nodeCount: number, edges: PacketEdge[]): ResolvePacket {
+  return {
+    graphId: "g-flow",
+    commitHash: "abc123def4",
+    nodes: flowNodes(nodeCount),
+    edges,
+    code: [],
+  };
+}
+
+const flowEdge = (to: string, i = 0): PacketEdge => ({
+  from: "n1",
+  to,
+  type: "CALLS",
+  edgeSite: { file: "src/mod0.ts", line: 12 + i },
+  order: i + 1,
+});
+
+describe("FLOW — budget accounting", () => {
+  test("renders when NODES filled its budget and the edges fit", () => {
+    // 60 nodes over a 3937-char NODES share forces a NODES cut, so the global
+    // running total is far past the FLOW bound. The five edges still fit in the
+    // 700-char FLOW share and must print.
+    const edges = ["n2", "n3", "n4", "n5", "n6"].map((to, i) => flowEdge(to, i));
+    const r = renderResolvePacket(flowPacket(60, edges), 0, { intent: "symbol" });
+    const nodesSection = section(r.text, "NODES");
+    expect(nodesSection.some((l) => l.includes("TRUNCATED"))).toBe(true);
+    expect(section(r.text, "FLOW").filter((l) => l.includes("->"))).toHaveLength(5);
+    expect(r.text).not.toContain("TRUNCATED: showing 0 of");
+  });
+
+  test("the edge cap is spent on edges that can actually print", () => {
+    // 40 edges point at nodes outside the rendered set, then 5 valid ones. The
+    // cap must be applied AFTER the admitted-node filter, or the invalid edges
+    // consume every slot and FLOW prints nothing.
+    const dead: PacketEdge[] = Array.from({ length: 40 }, (_, i) => flowEdge(`n${70 + i}`, i));
+    const live = ["n2", "n3", "n4", "n5", "n6"].map((to, i) => flowEdge(to, i));
+    const r = renderResolvePacket(flowPacket(120, [...dead, ...live]), 0, { intent: "flow" });
+    const printed = section(r.text, "FLOW").filter((l) => l.includes("->"));
+    expect(printed).toHaveLength(5);
+    expect(printed.every((l) => /-> N([2-9])\b/.test(l))).toBe(true);
+  });
+
+  test("cut.flow only when the eligible edges exceed the FLOW share", () => {
+    const fits = ["n2", "n3", "n4"].map((to, i) => flowEdge(to, i));
+    const complete = renderResolvePacket(flowPacket(60, fits), 0, { intent: "symbol" });
+    expect(section(complete.text, "FLOW").some((l) => l.includes("TRUNCATED"))).toBe(false);
+
+    const many: PacketEdge[] = Array.from({ length: 40 }, (_, i) => flowEdge(`n${2 + (i % 40)}`, i));
+    const cut = renderResolvePacket(flowPacket(60, many), 0, { intent: "symbol" });
+    const flow = section(cut.text, "FLOW");
+    expect(flow[0]).toContain("TRUNCATED");
+    expect(flow.filter((l) => l.includes("->")).length).toBeLessThan(40);
+  });
+
+  test("a non-empty FLOW section keeps the packet inside its token budget", () => {
+    const edges = Array.from({ length: 40 }, (_, i) => flowEdge(`n${2 + (i % 40)}`, i));
+    const r = renderResolvePacket(flowPacket(60, edges), 0, { intent: "symbol" });
+    expect(section(r.text, "FLOW").filter((l) => l.includes("->")).length).toBeGreaterThan(0);
+    expect(r.approxTokens).toBeLessThanOrEqual(1500);
+    expect(r.approxTokens).toBe(Math.ceil(r.text.length / 4));
+  });
+});
