@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { analyzeRepo, resolveContext, getNodeDetail, findSymbols } from "../core/queries";
+import { analyzeRepo, resolveContext, getNodeDetail, findSymbols } from "../core/queries.js";
 import { storage } from "devlensio";
 
 // End to end: a real analysis of a real temp repo, then the two surfaces the MCP
@@ -44,7 +44,7 @@ describe("callOrder reaches the MCP output", () => {
       graphId = analyzed.graphId;
 
       const found = findSymbols(graphId, { query: "run", limit: 5 });
-      const runId = found.symbols.find((s) => s.name === "run")?.nodeId;
+      const runId = found.symbols.find((s: any) => s.name === "run")?.nodeId;
       expect(runId).toBeDefined();
 
       const packet = String(

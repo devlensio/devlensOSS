@@ -124,8 +124,8 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
       const call = e.type === "CALLS" || e.type === "USES"
         ? calleeOrder.get(e.from)?.get(e.to)
         : undefined;
-      const mirror = (e.metadata as any)?.firstCallOrder;
-      const callOrder = call?.order ?? (typeof mirror === "number" ? mirror : null);
+      // Node metadata is the only source; the edge mirror is not read.
+      const callOrder = call?.order ?? null;
 
       return {
         data: {

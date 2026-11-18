@@ -66,15 +66,9 @@ export interface CalleePosition {
   order: number;
   /** Line of that call site in the caller's file. */
   line?: number;
-}
-
-/** Repeated call ordinals of ONE edge, from the display-only edge mirror:
- *  node metadata keeps only the first occurrence per target. Absent -> undefined. */
-function repeatOrdersOf(metadata: Record<string, unknown> | undefined): number[] | undefined {
-  const orders = metadata?.callOrder;
-  if (!Array.isArray(orders)) return undefined;
-  const nums = orders.filter((n): n is number => typeof n === "number");
-  return nums.length > 1 ? [...nums].sort((a, b) => a - b) : undefined;
+  /** Every position that reached this target, ascending. Node metadata only:
+   *  no consumer reads the edge mirror (docs/CALL_ORDER.md §3.2). */
+  orders?: number[];
 }
 
 /** Source position of every resolved callee of ONE caller node, keyed by target
@@ -93,9 +87,14 @@ export function buildCalleeOrder(
     const target = typeof entry?.nodeId === "string" ? entry.nodeId : undefined;
     const order = typeof entry?.firstOrder === "number" ? entry.firstOrder : undefined;
     if (!target || order === undefined) continue;
+    const rawOrders = Array.isArray(entry.orders)
+      ? (entry.orders as unknown[]).filter((n): n is number => typeof n === "number")
+      : [];
+    const orders = rawOrders.length > 1 ? [...new Set(rawOrders)].sort((a, b) => a - b) : undefined;
     out.set(target, {
       order,
       ...(typeof entry.line === "number" ? { line: entry.line } : {}),
+      ...(orders ? { orders } : {}),
     });
   }
   return out;
@@ -1815,7 +1814,6 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
       // (graphify prior art cites the import/call site); the source node's
       // start line stays the fallback for edges that carry no position.
       const pos = positionsByCaller.get(e.from)?.get(e.to);
-      const orders = repeatOrdersOf(e.metadata);
       return {
         from: e.from,
         to: e.to,
@@ -1824,7 +1822,7 @@ export function resolveContext(graphId: string, opts: ResolveContextOpts, commit
           ? { file: src.filePath, line: pos?.line ?? src.startLine }
           : undefined,
         ...(pos ? { order: pos.order } : {}),
-        ...(orders ? { orders } : {}),
+        ...(pos?.orders ? { orders: pos.orders } : {}),
       };
     });
 
