@@ -43,10 +43,11 @@ async function fetchWithDeadline(url: string, init?: RequestInit): Promise<Respo
           `It is probably still running an analysis — open the Jobs panel to follow it.`,
       );
     }
+    const raw = err instanceof Error ? err.message : "";
     throw new Error(
-      err instanceof Error
-        ? `Cannot reach the DevLens server: ${err.message}`
-        : "Cannot reach the DevLens server.",
+      /failed to fetch|networkerror|load failed|connection/i.test(raw)
+        ? "Could not reach the DevLens server. It may have stopped — check the terminal running `bun start`, then try again."
+        : `Cannot reach the DevLens server: ${raw || "unknown error"}`,
     );
   } finally {
     clearTimeout(timer);
