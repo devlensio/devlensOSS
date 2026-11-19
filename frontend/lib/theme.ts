@@ -60,6 +60,13 @@ export const CODE = {
 /** Hex + alpha suffix, e.g. `tint(UI.accent, "14")`. */
 export const tint = (hex: string, alpha = "14") => `${hex}${alpha}`;
 
+/**
+ * Bumped whenever the graph UI changes in a way the user needs to confirm is
+ * live. Rendered small in the code-view bar: when a fix "doesn't apply", the
+ * first question is which bundle the tab is actually running.
+ */
+export const UI_REV = "drag-2";
+
 export const RADIUS = { sm: 6, md: 8, lg: 12, xl: 16 } as const;
 
 /** Shared scale — keeps every panel on the same vertical rhythm. */

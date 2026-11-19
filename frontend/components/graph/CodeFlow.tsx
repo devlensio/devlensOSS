@@ -19,7 +19,7 @@ import "@xyflow/react/dist/style.css";
 import type { CodeEdge, CodeNode, ResolvedCall } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { highlightToHtml } from "@/lib/syntax";
-import { CODE, UI } from "@/lib/theme";
+import { CODE, UI, UI_REV } from "@/lib/theme";
 import { NODE_ACCENTS } from "./cytoscapeConfig";
 import { EDGE_INFO, markerList } from "./relations";
 import { Badge, Hint } from "@/components/ui/Hint";
@@ -235,6 +235,7 @@ function Inner({
   // keeps its identity, and the memoised card body skips re-rendering — which is
   // what makes the card follow the pointer instead of teleporting at drop.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     setNodes((prev) => {
@@ -383,6 +384,12 @@ function Inner({
         <span style={{ fontSize: 12.5, color: UI.textDim, fontFamily: "'Fira Code', monospace" }}>
           {cards.length} card{cards.length === 1 ? "" : "s"}
         </span>
+        <span
+          title="UI revision — if this is not the revision you expect, the tab is running a cached bundle"
+          style={{ fontSize: 10.5, color: UI.textGhost, fontFamily: "'Fira Code', monospace" }}
+        >
+          {UI_REV}
+        </span>
 
         <div className="flex items-center ml-auto" style={{ gap: 8 }}>
           <button onClick={arrange} style={barBtn} title="Lay the open cards out as a tree">
@@ -401,8 +408,11 @@ function Inner({
 
       <div className="flex-1 relative">
         <ReactFlow
+          className={dragging ? "flow-dragging" : undefined}
           nodes={nodes}
           edges={rfEdges}
+          onNodeDragStart={() => setDragging(true)}
+          onNodeDragStop={() => setDragging(false)}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           minZoom={0.2}

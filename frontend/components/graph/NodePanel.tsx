@@ -210,6 +210,7 @@ export default function NodePanel({
 
   return (
     <div
+      data-node-panel
       className="absolute top-0 right-0 h-full z-30 flex flex-col overflow-hidden"
       style={{
         width,

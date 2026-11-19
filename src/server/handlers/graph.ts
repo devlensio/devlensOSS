@@ -58,7 +58,26 @@ export function handleListGraphs(): Response {
     return Response.json({ success: true, data: graphs });
 }
 
-export function handleGetGraph(graphId: string, commitHash?: string): Response {
+/**
+ * Accept a short commit hash.
+ *
+ * URLs and clipboard links routinely carry the 7-character form (`?commit=a6062bb`)
+ * while storage is keyed by the full hash, so an exact lookup 404s and the page
+ * reports "Commit not found" for a commit that exists. Resolve a unique prefix
+ * to its full hash; anything ambiguous stays unresolved and 404s as before.
+ */
+function resolveCommitHash(graphId: string, commitHash?: string): string | undefined {
+    if (!commitHash) return undefined;
+    const meta = storage.getGraphMeta(graphId);
+    if (!meta) return commitHash;
+    const hashes = new Set(meta.commits.map(c => c.commitHash));
+    if (hashes.has(commitHash)) return commitHash;
+    const matches = [...hashes].filter(h => h.startsWith(commitHash));
+    return matches.length === 1 ? matches[0] : commitHash;
+}
+
+export function handleGetGraph(graphId: string, rawCommitHash?: string): Response {
+    const commitHash = resolveCommitHash(graphId, rawCommitHash);
     const result = storage.getGraph(graphId, commitHash);
     if (!result) {
         return Response.json({ success: false, error: "Graph not found" }, { status: 404 });
@@ -93,7 +112,8 @@ export function handleDeleteCommit(graphId: string, commitHash: string): Respons
     return Response.json({ success: true, data: null });
 }
 
-export function handleGetCodeNode(graphId: string, commitHash: string, nodeId: string): Response {
+export function handleGetCodeNode(graphId: string, rawCommitHash: string, nodeId: string): Response {
+    const commitHash = resolveCommitHash(graphId, rawCommitHash) ?? rawCommitHash;
     // getNodeCodeFor falls back to reading the range from disk when the node
     // carries no rawCode (FILE nodes and anything summarised away). The stored
     // graph is still the source of truth for the range.

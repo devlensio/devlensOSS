@@ -136,6 +136,30 @@ button:disabled { cursor: not-allowed; }
 .code-scroller::-webkit-scrollbar-thumb:hover { background: #6d7191; background-clip: content-box; }
 .code-scroller::-webkit-scrollbar-track { background: transparent; }
 
+/* ── Dragging ───────────────────────────────────────────────────────────────
+   A moving card is a large, rounded, shadowed, overflow-clipped subtree. On
+   some GPUs the browser re-rasterises it every frame and the card blanks out
+   mid-gesture. Promote it to its own compositing layer, and drop the two
+   expensive decorations (the dot pattern behind it and the big shadow) for the
+   duration of the drag. */
+.react-flow__node {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+.flow-dragging .react-flow__background { opacity: 0; }
+.flow-dragging .react-flow__node [data-card] {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+}
+.flow-dragging .react-flow__edge-path { opacity: 0.35; }
+/* React Flow marks the moving node with .dragging; outline it so the gesture
+   is unmistakable even when the card is large and the pointer is elsewhere. */
+.flow-dragging .react-flow__node.dragging [data-card] {
+  outline: 2px solid rgba(139, 233, 253, 0.75);
+  outline-offset: -2px;
+  cursor: grabbing;
+}
+
 /* React Flow controls sit on a dark card canvas; keep them legible. */
 .react-flow__controls { box-shadow: 0 6px 18px rgba(28, 25, 23, 0.12); border-radius: 8px; overflow: hidden; border: 1px solid #e3ded3; }
 .react-flow__controls-button {
