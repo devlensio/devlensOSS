@@ -223,11 +223,11 @@ function Inner({
             style: { stroke: color, strokeWidth: 2 },
             markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
             labelStyle: {
-              fill: CODE.textSub,
-              fontSize: 11,
+              fill: UI.textSub,
+              fontSize: 11.5,
               fontFamily: "'Fira Code', ui-monospace, monospace",
             },
-            labelBgStyle: { fill: CODE.surface, fillOpacity: 0.94 },
+            labelBgStyle: { fill: "#ffffff", fillOpacity: 0.92, stroke: UI.border, strokeWidth: 1 },
             labelBgPadding: [5, 3] as [number, number],
             labelBgBorderRadius: 4,
           };
@@ -305,7 +305,14 @@ function Inner({
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: "rgba(33,34,44,0.965)" }}>
+    <div
+      className="absolute inset-0 z-50 flex flex-col"
+      style={{
+        background: "rgba(250,249,246,0.90)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }}
+    >
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div
         className="flex items-center shrink-0"
@@ -313,36 +320,35 @@ function Inner({
           gap: 10,
           padding: "0 16px",
           height: 56,
-          background: CODE.surface,
-          borderBottom: `1px solid ${CODE.border}`,
+          background: UI.surface,
+          borderBottom: `1px solid ${UI.border}`,
+          boxShadow: "0 1px 0 rgba(28,25,23,0.03)",
         }}
       >
         <button
           onClick={cards.length > 1 ? back : onClose}
           title={cards.length > 1 ? "Close the most recently opened card (Esc)" : "Close the code view (Esc)"}
           style={barBtn}
-          className="hover:!bg-[#44475a]"
         >
           <HiOutlineArrowLeft size={15} />
           {cards.length > 1 ? "Back" : "Close"}
         </button>
 
-        <div style={{ width: 1, height: 22, background: CODE.border }} />
+        <div style={{ width: 1, height: 22, background: UI.border }} />
 
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: CODE.text }}>Code view</span>
-        <span style={{ fontSize: 12, color: CODE.textDim, fontFamily: "'Fira Code', monospace" }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: UI.text }}>Code view</span>
+        <span style={{ fontSize: 12.5, color: UI.textDim, fontFamily: "'Fira Code', monospace" }}>
           {cards.length} card{cards.length === 1 ? "" : "s"}
         </span>
 
         <div className="flex items-center ml-auto" style={{ gap: 8 }}>
-          <button onClick={arrange} style={barBtn} className="hover:!bg-[#44475a]" title="Lay the open cards out as a tree">
+          <button onClick={arrange} style={barBtn} title="Lay the open cards out as a tree">
             Auto-arrange
           </button>
           <button
             onClick={onClose}
             title="Close every card and leave the code view"
-            style={{ ...barBtn, borderColor: `${CODE.red}66`, color: CODE.red }}
-            className="hover:!bg-[#ff555522]"
+            style={{ ...barBtn, borderColor: "rgba(185,28,28,0.32)", color: "#b91c1c", background: "rgba(185,28,28,0.06)" }}
           >
             <HiOutlineXMark size={14} />
             Close all
@@ -363,14 +369,14 @@ function Inner({
           elevateNodesOnSelect
           defaultEdgeOptions={{ type: "default" }}
         >
-          <Background color={CODE.border} gap={26} />
+          <Background color="#e0dacd" gap={26} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
             nodeColor={(n: any) => NODE_ACCENTS[(n?.data as any)?.node?.type] ?? CODE.border}
-            maskColor="rgba(33,34,44,0.78)"
-            style={{ background: CODE.surface, border: `1px solid ${CODE.border}`, borderRadius: 8 }}
+            maskColor="rgba(250,249,246,0.82)"
+            style={{ background: UI.surface, border: `1px solid ${UI.border}`, borderRadius: 8 }}
           />
         </ReactFlow>
       </div>
@@ -702,7 +708,7 @@ function CardNode({ data }: any) {
                     fontSize: 9.5,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
-                    color: CODE.comment,
+                    color: "#7f89b8",
                     pointerEvents: "none",
                   }}
                 >
@@ -734,7 +740,7 @@ function CardNode({ data }: any) {
                   className="absolute left-0 top-0 text-right select-none"
                   style={{
                     width: 46,
-                    color: CODE.comment,
+                    color: "#7f89b8",
                     fontFamily: "'Fira Code', ui-monospace, monospace",
                     fontSize: 11,
                     lineHeight: `${LINE_H}px`,
@@ -929,9 +935,10 @@ const barBtn: React.CSSProperties = {
   gap: 6,
   padding: "7px 12px",
   borderRadius: 7,
-  border: `1px solid ${CODE.border}`,
-  background: CODE.elevated,
-  color: CODE.text,
+  border: `1px solid ${UI.border}`,
+  background: UI.elevated,
+  color: UI.text,
   fontSize: 13,
   fontWeight: 500,
+  cursor: "pointer",
 };

@@ -113,13 +113,13 @@ button:disabled { cursor: not-allowed; }
 .code-scroller::-webkit-scrollbar-track { background: transparent; }
 
 /* React Flow controls sit on a dark card canvas; keep them legible. */
-.react-flow__controls { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); border-radius: 8px; overflow: hidden; }
+.react-flow__controls { box-shadow: 0 6px 18px rgba(28, 25, 23, 0.12); border-radius: 8px; overflow: hidden; border: 1px solid #e3ded3; }
 .react-flow__controls-button {
-  background: #343746 !important;
-  border-bottom: 1px solid #44475a !important;
-  color: #f8f8f2 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e3ded3 !important;
+  color: #57534e !important;
   width: 30px !important;
   height: 30px !important;
 }
-.react-flow__controls-button:hover { background: #44475a !important; }
+.react-flow__controls-button:hover { background: #f4f2ec !important; color: #1c1917 !important; }
 .react-flow__controls-button svg { fill: currentColor !important; }

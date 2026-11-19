@@ -45,7 +45,7 @@ export const CODE = {
 
   text: "#f8f8f2",
   textSub: "#c6c9dd",
-  textDim: "#8f94b3",
+  textDim: "#9ba1bf",
 
   cyan: "#8be9fd",
   green: "#50fa7b",
