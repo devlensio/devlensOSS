@@ -29,6 +29,12 @@ function makeKey(protocol: string, providerName: string): string {
 }
 
 export default function ConfigPanel({ open, onClose }: ConfigPanelProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   const { data: config, isLoading } = useConfig();
   const { data: catalogProviders = [] } = useProviders();
@@ -298,10 +304,11 @@ export default function ConfigPanel({ open, onClose }: ConfigPanelProps) {
 
   return (
     <>
-      {open && <div className="fixed inset-0 bg-base/60 backdrop-blur-sm z-40 " onClick={onClose} />}
+      {/* Transparent catcher only — this is a side drawer, not a modal. */}
+      {open && <div className="fixed inset-0 bg-transparent z-[80]" onClick={onClose} />}
 
       <div className={`fixed right-0 top-0 h-full w-120 bg-surface border-l border-border
-                 z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out
+                 z-[90] flex flex-col shadow-2xl transition-transform duration-300 ease-in-out
                  ${open ? "translate-x-0" : "translate-x-full"}`}>
 
         {/* Header */}

@@ -59,6 +59,12 @@ interface JobsPanelProps {
 
 export function JobsPanel({ open, onClose }: JobsPanelProps) {
   const router = useRouter();
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   const { data: jobs } = useJobList();
 
   const pauseJob  = usePauseJob();
@@ -120,11 +126,11 @@ export function JobsPanel({ open, onClose }: JobsPanelProps) {
 
   return (
     <>
-      {open && (
-        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      )}
+      {/* Transparent catcher only: a dimmed, blurred scrim made the graph look
+          broken behind what is really just a side drawer. */}
+      {open && <div className="fixed inset-0 z-[80] bg-transparent" onClick={onClose} />}
 
-      <div className={`fixed top-0 right-0 h-full w-105 z-50 bg-surface border-l border-border
+      <div className={`fixed top-0 right-0 h-full w-105 z-[90] bg-surface border-l border-border
                        flex flex-col shadow-2xl transition-transform duration-300 ease-in-out
                        ${open ? "translate-x-0" : "translate-x-full"}`}>
 

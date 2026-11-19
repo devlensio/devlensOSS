@@ -486,15 +486,14 @@ export default function GraphView({ params }: Props) {
   return (
     <div className="h-screen flex flex-col bg-base text-primary overflow-hidden">
       {/*  Navbar  */}
-      {/* The toolbar owns the highest z-index on the page so its Filters panel
-          is never covered. The canvas area stacks its own layers — sidebar 20,
-          subgraph overlay 20, node panel 30, code view 50 — and all of them are
-          descendants of a non-positioned flex item, so they compete in the root
-          stacking context. Beating every one of those numbers is the only way a
-          dropdown opened from the toolbar can stay on top of an open code view. */}
+      {/* The toolbar must beat every canvas layer — sidebar 20, subgraph overlay
+          20, node panel 30, code view 50 — because they sit in descendants of a
+          non-positioned flex item and compete in the root stacking context. 60
+          clears all of them while staying below the side drawers (90), so an
+          open Jobs/Config panel is never clipped by the toolbar. */}
       <nav
         className="border-b border-border px-5 flex items-center gap-3 shrink-0 bg-base/95 backdrop-blur-sm"
-        style={{ position: "relative", zIndex: 100, minHeight: 52 }}
+        style={{ position: "relative", zIndex: 60, minHeight: 52 }}
       >
         <button
           onClick={() => router.back()}
