@@ -59,7 +59,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<RunningServ
             cwd: opts.next.frontendDir,
             port: opts.next.port ?? requested + 1,
         });
-        console.log(`   Next.js UI server  → ${nextServer.base}`);
+        console.log(`   Next.js UI server  → ${nextServer.base}  (internal — browse the main port, not this one)`);
     }
     const nextHandler = nextServer ? makeNextHandler(nextServer) : null;
     const servingUi = !!nextServer || !!serveStatic;

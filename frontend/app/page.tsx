@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import LibrarySelectionStep from "@/components/LibrarySelectionStep";
 
 export default function HomePage() {
-  const { data: graphs, isLoading } = useGraphList();
+  const { data: graphs, isLoading, isError, error } = useGraphList();
   const analyze = useAnalyze();
   const [repoPath, setRepoPath] = useState("");
   const [skipSummarization, setSkipSummarization] = useState(true);
@@ -182,8 +182,22 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* The API answered with something other than JSON — almost always
+            means the UI is being browsed on its internal port. */}
+        {isError && (
+          <div className="mb-8 rounded-xl border border-error/25 bg-error/5 px-5 py-4">
+            <p className="text-sm font-semibold text-error mb-1">
+              Cannot reach the DevLens API
+            </p>
+            <p className="text-[13px] leading-relaxed text-muted">
+              {(error as Error)?.message ??
+                "The graph list could not be loaded. Open the app on the main DevLens port."}
+            </p>
+          </div>
+        )}
+
         {/* Empty state */}
-        {!isLoading && (!graphs || graphs.length === 0) && (
+        {!isLoading && !isError && (!graphs || graphs.length === 0) && (
           <div className="text-center py-20 border border-dashed border-border rounded-xl">
             <div
               className="w-12 h-12 rounded-xl bg-elevated border border-border 

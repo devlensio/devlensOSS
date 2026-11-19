@@ -28,6 +28,17 @@ const ENGINE_URL =
 
 async function get<T>(url: string): Promise<T> {
   const res  = await fetch(`${ENGINE_URL}${url}`);
+  const type = res.headers.get("content-type") ?? "";
+  // A Next.js dev/standalone server answers unknown /api paths with its HTML
+  // shell and a 404. Saying "request failed: 404" there sends people hunting a
+  // backend bug when the real cause is browsing the internal UI port.
+  if (type.includes("text/html")) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "this origin";
+    throw new Error(
+      `The DevLens API is not reachable from ${origin}. ` +
+        `Open the app on the main DevLens port (the one that prints “Web UI” on start), not the internal Next.js port.`,
+    );
+  }
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error ?? `Request failed: ${res.status}`);
   return json.data;
