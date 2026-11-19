@@ -402,7 +402,7 @@ function ControlCenterPanel({
   const allEdgesOn = draftEdges.length === EDGE_TYPES.length;
 
   const sectionLabel: React.CSSProperties = {
-    fontSize: 10, fontWeight: 600, color: C.textSub,
+    fontSize: 12.5, fontWeight: 600, color: C.textSub,
     letterSpacing: "0.03em",
   };
 
@@ -413,7 +413,7 @@ function ControlCenterPanel({
       style={{
         background: C.surface,
         border: `1px solid ${C.border}`,
-        width: 580,
+        width: 640,
         maxHeight: "min(680px, calc(100vh - 120px))",
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
       }}
@@ -430,7 +430,7 @@ function ControlCenterPanel({
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px]
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[14px]
                          font-semibold transition-colors"
               style={{
                 background: tab === t.id ? `${C.teal}15` : "transparent",
@@ -441,7 +441,7 @@ function ControlCenterPanel({
               {t.icon}
               {t.label}
               {t.total > 0 && (
-                <span className="font-mono text-[11px]"
+                <span className="font-mono text-[12.5px]"
                       style={{ color: tab === t.id ? C.teal : C.textDim }}>
                   {t.active}/{t.total}
                 </span>
@@ -503,7 +503,7 @@ function ControlCenterPanel({
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder={`Search ${tab === "nodes" ? "node" : "edge"} types…`}
-                  className="w-full text-[13px] py-1.5 pl-8 pr-7 rounded-lg outline-none transition-colors"
+                  className="w-full text-[14px] py-1.5 pl-8 pr-7 rounded-lg outline-none transition-colors"
                   style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.text }}
                   onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
                   onBlur={e => (e.currentTarget.style.borderColor = C.borderSub)}
@@ -518,7 +518,7 @@ function ControlCenterPanel({
               </div>
               <button
                 onClick={() => setShowEmpty(v => !v)}
-                className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md
+                className="flex items-center gap-1.5 text-[12.5px] px-2 py-1 rounded-md
                            transition-colors shrink-0"
                 style={{
                   background: showEmpty ? `${C.teal}14` : "transparent",
@@ -551,13 +551,13 @@ function ControlCenterPanel({
       {/* Footer: status + apply (only shown when there are pending changes) */}
       <div className="shrink-0 px-4 py-3 flex items-center justify-between"
            style={{ borderTop: `1px solid ${C.borderSub}`, background: C.bg }}>
-        <span className="text-[11px]" style={{ color: C.textGhost }}>
+        <span className="text-[12.5px]" style={{ color: C.textGhost }}>
           {isDirty ? "Unapplied changes" : "All changes applied"}
         </span>
         {isDirty && (
           <button
             onClick={onApply}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[12px]
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[13px]
                        font-semibold transition-colors"
             style={{
               background: `${C.teal}20`,
@@ -600,10 +600,10 @@ function NodesTab({
         return (
           <div key={g.id} className="py-2.5" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-semibold" style={{ color: C.textSub }}>
+              <span className="text-[13px] font-semibold" style={{ color: C.textSub }}>
                 {g.label}
               </span>
-              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-md"
+              <span className="text-[12.5px] font-mono px-1.5 py-0.5 rounded-md"
                     style={{ background: C.elevated, color: C.textSub }}>
                 {groupActive}/{g.defs.length}
               </span>
@@ -647,11 +647,11 @@ function NodesTab({
                     }}
                   >
                     <TypeGlyph type={d.type} size={14} color={color} />
-                    <span className="text-[13px] font-medium truncate">{d.label}</span>
+                    <span className="text-[14px] font-medium truncate">{d.label}</span>
                     {/* Language-specific indicator — show a tiny badge when this
                         type is only produced by a subset of languages. */}
                     {supported && d.languages.length > 0 && !d.languages.includes("*") && (
-                      <span className="text-[9px] font-mono px-1 py-0.5 rounded shrink-0"
+                      <span className="text-[12px] font-mono px-1 py-0.5 rounded shrink-0"
                             style={{ background: C.elevated, color: C.textGhost }}
                             title={`Languages: ${d.languages.join(", ")}`}>
                         {d.languages.length <= 2
@@ -660,7 +660,7 @@ function NodesTab({
                       </span>
                     )}
                     {count > 0 && (
-                      <span className="ml-auto text-[11px] font-mono shrink-0"
+                      <span className="ml-auto text-[12.5px] font-mono shrink-0"
                             style={{ color: C.textDim }}>
                         {count}
                       </span>
@@ -701,10 +701,10 @@ function EdgesTab({
         return (
           <div key={g.id} className="py-2.5" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-semibold" style={{ color: C.textSub }}>
+              <span className="text-[13px] font-semibold" style={{ color: C.textSub }}>
                 {g.label}
               </span>
-              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-md"
+              <span className="text-[12.5px] font-mono px-1.5 py-0.5 rounded-md"
                     style={{ background: C.elevated, color: C.textSub }}>
                 {groupActive}/{g.defs.length}
               </span>
@@ -744,10 +744,10 @@ function EdgesTab({
                       (e.currentTarget as HTMLElement).style.background = "transparent";
                     }}
                   >
-                    <span className="text-[13px]" style={{ color }}>{d.icon ?? "→"}</span>
-                    <span className="text-[13px] font-medium truncate">{d.label}</span>
+                    <span className="text-[14px]" style={{ color }}>{d.icon ?? "→"}</span>
+                    <span className="text-[14px] font-medium truncate">{d.label}</span>
                     {supported && d.languages.length > 0 && !d.languages.includes("*") && (
-                      <span className="text-[9px] font-mono px-1 py-0.5 rounded shrink-0"
+                      <span className="text-[12px] font-mono px-1 py-0.5 rounded shrink-0"
                             style={{ background: C.elevated, color: C.textGhost }}
                             title={`Languages: ${d.languages.join(", ")}`}>
                         {d.languages.length <= 2
@@ -756,7 +756,7 @@ function EdgesTab({
                       </span>
                     )}
                     {count > 0 && (
-                      <span className="ml-auto text-[11px] font-mono shrink-0"
+                      <span className="ml-auto text-[12.5px] font-mono shrink-0"
                             style={{ color: C.textDim }}>
                         {count}
                       </span>
@@ -785,7 +785,7 @@ function LangsTab({ graph }: { graph: GraphResponse | undefined }) {
   }, [graph]);
   return (
     <div className="px-4 py-3">
-      <p className="text-[13px] mb-3" style={{ color: C.textDim }}>
+      <p className="text-[14px] mb-3" style={{ color: C.textDim }}>
         Languages the engine can analyze. Each drives which node/edge types
         appear in the Nodes and Edges tabs above.
       </p>
@@ -799,10 +799,10 @@ function LangsTab({ graph }: { graph: GraphResponse | undefined }) {
                }}>
             <HiOutlineCodeBracket size={14}
               style={{ color: d.active ? C.teal : C.textDim }} />
-            <span className="text-[13px] font-medium" style={{ color: d.active ? C.teal : C.textSub }}>
+            <span className="text-[14px] font-medium" style={{ color: d.active ? C.teal : C.textSub }}>
               {d.label}
             </span>
-            <span className="ml-auto text-[11px]" style={{ color: C.textGhost }}>
+            <span className="ml-auto text-[12.5px]" style={{ color: C.textGhost }}>
               {d.active ? "Detected" : "Available"}
             </span>
           </div>
@@ -819,16 +819,16 @@ function GroupQuickActions({ allOn, onAll, onNone }: {
   onAll: () => void;
   onNone: () => void;
 }) {
-  const label: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: C.textSub, letterSpacing: "0.04em" };
+  const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: C.textSub, letterSpacing: "0.04em" };
   return (
     <div className="flex items-center gap-3">
-      <button onClick={onAll} className="text-[12px] font-medium transition-colors"
+      <button onClick={onAll} className="text-[13px] font-medium transition-colors"
               style={{ color: C.teal }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = "#5eead4")}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.teal)}>
         Select All
       </button>
       <span style={{ color: C.border }}>·</span>
-      <button onClick={onNone} className="text-[12px] font-medium transition-colors"
+      <button onClick={onNone} className="text-[13px] font-medium transition-colors"
               style={{ color: C.textDim }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = C.textSub)}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.textDim)}>
         None
@@ -854,7 +854,7 @@ function ScoreBoundaryRow({
   onHopDepthChange: (d: number) => void;
 }) {
   const sectionLabel: React.CSSProperties = {
-    fontSize: 10, fontWeight: 600, color: C.textSub, letterSpacing: "0.03em",
+    fontSize: 12.5, fontWeight: 600, color: C.textSub, letterSpacing: "0.03em",
   };
 
   function toggleBoundary(value: RenderingBoundary | "unset") {
@@ -872,7 +872,7 @@ function ScoreBoundaryRow({
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <span style={sectionLabel}>Score</span>
-          <span style={{ fontSize: 11, fontFamily: "monospace", color: C.teal }}>
+          <span style={{ fontSize: 13, fontFamily: "monospace", color: C.teal }}>
             {draftScore === 0 ? "all" : `≥ ${draftScore.toFixed(1)}`}
           </span>
         </div>
@@ -890,7 +890,7 @@ function ScoreBoundaryRow({
             return (
               <button key={String(value)} onClick={() => toggleBoundary(value)}
                 style={{
-                  flex: 1, padding: "5px 0", borderRadius: 7, fontSize: 11, fontWeight: 500,
+                  flex: 1, padding: "5px 0", borderRadius: 7, fontSize: 13, fontWeight: 500,
                   cursor: "pointer", transition: "all 0.15s",
                   background: on ? `${color}18` : C.elevated,
                   color: on ? color : C.textGhost,
@@ -911,7 +911,7 @@ function ScoreBoundaryRow({
             <button onClick={onRouteToggle}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
-                borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+                borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
                 background: showRouteNodes ? "#818cf818" : C.elevated,
                 border: `1px solid ${showRouteNodes ? "#818cf860" : C.borderSub}`,
                 color: showRouteNodes ? "#818cf8" : C.textSub,
@@ -919,13 +919,13 @@ function ScoreBoundaryRow({
               <HiOutlineGlobeAlt size={12} />
               {showRouteNodes ? "On" : "Off"}
             </button>
-            <span style={{ fontSize: 11, color: C.textDim, lineHeight: 1.4 }}>
+            <span style={{ fontSize: 13, color: C.textDim, lineHeight: 1.4 }}>
               Show routes and their connections
             </span>
           </div>
           {showRouteNodes && (
             <div className="mt-2">
-              <div style={{ fontSize: 10, color: C.textGhost, marginBottom: 6 }}>Hop depth</div>
+              <div style={{ fontSize: 12.5, color: C.textGhost, marginBottom: 6 }}>Hop depth</div>
               <div style={{
                 display: "flex", borderRadius: 7, overflow: "hidden",
                 border: "1px solid #818cf830", background: "#818cf808",
@@ -933,7 +933,7 @@ function ScoreBoundaryRow({
                 {HOP_OPTIONS.map(n => (
                   <button key={n} onClick={() => onHopDepthChange(n)}
                     style={{
-                      flex: 1, padding: "5px 0", fontSize: 11, fontFamily: "monospace",
+                      flex: 1, padding: "5px 0", fontSize: 13, fontFamily: "monospace",
                       fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
                       background: routeHopDepth === n ? "#818cf8" : "transparent",
                       color: routeHopDepth === n ? C.bg : "#818cf870",
