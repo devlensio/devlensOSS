@@ -307,11 +307,7 @@ function Inner({
   return (
     <div
       className="absolute inset-0 z-50 flex flex-col"
-      style={{
-        background: "rgba(250,249,246,0.90)",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
-      }}
+      style={{ background: "#f7f5f0" }}
     >
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div
