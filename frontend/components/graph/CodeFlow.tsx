@@ -433,7 +433,8 @@ function CardNode({ data }: any) {
     openNodeIds: Set<string>;
   };
 
-  const { data: codeData, isLoading } = useNodeCode(graphId, commitHash, node?.id ?? null);
+  const { data: codeData, isLoading, isError: codeError, error: codeErr, refetch: refetchCode } =
+    useNodeCode(graphId, commitHash, node?.id ?? null);
   const code: string = (codeData as any)?.code ?? (codeData as any)?.rawCode ?? "";
   const [showSummary, setShowSummary] = useState(true);
   const [showCallers, setShowCallers] = useState(model.role !== "caller" && !model.parentCardId);
@@ -692,9 +693,31 @@ function CardNode({ data }: any) {
             {isLoading && (
               <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim }}>Loading…</div>
             )}
-            {!isLoading && lines.length === 0 && (
-              <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim }}>
-                No source stored for a {node.type.replace(/_/g, " ")} node.
+            {!isLoading && codeError && (
+              <div style={{ padding: "14px 12px", fontSize: 12.5, color: CODE.orange, lineHeight: 1.6 }}>
+                Could not load the source for this node.
+                <div style={{ color: CODE.textDim, marginTop: 4 }}>
+                  {(codeErr as Error)?.message ?? "The server did not answer."}
+                </div>
+                <button
+                  onClick={() => refetchCode()}
+                  style={{
+                    marginTop: 8, padding: "4px 10px", borderRadius: 6,
+                    border: `1px solid ${CODE.border}`, background: CODE.elevated,
+                    color: CODE.text, fontSize: 12,
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!isLoading && !codeError && lines.length === 0 && (
+              <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim, lineHeight: 1.6 }}>
+                The engine stored no source for this {node.type.replace(/_/g, " ").toLowerCase()} node.
+                <div style={{ marginTop: 4, color: CODE.textDim }}>
+                  Structural nodes such as ROUTE, PACKAGE and THIRD_PARTY point at code rather than
+                  owning a body.
+                </div>
               </div>
             )}
             {lines.length > 0 && (

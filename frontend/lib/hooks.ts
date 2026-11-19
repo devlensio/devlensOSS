@@ -64,7 +64,10 @@ export function useNodeCode(graphId: string, commitHash: string, nodeId: string 
     queryFn:  () => api.getNodeCode(graphId, commitHash, nodeId!),
     enabled:  !!nodeId,  // only fetch when a node is selected
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
+    gcTime: 1000 * 60 * 60 * 2,   // clean up after 2 hours
+    // One retry, then surface the failure: a blocked engine (it analyzes on the
+    // API thread) used to look identical to "this node has no stored source".
+    retry: 1,
   });
 }
 
@@ -83,7 +86,11 @@ export function useJob(jobId: string) {
     queryKey: keys.job(jobId),
     queryFn:  () => api.getJob(jobId),
     enabled:  !!jobId,
-    refetchInterval: 2000,
+    // No retries: while the engine is analysing it stops answering, and retry
+    // storms against a blocked server just stack up hanging requests. The
+    // banner tells the user the server is busy instead.
+    retry: false,
+    refetchInterval: 2500,
   });
 }
 

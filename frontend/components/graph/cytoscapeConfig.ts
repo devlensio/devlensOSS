@@ -217,20 +217,40 @@ export function getCytoscapeStyles(
         label:                "data(label)",
         "text-valign":        "center",
         "text-halign":        "center",
-        "font-size":          "13px",
+        "font-size":          "14px",
         "font-weight":        "600",
         color:                "data(labelColor)",
         "text-outline-width": 0,
         "text-wrap":          "ellipsis" as any,
         "text-max-width":     "data(size)",
-        // Labels are the most expensive part of a large canvas; below this zoom
-        // they are illegible anyway, so skip laying them out entirely.
-        "min-zoomed-font-size": 9,
+        // Labels stay on for the whole zoom range. Hiding them below a zoom
+        // threshold (it was 9) meant the fitted overview of a 400-node graph
+        // rendered as an unlabelled blob, which is exactly when a reader needs
+        // the names. 2 only skips nodes that are sub-pixel anyway.
+        "min-zoomed-font-size": 2,
         "padding":            "10px" as any,
         "border-width":       0,
         width:                "data(size)",
         height:               "data(size)",
       },
+    },
+
+    // ── Anchor labels ────────────────────────────────────────────────────────
+    // Always drawn, with a halo, and resized by GraphCanvas so they stay ~12px
+    // on screen whatever the zoom.
+    {
+      selector: "node[?anchor]",
+      style: {
+        "font-size":           "12px",
+        "font-weight":         "700",
+        color:                 "#1c1917",
+        "text-outline-width":  3,
+        "text-outline-color":  "#faf9f6",
+        "text-max-width":      "190px",
+        "text-wrap":           "ellipsis" as any,
+        "min-zoomed-font-size": 0,
+        "z-index":             20,
+      } as any,
     },
 
     // ── Per-type colors + shapes ─────────────────────────────────────────────

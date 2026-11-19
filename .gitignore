@@ -24,6 +24,9 @@ npm/*/devlens.exe
 .env
 .env.*
 !.env.example
+
+# Local agent scratch (Pi review state carries absolute paths and diffs)
+.pi/
 *.pem
 *.key
 

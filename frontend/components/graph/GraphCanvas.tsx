@@ -524,6 +524,25 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
 
       const cy = cyRef.current;
 
+      // Anchor labels are kept at a readable screen size: their model font size
+      // is 12 / zoom, so a fitted 400-node map still names its key nodes.
+      const scaleAnchorLabels = () => {
+        const zoom = cy.zoom();
+        const font = Math.min(90, Math.max(11, 11 / zoom));
+        cy.nodes("[?anchor]").style({
+          "font-size":      `${font}px`,
+          "text-max-width": `${font * 10}px`,
+          "text-outline-width": Math.max(2, font / 6),
+        });
+      };
+      let anchorRaf = 0;
+      const onZoom = () => {
+        cancelAnimationFrame(anchorRaf);
+        anchorRaf = requestAnimationFrame(scaleAnchorLabels);
+      };
+      cy.on("zoom", onZoom);
+      scaleAnchorLabels();
+
       cy.on("tap", "node", (e) => {
         cy.nodes().style("z-index", 1);
         e.target.style("z-index", 9999);
@@ -579,6 +598,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       });
 
       return () => {
+        cy.removeListener("zoom", onZoom);
         cy.destroy();
         cyRef.current = null;
       };

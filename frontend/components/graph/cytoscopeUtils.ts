@@ -91,6 +91,19 @@ export function filterNodes(nodes: CodeNode[]): CodeNode[] {
 
 export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
   const nodeIds = new Set(nodes.map(n => n.id));
+  // Anchor nodes carry labels that stay readable at overview zoom: a 400-node
+  // map fits at ~0.12 zoom, where a normal label renders 1.7px tall and says
+  // nothing. The fifteen highest-scoring nodes keep a screen-constant label, so
+  // the overview is navigable and everything else labels up as you zoom in.
+  const ANCHORS = 15;
+  // Compare by identity, not by score: scores are quantised (dozens of nodes sit
+  // on 7.5), so a score threshold labelled the whole graph.
+  const anchorIds = new Set(
+    [...nodes]
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, ANCHORS)
+      .map((n) => n.id),
+  );
   const { min, max } = getScoreRange(nodes);
   // callOrder/v1 lives on the caller node; edges are assembled from it here so
   // the canvas never depends on the denormalised edge mirror.
@@ -119,6 +132,7 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
       // The committed palette is pastel; on a light canvas the label has to be
       // picked per fill colour instead of always white.
       labelColor: labelColorFor(NODE_COLORS[n.type] ?? "#64748b"),
+      anchor: anchorIds.has(n.id),
     }
   }));
 

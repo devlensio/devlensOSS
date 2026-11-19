@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import { useGraph, useJob, useGraphMeta, useAnalyze } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { keys } from "@/lib/hooks";
@@ -55,11 +56,17 @@ export default function GraphView({ params }: Props) {
   const canvasRef = useRef<GraphCanvasHandle>(null);
 
   const commitHash = searchParams.get("commit") ?? undefined;
-  const jobId = searchParams.get("jobId") ?? undefined;
+  const urlJobId = searchParams.get("jobId") ?? undefined;
   const skippedSummarization =
     searchParams.get("pSkippedSummarization") ?? undefined;
 
-  const { data: job } = useJob(jobId ?? "");
+  // A job started here is tracked in state as well as the URL. The engine
+  // analyzes on the thread that serves this page, so a router navigation right
+  // after submitting would wait for a server response that cannot come until
+  // the job finishes — which looked exactly like "the submit did nothing".
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const jobId = activeJobId ?? urlJobId;
+  const { data: job, isError: jobUnreachable } = useJob(jobId ?? "");
   const {
     data: graph,
     isLoading: graphLoading,
@@ -87,6 +94,8 @@ export default function GraphView({ params }: Props) {
 
   //  State 
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
+  const [failedDismissed, setFailedDismissed] = useState<string | null>(null);
   const [reloadPending, setReloadPending] = useState(false);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [codeStack, setCodeStack] = useState<string[]>([]);
@@ -362,15 +371,37 @@ export default function GraphView({ params }: Props) {
 
   async function handleReanalyze(skipSummarization = false, forceSummarize = false) {
     const repoPath = graph?.repoPath ?? meta?.repoPath;
-    if (!repoPath) return;
+    if (!repoPath) {
+      const message =
+        "This graph has no repository path recorded, so it cannot be re-analyzed. " +
+        "Open the repo from the Graphs list and start the analysis there.";
+      setReanalyzeError(message);
+      toast.error(message);
+      return;
+    }
+
+    setReanalyzeError(null);
     setReanalyzing(true);
     try {
       const job = await analyze.mutateAsync({ repoPath, skipSummarization, forceSummarize });
-      setReanalyzing(false);
-      router.replace(
-        `/graph/${graphId}?jobId=${job.jobId}&pSkippedSummarization=${skipSummarization}`,
+      setActiveJobId(job.jobId);
+      // Update the address bar without asking the server for a new route: it is
+      // about to be busy analysing, and a router navigation would hang on it.
+      const url = `/graph/${graphId}?jobId=${job.jobId}&pSkippedSummarization=${skipSummarization}`;
+      try {
+        window.history.replaceState(null, "", url);
+      } catch {
+        /* history is best-effort; the in-page banner is the source of truth */
+      }
+      toast.success(
+        `Re-analysis queued (job ${job.jobId.slice(0, 8)}) — progress is shown above the graph.`,
       );
-    } catch {
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Re-analysis could not be started.";
+      setReanalyzeError(message);
+      toast.error(message);
+    } finally {
       setReanalyzing(false);
     }
   }
@@ -560,6 +591,33 @@ export default function GraphView({ params }: Props) {
                           rounded-full animate-spin shrink-0"
           />
           Analyzing repository — building dependency graph...
+          {jobUnreachable && (
+            <span className="text-xs text-warning">
+              (the server is busy with the analysis — this view updates when it answers)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Re-analysis could not be started — say why, not just stop spinning */}
+      {reanalyzeError && (
+        <div
+          className="flex items-start gap-3 px-5 py-2.5 bg-error/10
+                     border-b border-error/25 shrink-0"
+        >
+          <div className="flex-1 text-error">
+            <div className="text-sm font-semibold mb-0.5">
+              Re-analysis could not be started
+            </div>
+            <div className="text-[13px] leading-relaxed">{reanalyzeError}</div>
+          </div>
+          <button
+            onClick={() => setReanalyzeError(null)}
+            className="text-xs px-2.5 py-1 rounded-lg border border-error/30
+                       text-error hover:bg-error/10 transition-colors shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -582,6 +640,36 @@ export default function GraphView({ params }: Props) {
             {job?.summarizationCompleted ?? 0} /{" "}
             {job?.summarizationTotal ?? "?"} nodes
           </span>
+        </div>
+      )}
+
+      {/* Job failed — the engine's message is the only useful thing here */}
+      {job?.status === "failed" && job.jobId !== failedDismissed && (
+        <div
+          className="flex items-center gap-3 px-5 py-2.5 bg-error/10
+                     border-b border-error/25 shrink-0"
+        >
+          <div className="flex-1 text-error min-w-0">
+            <div className="text-sm font-semibold">Re-analysis failed</div>
+            <div className="text-[13px] leading-relaxed break-words">
+              {job.error || "The engine did not report a reason."}
+            </div>
+          </div>
+          <button
+            onClick={() => handleReanalyze(true)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-error/30
+                       text-error hover:bg-error/10 transition-colors shrink-0"
+            title="Run graph analysis only — no LLM calls, no API key needed"
+          >
+            Retry without summaries
+          </button>
+          <button
+            onClick={() => setFailedDismissed(job.jobId)}
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-border
+                       text-muted hover:text-primary transition-colors shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

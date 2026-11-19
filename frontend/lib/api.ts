@@ -26,8 +26,35 @@ const ENGINE_URL =
 // Backend always returns { success: false, error: "..." } on failure —
 // we surface that message directly so the user sees something actionable.
 
+// The engine analyzes on the same thread that serves this API, so a request
+// made while a job runs can sit unanswered for a long time. Without a deadline
+// the UI just hangs with no message.
+const REQUEST_TIMEOUT_MS = 25_000;
+
+async function fetchWithDeadline(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        `The DevLens server did not answer within ${REQUEST_TIMEOUT_MS / 1000}s. ` +
+          `It is probably still running an analysis — open the Jobs panel to follow it.`,
+      );
+    }
+    throw new Error(
+      err instanceof Error
+        ? `Cannot reach the DevLens server: ${err.message}`
+        : "Cannot reach the DevLens server.",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function get<T>(url: string): Promise<T> {
-  const res  = await fetch(`${ENGINE_URL}${url}`);
+  const res  = await fetchWithDeadline(`${ENGINE_URL}${url}`);
   const type = res.headers.get("content-type") ?? "";
   // A Next.js dev/standalone server answers unknown /api paths with its HTML
   // shell and a 404. Saying "request failed: 404" there sends people hunting a
@@ -45,7 +72,7 @@ async function get<T>(url: string): Promise<T> {
 }
 
 async function post<T>(url: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${ENGINE_URL}${url}`, {
+  const res = await fetchWithDeadline(`${ENGINE_URL}${url}`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
     body:    body ? JSON.stringify(body) : undefined,

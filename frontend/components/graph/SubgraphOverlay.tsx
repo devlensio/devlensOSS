@@ -140,6 +140,19 @@ export default function SubgraphOverlay({
       maxZoom: 4,
     });
 
+    // Keep anchor labels legible at any zoom, same rule as the main canvas.
+    const scaleAnchorLabels = () => {
+      const zoom = cy.zoom();
+      const font = Math.min(90, Math.max(11, 11 / zoom));
+      cy.nodes("[?anchor]").style({
+        "font-size": `${font}px`,
+        "text-max-width": `${font * 10}px`,
+        "text-outline-width": Math.max(2, font / 6),
+      });
+    };
+    cy.on("zoom", scaleAnchorLabels);
+    scaleAnchorLabels();
+
     // After layout completes — zoom into the root node. Skip the animation on
     // big subgraphs: the tween re-renders every element for 600ms while the
     // user is already moving the mouse.
