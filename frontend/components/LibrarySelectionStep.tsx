@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PreScanResult, ThirdPartyLibEntry } from "@/lib/types";
+import { UI } from "@/lib/theme";
 
 interface LibrarySelectionStepProps {
   result:      PreScanResult;
@@ -12,22 +13,22 @@ interface LibrarySelectionStepProps {
 }
 
 const C = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  elevated:  "#21262d",
-  border:    "#30363d",
-  borderSub: "#21262d",
-  text:      "#e6edf3",
-  textSub:   "#8b949e",
-  textDim:   "#6e7681",
-  textGhost: "#484f58",
-  teal:      "#2dd4bf",
+  bg:        UI.surface,
+  surface:   UI.surface,
+  elevated:  UI.elevated,
+  border:    UI.border,
+  borderSub: UI.borderSubtle,
+  text:      UI.text,
+  textSub:   UI.textSub,
+  textDim:   UI.textDim,
+  textGhost: UI.textGhost,
+  teal:      UI.accent,
 };
 
 const CAT_COLORS: Record<string, string> = {
-  runtime: "#3fb950",
-  ui:      "#818cf8",
-  devtool: "#94a3b8",
+  runtime: UI.success,
+  ui:      "#4f46e5",
+  devtool: "#475569",
   unknown: "#6b7280",
 };
 

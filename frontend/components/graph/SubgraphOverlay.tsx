@@ -8,7 +8,7 @@ import {
 } from "@/lib/types";
 import fcose from "cytoscape-fcose";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HiOutlineArrowLeft } from "react-icons/hi2";
+import { HiOutlineArrowLeft } from "@/components/icons";
 import { toElements } from "./cytoscopeUtils";
 import cytoscape from "cytoscape";
 import {
@@ -205,7 +205,7 @@ export default function SubgraphOverlay({
   return (
     <div
       className="absolute inset-0 flex flex-col"
-      style={{ background: "#13191f", zIndex: 20 }}
+      style={{ background: "#f7f5f0", zIndex: 20 }}
     >
       {/* Toolbar */}
       <div

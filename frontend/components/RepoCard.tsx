@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDeleteGraph, useAnalyze, useGraphMeta } from "@/lib/hooks";
 import type { GraphListItem } from "@/lib/types";
-import { HiOutlineArrowPath, HiOutlineEllipsisHorizontal, HiOutlineSparkles, HiOutlineTableCells, HiOutlineTrash } from "react-icons/hi2";
+import { HiOutlineArrowPath, HiOutlineEllipsisHorizontal, HiOutlineSparkles, HiOutlineTableCells, HiOutlineTrash } from "@/components/icons";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ interface RepoCardProps {
 // ─── Color maps ───────────────────────────────────────────────────────────────
 
 const frameworkColor: Record<string, string> = {
-  nextjs: "text-white border-white/20 bg-white/10",
+  nextjs: "text-[#1c1917] border-[#1c1917]/20 bg-[#1c1917]/8",
   react: "text-[#61dafb] border-[#61dafb]/20 bg-[#61dafb]/10",
   express: "text-[#68d391] border-[#68d391]/20 bg-[#68d391]/10",
   fastify: "text-[#a78bfa] border-[#a78bfa]/20 bg-[#a78bfa]/10",

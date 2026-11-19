@@ -10,7 +10,9 @@ import json from "highlight.js/lib/languages/json";
 import yaml from "highlight.js/lib/languages/yaml";
 import xml from "highlight.js/lib/languages/xml";
 import css from "highlight.js/lib/languages/css";
-import "highlight.js/styles/github-dark.css";
+// Token colours live in app/globals.css as a single Dracula block: hljs 11.11
+// ships no Dracula stylesheet, and importing github-dark left the code panes
+// looking like a different product than the editor the user works in.
 import { sanitizeHighlightedCode } from "@/lib/sanitize";
 
 let registered = false;

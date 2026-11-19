@@ -59,9 +59,9 @@ export function NodeTooltip({
     const parent = el.offsetParent?.getBoundingClientRect();
     const pw = parent?.width ?? 9999;
 
-    const GAP = 16;
+    const GAP = 18;
     const fitsAbove = t.y - height - GAP >= 0;
-    const top       = fitsAbove ? t.y - 8 : t.y + GAP + 8;
+    const top       = fitsAbove ? t.y - 10 : t.y + GAP + 10;
     const trY       = fitsAbove ? "-100%" : "0%";
     const fitsRight = t.x + GAP + width <= pw;
     const left      = fitsRight ? t.x + GAP : t.x - GAP - width;
@@ -69,23 +69,33 @@ export function NodeTooltip({
     setPosStyle({
       position: "absolute", left, top,
       transform: `translateY(${trY})`,
-      opacity: 1, zIndex: 50, transition: "opacity 0.1s",
+      opacity: 1, zIndex: 50, transition: "opacity 0.12s",
     });
   }, [t.x, t.y]);
 
   const hasSummary = !!(t.technicalSummary || t.businessSummary);
-  const colors     = TOOLTIP_TYPE_COLORS[t.type] ?? { bg: "#21262d", text: "#8b949e", border: "#30363d" };
+  const colors     = TOOLTIP_TYPE_COLORS[t.type] ?? { bg: "#f4f2ec", text: "#57534e", border: "#e3ded3" };
   const shortPath  = t.filePath.split("/").slice(-3).join("/");
   const scoreNorm  = Math.min(Math.max((t.score ?? 0) / 10, 0), 1);
-  const scoreColor = scoreNorm > 0.6 ? "#2dd4bf" : scoreNorm > 0.3 ? "#f59e0b" : "#6e7681";
+  const scoreColor = scoreNorm > 0.6 ? "#0e766e" : scoreNorm > 0.3 ? "#b45309" : "#a8a29e";
   const hasDetails = t.hasState || t.hooks.length > 0;
 
   const row: React.CSSProperties = {
-    display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6,
+    display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 7,
   };
   const lbl: React.CSSProperties = {
-    fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
-    textTransform: "uppercase", color: "#3c4a46", width: 40, flexShrink: 0, paddingTop: 1,
+    fontSize: 10, fontFamily: "'Fira Code', monospace", letterSpacing: "0.06em",
+    textTransform: "uppercase", color: "#a8a29e", width: 42, flexShrink: 0, paddingTop: 2,
+  };
+  const card: React.CSSProperties = {
+    background: "#ffffff",
+    border: "1px solid #e3ded3",
+    borderRadius: 12,
+    minWidth: 232,
+    maxWidth: 340,
+    overflow: "hidden",
+    boxShadow: "0 22px 50px rgba(28,25,23,0.16), 0 2px 6px rgba(28,25,23,0.06)",
+    fontFamily: "var(--font-family-ui), Geist, system-ui, sans-serif",
   };
 
   return (
@@ -95,55 +105,46 @@ export function NodeTooltip({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div style={{
-        background:   "#0d1117",
-        border:       "1px solid #1e2530",
-        borderRadius: 10,
-        minWidth:     210,
-        maxWidth:     300,
-        overflow:     "hidden",
-        boxShadow:    "0 20px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03)",
-        fontFamily:   "system-ui, -apple-system, sans-serif",
-      }}>
+      <div style={card}>
 
         {/* ── Header ─────────────────────────────────────────────── */}
-        <div style={{ padding: "11px 13px 10px", borderBottom: "1px solid #161b22" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 7 }}>
+        <div style={{ padding: "13px 15px 12px", borderBottom: "1px solid #ece8df" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
             <span style={{
-              padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-              letterSpacing: "0.08em", textTransform: "uppercase",
+              padding: "3px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+              letterSpacing: "0.07em", textTransform: "uppercase",
               background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
             }}>
               {t.type.replace("_", " ")}
             </span>
             {t.renderingBoundary && (
               <span style={{
-                padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-                letterSpacing: "0.08em", textTransform: "uppercase",
-                background: t.renderingBoundary === "client" ? "#06b6d414" : "#f59e0b14",
-                color:      t.renderingBoundary === "client" ? "#06b6d4"   : "#f59e0b",
-                border:     `1px solid ${t.renderingBoundary === "client" ? "#06b6d428" : "#f59e0b28"}`,
+                padding: "3px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.07em", textTransform: "uppercase",
+                background: t.renderingBoundary === "client" ? "#0891b214" : "#b4530914",
+                color:      t.renderingBoundary === "client" ? "#0891b2"   : "#b45309",
+                border:     `1px solid ${t.renderingBoundary === "client" ? "#0891b233" : "#b4530933"}`,
               }}>
                 {t.renderingBoundary}
               </span>
             )}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#e6edf3", marginBottom: 3, lineHeight: 1.3, wordBreak: "break-word" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#1c1917", marginBottom: 4, lineHeight: 1.35, wordBreak: "break-word" }}>
             {t.name}
           </div>
-          <div style={{ fontSize: 10, fontFamily: "monospace", color: "#3c4a46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.filePath}>
+          <div style={{ fontSize: 11.5, fontFamily: "'Fira Code', monospace", color: "#78716c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.filePath}>
             {shortPath}
           </div>
         </div>
 
         {/* ── Score ──────────────────────────────────────────────── */}
-        <div style={{ padding: "9px 13px", borderBottom: (hasDetails || t.children.length > 0 || hasSummary) ? "1px solid #161b22" : undefined }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "11px 15px", borderBottom: (hasDetails || t.children.length > 0 || hasSummary) ? "1px solid #ece8df" : undefined }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ ...lbl, paddingTop: 0 }}>Score</span>
-            <div style={{ flex: 1, height: 3, background: "#1c2128", borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ flex: 1, height: 4, background: "#eeece4", borderRadius: 999, overflow: "hidden" }}>
               <div style={{ width: `${scoreNorm * 100}%`, height: "100%", background: scoreColor, borderRadius: 999 }} />
             </div>
-            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#8b949e", flexShrink: 0, minWidth: "3ch", textAlign: "right" }}>
+            <span style={{ fontSize: 12, fontFamily: "'Fira Code', monospace", color: "#57534e", flexShrink: 0, minWidth: "3.2ch", textAlign: "right" }}>
               {(t.score ?? 0).toFixed(1)}
             </span>
           </div>
@@ -151,11 +152,11 @@ export function NodeTooltip({
 
         {/* ── Hooks + State ──────────────────────────────────────── */}
         {hasDetails && (
-          <div style={{ padding: "9px 13px", borderBottom: (t.children.length > 0 || hasSummary) ? "1px solid #161b22" : undefined }}>
+          <div style={{ padding: "11px 15px", borderBottom: (t.children.length > 0 || hasSummary) ? "1px solid #ece8df" : undefined }}>
             {t.hooks.length > 0 && (
-              <div style={{ ...row, marginBottom: t.hasState ? 6 : 0 }}>
+              <div style={{ ...row, marginBottom: t.hasState ? 7 : 0 }}>
                 <span style={lbl}>Hooks</span>
-                <span style={{ fontSize: 10, fontFamily: "monospace", color: "#6e7681", lineHeight: 1.6, wordBreak: "break-word" }}>
+                <span style={{ fontSize: 12, fontFamily: "'Fira Code', monospace", color: "#57534e", lineHeight: 1.6, wordBreak: "break-word" }}>
                   {t.hooks.slice(0, 6).join(", ")}{t.hooks.length > 6 ? ` +${t.hooks.length - 6}` : ""}
                 </span>
               </div>
@@ -163,8 +164,8 @@ export function NodeTooltip({
             {t.hasState && (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={lbl}>State</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#60a5fa" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#60a5fa", flexShrink: 0 }} />
+                <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#1d4ed8" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1d4ed8", flexShrink: 0 }} />
                   local state
                 </span>
               </div>
@@ -174,22 +175,22 @@ export function NodeTooltip({
 
         {/* ── Children ───────────────────────────────────────────── */}
         {t.children.length > 0 && (
-          <div style={{ padding: "9px 13px", borderBottom: hasSummary ? "1px solid #161b22" : undefined }}>
-            <div style={{ fontSize: 9, fontFamily: "monospace", color: "#3c4a46", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ padding: "11px 15px", borderBottom: hasSummary ? "1px solid #ece8df" : undefined }}>
+            <div style={{ fontSize: 10, fontFamily: "'Fira Code', monospace", color: "#a8a29e", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 7 }}>
               Children · {t.children.length}
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {t.children.slice(0, 9).map((name) => (
                 <span key={name} style={{
-                  padding: "2px 6px", borderRadius: 4, fontSize: 10,
-                  fontFamily: "monospace", background: "#161b22",
-                  color: "#8b949e", border: "1px solid #1e2530",
+                  padding: "3px 7px", borderRadius: 5, fontSize: 11.5,
+                  fontFamily: "'Fira Code', monospace", background: "#f4f2ec",
+                  color: "#57534e", border: "1px solid #e3ded3",
                 }}>
                   {name}
                 </span>
               ))}
               {t.children.length > 9 && (
-                <span style={{ fontSize: 10, color: "#484f58", padding: "2px 4px" }}>
+                <span style={{ fontSize: 11.5, color: "#a8a29e", padding: "3px 5px" }}>
                   +{t.children.length - 9}
                 </span>
               )}
@@ -200,48 +201,25 @@ export function NodeTooltip({
         {/* ── Summary accordion ──────────────────────────────────── */}
         {hasSummary && (
           <>
-            <style>{`
-              .summary-html code {
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                font-size: 0.8em;
-                background: rgba(255,255,255,0.08);
-                border-radius: 4px;
-                padding: 0.1em 0.4em;
-              }
-              .summary-html pre {
-                background: rgba(0,0,0,0.4);
-                border-radius: 6px;
-                padding: 0.5em 0.75em;
-                overflow-x: auto;
-                margin: 0.4em 0;
-                font-size: 0.8em;
-              }
-              .summary-html pre code { background: none; padding: 0; font-size: 1em; }
-              .summary-html ul, .summary-html ol { padding-left: 1.1em; margin: 0.25em 0; }
-              .summary-html li { margin: 0.15em 0; }
-              .summary-html strong { font-weight: 600; }
-              .summary-html p { margin: 0.25em 0; }
-              .summary-html p:first-child { margin-top: 0; }
-              .summary-html p:last-child  { margin-bottom: 0; }
-            `}</style>
             <button
               onClick={() => setSummaryOpen(o => !o)}
               style={{
                 width: "100%", display: "flex", alignItems: "center",
                 justifyContent: "space-between",
-                padding: "8px 13px", cursor: "pointer",
-                background: summaryOpen ? "#0d1117" : "transparent",
+                padding: "10px 15px", cursor: "pointer",
+                background: summaryOpen ? "#faf9f6" : "transparent",
                 border: "none",
-                borderBottom: summaryOpen ? "1px solid #161b22" : "none",
+                borderBottom: summaryOpen ? "1px solid #ece8df" : "none",
+                borderTop: "1px solid #ece8df",
                 transition: "background 0.15s",
-                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontFamily: "inherit",
               }}
-              onMouseEnter={e => { if (!summaryOpen) (e.currentTarget as HTMLElement).style.background = "#161b2280"; }}
+              onMouseEnter={e => { if (!summaryOpen) (e.currentTarget as HTMLElement).style.background = "#faf9f6"; }}
               onMouseLeave={e => { if (!summaryOpen) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: summaryOpen ? "#8b949e" : "#6e7681" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 600, color: "#57534e" }}>
                 <span style={{
-                  fontSize: 7, color: summaryOpen ? "#2dd4bf" : "#484f58",
+                  fontSize: 8, color: summaryOpen ? "#0e766e" : "#a8a29e",
                   transform: summaryOpen ? "rotate(90deg)" : "rotate(0deg)",
                   transition: "transform 0.2s, color 0.15s",
                   display: "inline-block",
@@ -249,27 +227,27 @@ export function NodeTooltip({
                 Summary
               </span>
               {!summaryOpen && (
-                <span style={{ fontSize: 9, color: "#3c4a46", fontFamily: "monospace" }}>
+                <span style={{ fontSize: 10.5, color: "#a8a29e", fontFamily: "'Fira Code', monospace" }}>
                   {t.technicalSummary && t.businessSummary ? "2 sections" : t.technicalSummary ? "technical" : "business"}
                 </span>
               )}
             </button>
 
             {summaryOpen && (
-              <div style={{ padding: "11px 13px", maxHeight: 240, overflowY: "auto" }}>
+              <div style={{ padding: "12px 15px", maxHeight: 260, overflowY: "auto" }}>
                 {t.technicalSummary && (
-                  <div style={{ marginBottom: t.businessSummary ? 14 : 0 }}>
+                  <div style={{ marginBottom: t.businessSummary ? 16 : 0 }}>
                     <div style={{
-                      fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
-                      textTransform: "uppercase", color: "#60a5fa40",
-                      marginBottom: 5, display: "flex", alignItems: "center", gap: 5,
+                      fontSize: 10, fontFamily: "'Fira Code', monospace", letterSpacing: "0.07em",
+                      textTransform: "uppercase", color: "#1d4ed8",
+                      marginBottom: 6, display: "flex", alignItems: "center", gap: 6,
                     }}>
-                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#60a5fa60", flexShrink: 0, display: "inline-block" }} />
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#1d4ed8", flexShrink: 0, display: "inline-block" }} />
                       Technical
                     </div>
                     <div
                       className="summary-html"
-                      style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
+                      style={{ fontSize: 12.5, color: "#57534e" }}
                       dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.technicalSummary) }}
                     />
                   </div>
@@ -277,16 +255,16 @@ export function NodeTooltip({
                 {t.businessSummary && (
                   <div>
                     <div style={{
-                      fontSize: 9, fontFamily: "monospace", letterSpacing: "0.07em",
-                      textTransform: "uppercase", color: "#2dd4bf40",
-                      marginBottom: 5, display: "flex", alignItems: "center", gap: 5,
+                      fontSize: 10, fontFamily: "'Fira Code', monospace", letterSpacing: "0.07em",
+                      textTransform: "uppercase", color: "#0e766e",
+                      marginBottom: 6, display: "flex", alignItems: "center", gap: 6,
                     }}>
-                      <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#2dd4bf60", flexShrink: 0, display: "inline-block" }} />
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#0e766e", flexShrink: 0, display: "inline-block" }} />
                       Business
                     </div>
                     <div
                       className="summary-html"
-                      style={{ fontSize: 11, color: "#8b949e", lineHeight: 1.65 }}
+                      style={{ fontSize: 12.5, color: "#57534e" }}
                       dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.businessSummary) }}
                     />
                   </div>
@@ -521,7 +499,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         <div
           ref={containerRef}
           className="w-full h-full"
-          style={{ background: "#13191f" }}
+          style={{ background: "#f7f5f0" }}
         />
         {tooltip && (
           <NodeTooltip

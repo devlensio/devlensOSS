@@ -1,20 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* Light chrome. Code surfaces deliberately stay dark — see lib/theme.ts. */
 @theme {
-  --color-base:        #0d1117;
-  --color-surface:     #161b22;
-  --color-elevated:    #21262d;
-  --color-border:      #30363d;
-  --color-border-subtle: #21262d;
-  --color-accent:      #2dd4bf;
-  --color-accent-dim:  #14b8a6;
-  --color-muted:       #8b949e;
-  --color-dim:         #484f58;
-  --color-primary:     #e6edf3;
-  --color-success:     #3fb950;
-  --color-warning:     #d29922;
-  --color-error:       #f85149;
+  --color-base:        #faf9f6;
+  --color-surface:     #ffffff;
+  --color-elevated:    #f4f2ec;
+  --color-border:      #e3ded3;
+  --color-border-subtle: #ece8df;
+  --color-accent:      #0e766e;
+  --color-accent-dim:  #0b5f59;
+  --color-muted:       #57534e;
+  --color-dim:         #78716c;
+  --color-primary:     #1c1917;
+  --color-success:     #15803d;
+  --color-warning:     #b45309;
+  --color-error:       #b91c1c;
 
   --font-family-ui:    'Geist', sans-serif;
   --font-family-mono:  'Fira Code', monospace;
@@ -25,13 +26,89 @@ html, body {
   background-color: var(--color-base);
   color: var(--color-primary);
   font-family: var(--font-family-ui);
-  font-size: 14px;
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-base); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+/* Every interactive affordance says it is interactive. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary {
+  cursor: pointer;
+}
+a { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
 
-::selection { background: var(--color-accent); color: #0d1117; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d0c4; border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #b8b0a1; background-clip: content-box; }
+
+::selection { background: rgba(14, 118, 110, 0.18); color: #1c1917; }
+
+/* ── Markdown-ish summary HTML (LLM output) ─────────────────────────────── */
+.summary-html { line-height: 1.62; font-size: 13.5px; }
+.summary-html p { margin: 0.35em 0; }
+.summary-html p:first-child { margin-top: 0; }
+.summary-html p:last-child { margin-bottom: 0; }
+.summary-html strong { font-weight: 600; color: #1c1917; }
+.summary-html em { font-style: italic; }
+.summary-html ul, .summary-html ol { padding-left: 1.15em; margin: 0.35em 0; }
+.summary-html li { margin: 0.2em 0; }
+.summary-html code {
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 0.86em;
+  background: #f1eee7;
+  border: 1px solid #e6e1d6;
+  border-radius: 4px;
+  padding: 0.08em 0.36em;
+}
+.summary-html pre {
+  background: #21222c;
+  color: #f8f8f2;
+  border-radius: 8px;
+  padding: 0.7em 0.9em;
+  overflow-x: auto;
+  margin: 0.6em 0;
+  font-size: 12px;
+}
+.summary-html pre code { background: none; border: none; padding: 0; color: inherit; }
+.summary-html h1, .summary-html h2, .summary-html h3, .summary-html h4 {
+  font-weight: 600; font-size: 1em; margin: 0.7em 0 0.3em;
+}
+
+/* ── Dracula, for source panes ──────────────────────────────────────────────
+   highlight.js ships no Dracula stylesheet in 11.11, so the token colours are
+   declared here once instead of importing a near-miss theme. */
+.hljs { color: #f8f8f2; background: transparent; }
+.hljs-comment, .hljs-quote { color: #6272a4; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag,
+.hljs-name, .hljs-strong, .hljs-section { color: #ff79c6; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: #f1fa8c; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta,
+.hljs-template-variable, .hljs-variable { color: #ffb86c; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_, .hljs-function .hljs-title { color: #50fa7b; }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in, .hljs-builtin-name { color: #8be9fd; font-style: italic; }
+.hljs-attr, .hljs-property, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: #8be9fd; }
+.hljs-params { color: #f8f8f2; }
+.hljs-tag, .hljs-punctuation { color: #f8f8f2; }
+.hljs-tag .hljs-name { color: #ff79c6; }
+.hljs-tag .hljs-attr { color: #50fa7b; }
+.hljs-deletion { color: #ff5555; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+/* Code panes: wrapped previews (node panel) vs. horizontally scrolling cards. */
+.code-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* React Flow controls sit on a dark card canvas; keep them legible. */
+.react-flow__controls { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); border-radius: 8px; overflow: hidden; }
+.react-flow__controls-button {
+  background: #343746 !important;
+  border-bottom: 1px solid #44475a !important;
+  color: #f8f8f2 !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+.react-flow__controls-button:hover { background: #44475a !important; }
+.react-flow__controls-button svg { fill: currentColor !important; }

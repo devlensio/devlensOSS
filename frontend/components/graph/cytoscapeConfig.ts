@@ -77,38 +77,34 @@ export const DEFAULT_EDGE_TYPES: EdgeType[] = [
 
 // ─── Node colors ──────────────────────────────────────────────────────────────
 //
-// Palette notes:
-//   • The 11 original node types keep their committed colors — those read well
-//     and the user is happy with them.
-//   • The 9 newer OOP/structural types (CLASS, METHOD, INTERFACE, ENUM, STRUCT,
-//     MODULE, TRAIT, IMPL_BLOCK, PACKAGE) are reassigned here so they no longer
-//     collide with each other or with the originals. The worst offenders were
-//     TRAIT===THIRD_PARTY (both #e879f9) and PACKAGE===FILE (both #f472b6).
-//   • GHOST stays neutral by design (it is the "unknown" type).
+// A curated light-surface palette: one deep, desaturated tone per semantic
+// family instead of neon pastels. The canvas is paper-coloured now, so the
+// fills carry the identity and the labels stay white on 600/700 tones.
+// Families: teal/cyan = UI, blue/indigo = logic & routing, violet/purple =
+// reactivity & abstraction, amber/green = data & tests, neutral = structural.
 
 export const NODE_COLORS: Record<string, string> = {
-  // ── Original 11 (unchanged) ─────────────────────────────────────────────────
-  COMPONENT:   "#2dd4bf",
-  HOOK:        "#c084fc",
-  FUNCTION:    "#60a5fa",
-  STATE_STORE: "#fb923c",
-  UTILITY:     "#94a3b8",
-  FILE:        "#f472b6",
-  GHOST:       "#6b7280",
-  ROUTE:       "#818cf8",
-  TEST:        "#f97316",
-  STORY:       "#a78bfa",
-  THIRD_PARTY: "#e879f9",
-  // ── Newer OOP / structural types (reassigned for distinctness) ────────────
-  CLASS:       "#4ade80", // green-400   — classic class colour
-  METHOD:      "#22d3ee", // cyan-400    — distinct from teal COMPONENT
-  INTERFACE:   "#facc15", // yellow-400
-  ENUM:        "#fb7185", // rose-400
-  STRUCT:      "#34d399", // emerald-400
-  MODULE:      "#a3e635", // lime-400
-  TRAIT:       "#d946ef", // fuchsia-500 — deeper shade, distinct from THIRD_PARTY (#e879f9)
-  IMPL_BLOCK:  "#38bdf8", // sky-400
-  PACKAGE:     "#f43f5e", // rose-500    — distinct from FILE (#f472b6) and ENUM (#fb7185)
+  COMPONENT:   "#0f766e", // teal-700
+  HOOK:        "#7c3aed", // violet-600
+  FUNCTION:    "#2563eb", // blue-600
+  STATE_STORE: "#b45309", // amber-700
+  UTILITY:     "#475569", // slate-600
+  FILE:        "#78716c", // stone-500
+  GHOST:       "#a8a29e", // stone-400
+  ROUTE:       "#4f46e5", // indigo-600
+  TEST:        "#059669", // emerald-600
+  STORY:       "#a21caf", // fuchsia-700
+  THIRD_PARTY: "#6b7280", // gray-500
+  // ── OOP / structural types ────────────────────────────────────────────────
+  CLASS:       "#16a34a", // green-600
+  METHOD:      "#0284c7", // sky-600
+  INTERFACE:   "#a16207", // yellow-700
+  ENUM:        "#be123c", // rose-700
+  STRUCT:      "#0891b2", // cyan-600
+  MODULE:      "#4d7c0f", // lime-700
+  TRAIT:       "#7e22ce", // purple-700
+  IMPL_BLOCK:  "#155e75", // cyan-800
+  PACKAGE:     "#db2777", // pink-600
 };
 
 // Bright accent used for chip dots / detail-panel swatches. With the bright
@@ -140,25 +136,25 @@ export const NODE_SHAPES: Record<string, string> = {
 };
 
 export const EDGE_COLORS: Record<string, string> = {
-  CALLS: "#3b82f6",
-  IMPORTS: "#94a3b8",
-  READS_FROM: "#f59e0b",
-  WRITES_TO: "#f85149",
-  PROP_PASS: "#2dd4bf",
-  EMITS: "#c084fc",
-  LISTENS: "#a78bfa", // distinct lighter violet (was duplicate of EMITS #c084fc)
-  WRAPPED_BY: "#3fb950",
-  GUARDS: "#d29922",
-  HANDLES:    "#8286bb",
-  TESTS:      "#f97316",
-  USES:      "#a78bfa",
-  NEXTJS_API_CALL: "#ec4899",
-  NAVIGATES_TO: "#22d3ee",
+  CALLS: "#2563eb",
+  IMPORTS: "#78716c",
+  READS_FROM: "#b45309",
+  WRITES_TO: "#b91c1c",
+  PROP_PASS: "#0f766e",
+  EMITS: "#7c3aed",
+  LISTENS: "#6366f1",
+  WRAPPED_BY: "#15803d",
+  GUARDS: "#a16207",
+  HANDLES: "#64748b",
+  TESTS: "#c2410c",
+  USES: "#8b5cf6",
+  NEXTJS_API_CALL: "#db2777",
+  NAVIGATES_TO: "#0891b2",
   // Structural / new edge types
-  IMPLEMENTS: "#4ade80",
-  EXTENDS:    "#facc15",
-  EXPORTS:    "#a3e635",
-  THROWS:     "#fb7185", // rose — distinct from red WRITES_TO (#f85149)
+  IMPLEMENTS: "#16a34a",
+  EXTENDS: "#a16207",
+  EXPORTS: "#4d7c0f",
+  THROWS: "#be123c",
 };
 
 // ─── Layout config ────────────────────────────────────────────────────────────
@@ -193,7 +189,7 @@ export function getCytoscapeStyles(
         label:                "data(label)",
         "text-valign":        "center",
         "text-halign":        "center",
-        "font-size":          "14px",
+        "font-size":          "13px",
         "font-weight":        "600",
         color:                "#ffffff",
         "text-outline-width": 0,
@@ -220,7 +216,7 @@ export function getCytoscapeStyles(
       selector: 'node[renderingBoundary="client"]',
       style: {
         "border-width": 3,
-        "border-color": "#06b6d4",
+        "border-color": "#0891b2",
         "border-opacity": 1,
       } as any,
     },
@@ -228,7 +224,7 @@ export function getCytoscapeStyles(
       selector: 'node[renderingBoundary="server"]',
       style: {
         "border-width": 3,
-        "border-color": "#f59e0b",
+        "border-color": "#b45309",
         "border-opacity": 1,
       } as any,
     },
@@ -239,9 +235,9 @@ export function getCytoscapeStyles(
       style: {
         "border-style":       "dashed" as any,
         "border-width":       2,
-        "background-color":   "#1e293b",
-        "border-color":       "#6b7280",
-        color:                "#94a3b8",
+        "background-color":   "#e7e5e4",
+        "border-color":       "#a8a29e",
+        color:                "#57534e",
       } as any,
     },
 
@@ -250,7 +246,7 @@ export function getCytoscapeStyles(
       selector: `node[id = "${rootNodeId}"]`,
       style: {
         "border-width":   4,
-        "border-color":   "#2dd4bf",
+        "border-color":   "#0e766e",
         "border-opacity": 1,
       } as any,
     }] : []),
@@ -280,13 +276,13 @@ export function getCytoscapeStyles(
         label:                     "data(label)",
         "font-size":               "10px",
         "font-weight":             "500",
-        color:                     "#e2e8f0",
+        color:                     "#44403c",
         // Horizontal pills read far better than labels rotated along the edge.
         "text-rotation":           "none" as any,
         "text-margin-y":           -10,
         "text-outline-width":      0,
-        "text-background-color":   "#1e293b",
-        "text-background-opacity": 0.85 as any,
+        "text-background-color":   "#faf9f6",
+        "text-background-opacity": 0.94 as any,
         "text-background-padding": "3px" as any,
         "text-background-shape":   "roundrectangle" as any,
         width:                     1.5,
@@ -321,7 +317,7 @@ export function getCytoscapeStyles(
       selector: "node:selected",
       style: {
         "border-width": 3,
-        "border-color": "#f0f6fc",
+        "border-color": "#1c1917",
         opacity:        1,
         "z-index":      9999,
       },
@@ -332,7 +328,7 @@ export function getCytoscapeStyles(
       selector: "node.hover",
       style: {
         "border-width": 2,
-        "border-color": "#f0f6fc",
+        "border-color": "#1c1917",
         opacity:        1,
       },
     },
@@ -358,14 +354,14 @@ export function getCytoscapeStyles(
       style: {
         "font-size":                 12,
         width:                       2,
-        "text-background-color":     "#0d1117",
-        "text-background-opacity":   0.94,
+        "text-background-color":     "#ffffff",
+        "text-background-opacity":   0.96,
         "text-background-padding":   3,
         "text-background-shape":     "roundrectangle",
-        "text-border-color":         "#30363d",
+        "text-border-color":         "#e3ded3",
         "text-border-width":         1,
         "text-border-opacity":       1,
-        color:                       "#e6edf3",
+        color:                       "#1c1917",
         "z-index":                   50,
       } as any,
     },
