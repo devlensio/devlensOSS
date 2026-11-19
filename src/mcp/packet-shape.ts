@@ -7,25 +7,34 @@
 /** Coarse intent classes only — no per-task-type special cases. */
 export type PacketIntent = "symbol" | "reference-list" | "overview" | "flow";
 
+// Packet size is a product decision, not a constant: serving less per call can cost more
+// overall when the agent has to call again. DEVLENS_PACKET_SCALE multiplies the budgets and
+// the composition caps so the trade-off can be measured end to end (default 1 = shipped).
+const PACKET_SCALE = (() => {
+  const raw = Number(process.env.DEVLENS_PACKET_SCALE ?? "1");
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
+})();
+const sc = (n: number, min = 1): number => Math.max(min, Math.round(n * PACKET_SCALE));
+
 /** Per-intent packet budgets (tokens). Chars = tokens * CHARS_PER_TOKEN.
  *  Source: Phase A plan; magnitude bounded by graphify 2000-token default. */
 export const INTENT_BUDGETS: Record<PacketIntent, number> = {
-  symbol: 1500,
-  "reference-list": 1500,
-  overview: 2500,
-  flow: 2500,
+  symbol: sc(1500),
+  "reference-list": sc(1500),
+  overview: sc(2500),
+  flow: sc(2500),
 };
 
 export const CHARS_PER_TOKEN = 3.5; // graphify uses 3, bm25 uses 4; we take midpoint
 
 /** Packet composition caps (prior art: filesCap 8 = plan ≤8; pointers replace bodies). */
 export const SHAPING_LIMITS = {
-  filesDisplay: 8, // display cap; cut files become pointers
-  pointerListMax: 12, // max pointer lines after the cap
-  nodesTop: 10, // top-10 nodes get META (and CODE for code arms)
-  codeLinesPinpoint: 40,
-  codeNodesPinpoint: 3, // symbol/flow intents: 1-3 bodies
-  codeNodesOverview: 10, // overview intents: up to 10
+  filesDisplay: sc(8), // display cap; cut files become pointers
+  pointerListMax: sc(12), // max pointer lines after the cap
+  nodesTop: sc(10), // top-10 nodes get META (and CODE for code arms)
+  codeLinesPinpoint: sc(40),
+  codeNodesPinpoint: sc(3), // symbol/flow intents: 1-3 bodies
+  codeNodesOverview: sc(10), // overview intents: up to 10
   metaMaxChars: 120, // per-node META segment cap
   snippetLinesPerFile: 3, // matched-line snippets per FILES entry (bm25 prior art)
   snippetLineChars: 160,
@@ -137,7 +146,12 @@ export function renderAnswer(a: AnswerInput): string[] {
 export const CONTRACT_LINE =
   "CODE above is verbatim from disk — treat as already read; do not re-grep these files.";
 export function truncationBanner(shownX: number, totalY: number, budgetTokens: number): string {
-  return `[!] TRUNCATED: showing ${shownX} of ${totalY} (~${budgetTokens}-token budget) — narrow the query or raise the budget`;
+  // The banner has to tell the agent what to DO, not just that something is missing:
+  // a truncated packet was being treated as complete, so the answer stopped early
+  // instead of making one targeted follow-up call.
+  return `[!] TRUNCATED: showing ${shownX} of ${totalY} (~${budgetTokens}-token budget) — `
+    + `this section is INCOMPLETE: call blast_radius for the full dependent set, or get_node for one node's `
+    + `complete callers/callees, rather than answering from the visible rows`;
 }
 export function pointerLine(filePath: string, line: number, label?: string): string {
   return `${filePath}:${line}${label ? ` — ${label}` : ""}`;

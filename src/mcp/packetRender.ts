@@ -36,17 +36,23 @@ export const SECTION_SHARES: Record<string, number> = {
   NEXT: 0.02,
 };
 
+const PACKET_SCALE = (() => {
+  const raw = Number(process.env.DEVLENS_PACKET_SCALE ?? "1");
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
+})();
+const sc = (n: number, min = 1): number => Math.max(min, Math.round(n * PACKET_SCALE));
+
 export const PACKET_LIMITS = {
-  filesCap: 200,
+  filesCap: sc(200),
   // mcp-compact-test: include code for the top 10 ranked nodes, 40 compacted
   // lines each. Compaction (dedent + blank-line removal) runs BEFORE the cap.
-  codeNodes: 10,
-  codeLines: 40,
+  codeNodes: sc(10),
+  codeLines: sc(40),
   codeBudgetMs: 2500,
-  idmapNodes: 20,
+  idmapNodes: sc(20),
   microSummaryChars: 110,
-  flowEdgesCap: 40,
-  nodesCap: 60,
+  flowEdgesCap: sc(40),
+  nodesCap: sc(60),
 };
 
 export interface PacketNode {

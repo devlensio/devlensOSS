@@ -227,12 +227,18 @@ export function registerTools(server: McpServer) {
     "resolve_context",
     {
       description:
-        "THE front door. For ANY where/how/what/who-depends-on question call this FIRST instead of grep. " +
+        "Start here when you need to LOCATE a symbol or EXPLAIN how something works. " +
         "One call returns a task-shaped packet: ranked nodes with one-line meanings, call flow in execution order, " +
         "involved files, code bodies of the top 10 nodes, security flags, and an id map, within a token budget. " +
         "FLOW edges carry the position inside the caller: -calls[#3]->  (repeats as [#1,#3]), executed-after-return " +
         "as -calls[defer:X]->, parallel as -calls[conc]->, plus at=file:line for the real call site, so you do not " +
         "need a second call to establish what runs in what order. " +
+        "NOT the right tool for dependency or impact lists: if the question is who calls/uses/imports X, what depends " +
+        "on X, or what breaks if X changes, call blast_radius instead - the packet shows one neighbourhood, not the " +
+        "complete dependent set. " +
+        "For a definition question the answer is the file that DECLARES the symbol (plus explicit re-exports); its " +
+        "callers and importers are context, not part of the answer. " +
+        "Sections are ranked and may be truncated; a TRUNCATED banner means call blast_radius or get_node for the rest. " +
         "Intents: pinpoint, reference-list, flow, overview, concept, security-audit, exploratory (default). " +
         "The repo is resolved from the working folder — no graphId needed.",
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -339,13 +345,19 @@ export function registerTools(server: McpServer) {
 
   //  4. impact — blast radius + k-hop + commit-range, merged
   server.registerTool(
-    "impact",
+    "blast_radius",
     {
       description:
-        "Change impact. Default: the UPSTREAM dependents of a symbol/node (what breaks if it changes); " +
-        "direction='downstream' for what it depends on. radius controls hops (default 2; hub-fanout auto-caps at 1 unless explicit). " +
+        "Use this for EVERY dependency or impact question: who calls X, who uses X, who imports X, what depends on X, " +
+        "what breaks if X changes, every reference to X, callers/consumers of X. It returns the COMPLETE reachable set " +
+        "as compact file:line refs, not a ranked neighbourhood, which is why it answers these questions when " +
+        "resolve_context cannot. Default direction is UPSTREAM (the dependents that break); direction='downstream' " +
+        "is what X itself depends on. radius controls hops (default 2; hub-fanout auto-caps at 1 unless explicit). " +
         "Pass from+to commit hashes instead of a target to diff two analyzed commits with per-change impact. " +
-        "Returns compact file:line refs.",
+        "If the question enumerates files and the answer needs more than ~5 of them, this is the tool, not grep. " +
+        "When the question is which files use/call/import X, answer with EXACTLY the files this returns " +
+        "(plus the declaring file only if the question also asks where X is defined). Do not add files from " +
+        "a resolve_context packet that this list does not contain.",
       annotations: { readOnlyHint: true, idempotentHint: true },
       inputSchema: {
         target: z.string().optional().describe("nodeId, symbol name, or file path (required unless from/to given)"),
