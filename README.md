@@ -202,7 +202,64 @@ Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, 
 
 *For when you want to see your codebase laid out as an interactive graph.*
 
-Open the Web UI, paste your repo path, and explore a force-directed canvas. Click any node to see its summaries, callers, callees, and security flags. Search, filter, and diff commits across versions. The Project panel shows search index readiness with a one-click **reindex** action.
+DevLens ships a local web app over the same graph the CLI and MCP server read. No second analysis, no separate store: analyze once, then browse, filter, and drill into what you already have.
+
+![Graph overview — nodes sized by importance, key nodes labelled](assets/screenshots/02-graph-overview.png)
+
+### What you can actually do in it
+
+| | |
+| :-- | :-- |
+| **Read the map, not the folder tree** | Every file, component, hook, route, class and test is a node sized by importance. The highest-impact nodes keep their labels at overview zoom, so the first screen is a summary of where the weight sits — not an unlabelled hairball. |
+| **Ask a node what it is** | Click any node for its business and technical summary, then the **execution pipeline**: the calls its body makes, numbered in the order it makes them, with `await`, `loop`, `maybe` and `×N` markers. |
+| **Follow the flow both ways** | The **Flow** tab lists every resolved call in order (nothing abstracted away); switch to **Upstream** for a collapsible tree of everything that reaches this node. |
+| **Measure the blast radius before you touch it** | Pick a hop depth and open a **blast radius** (everything that depends on this node) or **K-hop** (everything it reaches) as its own subgraph. |
+| **Read the code as a graph** | Open the **code view**: each node becomes a card with its source, call badges on the exact lines where it calls something, and an arrow to the card it opens. Cards drag, resize, minimise, and keep a **Called by** list so you can walk back up the stack. |
+| **Filter without losing the plot** | The control centre filters by node type, edge type, score threshold, rendering boundary and entry-point reach — with live counts from your graph. |
+| **Watch work happen** | Long analyses run as jobs: progress per phase, resumable, with the engine's own error text when something fails. |
+
+<table>
+<tr>
+<td width="50%"><img src="assets/screenshots/03-node-panel.png" alt="Node panel with summary, pipeline, blast radius and callers" /></td>
+<td width="50%"><img src="assets/screenshots/03b-flow-tab.png" alt="Flow tab: ordered calls with summaries and code previews" /></td>
+</tr>
+<tr>
+<td><em>Everything about one node: summary, pipeline, shape, blast radius, callers, relations.</em></td>
+<td><em>Flow tab: the full ordered call list, each step expandable to its summary and source.</em></td>
+</tr>
+</table>
+
+![Blast radius — what depends on this node, two hops back](assets/screenshots/04-blast-radius.png)
+
+<table>
+<tr>
+<td width="60%"><img src="assets/screenshots/07-code-view.png" alt="Code view: call graph of source cards" /></td>
+<td width="40%"><img src="assets/screenshots/03c-callers-tree.png" alt="Upstream callers tree" /></td>
+</tr>
+<tr>
+<td><em>Code view: source cards for a function and the calls it makes. Click a badge to open the callee; <b>Called by</b> walks back up.</em></td>
+<td><em>Upstream: who reaches this node, expandable up the call chain.</em></td>
+</tr>
+</table>
+
+### A five-minute pass over an unfamiliar repo
+
+1. **Orient.** Open the graph. Bigger, labelled nodes are where the weight is.
+2. **Pick an entry point.** Search a route or handler you already understand, or press the route toggle to light up everything reachable from the app's entry points.
+3. **Read the flow.** The **Flow** tab tells you what that function actually does, in order — before you open a single file.
+4. **Check the blast radius.** Two hops back shows what breaks if you change it.
+5. **Open the code view.** The cards put the function and its callees side by side, so you stop alt-tabbing between files.
+6. **Keep what you learned.** Filters, commit diffs and the Project panel's one-click reindex make the view reusable next sprint.
+
+### How teams use it
+
+- **Onboarding.** A new hire can trace a feature from route to handler to hook to component in minutes, with prose summaries instead of tribal knowledge.
+- **PR review.** Load the PR's commit, diff it against the base, and see which nodes were added, removed, or re-scored — then check the blast radius of the risky ones.
+- **Refactor planning.** Sort by score, find the god-nodes, and confirm the dependency direction before you split anything.
+- **Incident triage.** Start from the failing route, walk the flow, and look at what reads the data that broke.
+- **Agent grounding.** The same graph backs the MCP server, so what your agent answers and what you see on screen cannot disagree.
+
+### Run it
 
 ```bash
 bun start   # from the source repo: API + Web UI on one port (http://localhost:3000)
@@ -339,12 +396,19 @@ The same operations are available over HTTP: `POST /api/reindex` and `POST /api/
 ## Screenshots
 
 <div align="center">
-<img src="assets/screenshot-graph.jpg" alt="Interactive graph explorer" width="48%" />
-<img src="assets/screenshot-node.jpg" alt="Node inspector with summaries and security risk" width="48%" />
-<img src="assets/screenshot-subgraph.jpg" alt="Focused node subgraph" width="48%" />
-<img src="assets/screenshot-security.jpg" alt="Security findings" width="48%" />
+<img src="assets/screenshots/01-home.png" alt="Analyzed repositories" width="49%" />
+<img src="assets/screenshots/05-filters.png" alt="Filter control centre" width="49%" />
 <br/>
-<em>Graph explorer · node inspector with summaries and security risk · focused subgraph · security findings</em>
+<em>Repository list · filter control centre with live counts</em>
+</div>
+
+<br/>
+
+<div align="center">
+<img src="assets/screenshots/06-jobs.png" alt="Analysis jobs with live progress" width="49%" />
+<img src="assets/screenshots/03c-callers-tree.png" alt="Upstream callers" width="49%" />
+<br/>
+<em>Analysis jobs · upstream callers</em>
 </div>
 
 ---
