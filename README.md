@@ -18,7 +18,7 @@ Analyze your repo once. Your AI agent then queries a precomputed code graph thro
 
 ---
 
-[![DevLens Demo](assets/image.png)](https://youtu.be/6OMsk8lNv4c?si=wpYF80IcfuJpN_Gf)
+[![DevLens demo — graph, call flow, blast radius, code view](assets/demo-thumbnail.png)](https://youtu.be/6OMsk8lNv4c?si=wpYF80IcfuJpN_Gf)
 
 <p align="center"><em>Click the image to watch the demo</em></p>
 
