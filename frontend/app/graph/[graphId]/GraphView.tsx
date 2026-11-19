@@ -640,6 +640,8 @@ export default function GraphView({ params }: Props) {
                           nodes={visibleNodes}
                           edges={visibleEdges}
                           focusedNodeId={focusedNodeId}
+                          onOpenCode={(id) => setCodeStack((prev) => (prev[0] === id ? prev : [id]))}
+                          onOpenPanel={handleNodeFocus}
               onNodeClick={(id) => {
                 if (id) {
                   handleNodeFocus(id);
@@ -712,6 +714,7 @@ export default function GraphView({ params }: Props) {
                 onClose={overlay.close}
                 onUpdateFilters={overlay.updateFilters}
                 onNodeSelect={setFocusedNodeId}
+                onOpenCode={(id) => setCodeStack((prev) => (prev[0] === id ? prev : [id]))}
               />
             )}
           </div>

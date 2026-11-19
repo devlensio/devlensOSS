@@ -39,6 +39,7 @@ interface SubgraphOverlayProps {
   onClose: () => void;
   onUpdateFilters: (updates: Partial<OverlayGraph>) => void;
   onNodeSelect: (nodeId: string) => void; //it will open nodedetails panel
+  onOpenCode?: (nodeId: string) => void;
 }
 
 export default function SubgraphOverlay({
@@ -51,6 +52,7 @@ export default function SubgraphOverlay({
   onClose,
   onUpdateFilters,
   onNodeSelect,
+  onOpenCode,
 }: SubgraphOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -180,6 +182,7 @@ export default function SubgraphOverlay({
       setTooltip({
         x:                 pos.x,
         y:                 pos.y,
+        id:                e.target.id(),
         name:              e.target.data("label")             as string,
         type:              e.target.data("type")              as string,
         filePath:          e.target.data("filePath")          as string,
@@ -302,6 +305,14 @@ export default function SubgraphOverlay({
         {tooltip && (
           <NodeTooltip
             t={tooltip}
+            onOpenCode={(id) => {
+              setTooltip(null);
+              onOpenCode?.(id);
+            }}
+            onOpenPanel={(id) => {
+              setTooltip(null);
+              onNodeSelect(id);
+            }}
             onMouseEnter={() => {
               if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
             }}

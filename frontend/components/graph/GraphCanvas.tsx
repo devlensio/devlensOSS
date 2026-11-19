@@ -13,6 +13,7 @@ cytoscape.use(fcose);
 export interface TooltipInfo {
   x:                 number;
   y:                 number;
+  id:                string;
   name:              string;
   type:              string;
   filePath:          string;
@@ -40,17 +41,23 @@ export function NodeTooltip({
   t,
   onMouseEnter,
   onMouseLeave,
+  onOpenCode,
+  onOpenPanel,
 }: {
   t:             TooltipInfo;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onOpenCode?:   (id: string) => void;
+  onOpenPanel?:  (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [posStyle, setPosStyle] = useState<React.CSSProperties>({
     position: "absolute", left: t.x + 16, top: t.y - 8,
     transform: "translateY(-100%)", opacity: 0, zIndex: 50,
   });
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  // Summaries are the reason to hover at all, so open them by default instead
+  // of hiding the only useful text behind another click.
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -101,7 +108,8 @@ export function NodeTooltip({
   return (
     <div
       ref={ref}
-      style={{ ...posStyle, pointerEvents: hasSummary ? "auto" : "none" }}
+      style={{ ...posStyle, pointerEvents: "auto" }}
+      onClick={(e) => e.stopPropagation()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -198,8 +206,8 @@ export function NodeTooltip({
           </div>
         )}
 
-        {/* ── Summary accordion ──────────────────────────────────── */}
-        {hasSummary && (
+        {/* ── Summary ─────────────────────────────────────────────── */}
+        {(
           <>
             <button
               onClick={() => setSummaryOpen(o => !o)}
@@ -235,6 +243,12 @@ export function NodeTooltip({
 
             {summaryOpen && (
               <div style={{ padding: "12px 15px", maxHeight: 260, overflowY: "auto" }}>
+                {!hasSummary && (
+                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: "#8c857a" }}>
+                    No summary stored for this node. Re-analyze with summarization enabled to
+                    generate one.
+                  </div>
+                )}
                 {t.technicalSummary && (
                   <div style={{ marginBottom: t.businessSummary ? 16 : 0 }}>
                     <div style={{
@@ -273,6 +287,48 @@ export function NodeTooltip({
             )}
           </>
         )}
+
+        {/* ── Actions ─────────────────────────────────────────────── */}
+        <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderTop: "1px solid #ece8df" }}>
+          <button
+            onClick={() => onOpenCode?.(t.id)}
+            style={{
+              flex: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "7px 9px",
+              borderRadius: 7,
+              border: "1px solid #0e766e",
+              background: "#0e766e",
+              color: "#ffffff",
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            Open code view
+          </button>
+          <button
+            onClick={() => onOpenPanel?.(t.id)}
+            style={{
+              flex: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "7px 9px",
+              borderRadius: 7,
+              border: "1px solid #e3ded3",
+              background: "#ffffff",
+              color: "#57534e",
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            Open panel
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -297,10 +353,12 @@ interface GraphCanvasProps {
   onNodeClick?: (nodeId: string) => void;
   /** When set, everything outside the node's closed neighbourhood is dimmed. */
   focusedNodeId?: string | null;
+  onOpenCode?:  (nodeId: string) => void;
+  onOpenPanel?: (nodeId: string) => void;
 }
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
-  ({ nodes, edges, onNodeClick, focusedNodeId }, ref) => {
+  ({ nodes, edges, onNodeClick, focusedNodeId, onOpenCode, onOpenPanel }, ref) => {
     const containerRef  = useRef<HTMLDivElement>(null);
     const cyRef         = useRef<cytoscape.Core | null>(null);
     const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -488,6 +546,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         setTooltip({
           x:                 pos.x,
           y:                 pos.y,
+          id:                e.target.id(),
           name:              e.target.data("label")             as string,
           type:              e.target.data("type")              as string,
           filePath:          e.target.data("filePath")          as string,
@@ -535,6 +594,14 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         {tooltip && (
           <NodeTooltip
             t={tooltip}
+            onOpenCode={(id) => {
+              setTooltip(null);
+              onOpenCode?.(id);
+            }}
+            onOpenPanel={(id) => {
+              setTooltip(null);
+              onOpenPanel?.(id);
+            }}
             onMouseEnter={() => {
               if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
             }}
