@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -13,31 +13,28 @@ import {
   useReactFlow,
   type Node,
   type Edge,
-  type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { CodeEdge, CodeNode, ResolvedCall } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { highlightToHtml } from "@/lib/syntax";
+import { CODE, UI } from "@/lib/theme";
 import { NODE_ACCENTS } from "./cytoscapeConfig";
+import { EDGE_INFO, markerList } from "./relations";
+import { Badge, Hint } from "@/components/ui/Hint";
+import {
+  HiOutlineArrowLeft,
+  HiOutlineChevronDown,
+  HiOutlineChevronRight,
+  HiOutlineCodeBracket,
+  HiOutlineCubeTransparent,
+  HiOutlineXMark,
+} from "@/components/icons";
 
-const C = {
-  card: "#0d1117",
-  surface: "#161b22",
-  elevated: "#21262d",
-  border: "#30363d",
-  text: "#e6edf3",
-  textSub: "#8b949e",
-  textDim: "#6e7681",
-  teal: "#2dd4bf",
-  amber: "#f0b45c",
-  blue: "#60a5fa",
-  red: "#f85149",
-};
-
-const RANGE_COLORS = ["#60a5fa", "#2dd4bf", "#f0b45c", "#a78bfa", "#f472b6"];
-const LINE_H = 20;
-const CARD_W = 560;
+const LINE_H = 21;
+const CARD_W = 620;
+const CARD_GAP_X = 150;
+const CARD_GAP_Y = 110;
 
 interface CardModel {
   cardId: string;
@@ -46,6 +43,7 @@ interface CardModel {
   parentNodeId?: string;
   callName?: string;
   call?: ResolvedCall;
+  role?: "callee" | "caller";
   minimized?: boolean;
 }
 
@@ -59,22 +57,24 @@ interface Props {
   activeNodeId?: string | null;
   onClose: () => void;
   onFocusNode: (nodeId: string) => void;
+  onOpenCode?: (nodeId: string) => void;
 }
 
 let seq = 0;
 
+/** Edge colour states the strongest ordering claim the call makes. */
 function edgeColor(call?: ResolvedCall): string {
-  if (!call) return "#60a5fa";
-  if (call.awaited) return "#60a5fa";
+  if (!call) return CODE.cyan;
+  if (call.awaited) return CODE.cyan;
   if (call.defer) {
-    if (call.defer === "timer") return "#f0b45c";
-    if (call.defer === "onReturn") return "#3fb950";
-    return "#a78bfa";
+    if (call.defer === "timer") return CODE.orange;
+    if (call.defer === "onReturn") return CODE.green;
+    return CODE.purple;
   }
-  if (call.conc) return "#f472b6";
-  if (call.repeat) return "#2dd4bf";
-  if (call.maybe) return "#8b949e";
-  return "#60a5fa";
+  if (call.conc) return CODE.pink;
+  if (call.repeat) return CODE.green;
+  if (call.maybe) return CODE.comment;
+  return CODE.cyan;
 }
 
 export default function CodeFlow(props: Props) {
@@ -95,71 +95,115 @@ function Inner({
   activeNodeId,
   onClose,
   onFocusNode,
+  onOpenCode,
 }: Props) {
-  const [cards, setCards] = useState<CardModel[]>([
-    { cardId: `c${++seq}`, nodeId: rootNodeId },
-  ]);
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [cards, setCards] = useState<CardModel[]>([{ cardId: `c${++seq}`, nodeId: rootNodeId, role: "callee" }]);
+  // Positions live in React Flow's store while dragging. Mirroring them into
+  // React state on every pointer move re-rendered every card (hundreds of
+  // highlighted lines each) in the middle of the gesture, which is what made
+  // the canvas blank out until the drag ended.
+  const posRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [, forceRender] = useState(0);
   const rf = useReactFlow();
 
-  const openChild = useCallback(
-    (parentCardId: string, nodeId: string, call?: ResolvedCall) => {
+  const cardById = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
+
+  const openRelated = useCallback(
+    (parentCardId: string, nodeId: string, role: "callee" | "caller", call?: ResolvedCall) => {
       setCards((prev) => {
-        const existing = prev.find((c) => c.nodeId === nodeId);
-        if (existing) return prev;
+        if (prev.some((c) => c.nodeId === nodeId)) return prev;
         const parent = prev.find((c) => c.cardId === parentCardId);
+        const base = posRef.current[parentCardId] ?? { x: 0, y: 0 };
         const siblings = prev.filter((c) => c.parentCardId === parentCardId).length;
-        const base = positions[parentCardId] ?? { x: 0, y: 0 };
-        const next: CardModel = {
-          cardId: `c${++seq}`,
-          nodeId,
-          parentCardId,
-          parentNodeId: parent?.nodeId,
-          callName: call?.name,
-          call,
+        const cardId = `c${++seq}`;
+        posRef.current[cardId] = {
+          x: base.x + (role === "caller" ? -(CARD_W + CARD_GAP_X) : CARD_W + CARD_GAP_X),
+          y: base.y + siblings * CARD_GAP_Y,
         };
-        setPositions((p) => ({
-          ...p,
-          [next.cardId]: {
-            x: base.x + CARD_W + 120,
-            y: base.y + siblings * 90,
+        return [
+          ...prev,
+          {
+            cardId,
+            nodeId,
+            parentCardId,
+            parentNodeId: parent?.nodeId,
+            callName: call?.name,
+            call,
+            role,
           },
-        }));
-        return [...prev, next];
+        ];
       });
     },
-    [positions],
+    [],
   );
+
+  const removeCard = useCallback((cardId: string) => {
+    setCards((prev) => {
+      // Dropping a card also drops everything that was opened from it, so no
+      // orphaned branch is left floating without its parent.
+      const doomed = new Set([cardId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const c of prev) {
+          if (c.parentCardId && doomed.has(c.parentCardId) && !doomed.has(c.cardId)) {
+            doomed.add(c.cardId);
+            changed = true;
+          }
+        }
+      }
+      for (const id of doomed) delete posRef.current[id];
+      return prev.filter((c) => !doomed.has(c.cardId));
+    });
+  }, []);
+
+  /** "Back" pops the card opened most recently. */
+  const back = useCallback(() => {
+    setCards((prev) => {
+      if (prev.length <= 1) return prev;
+      const last = prev[prev.length - 1];
+      delete posRef.current[last.cardId];
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (cards.length === 0) onClose();
+  }, [cards.length, onClose]);
 
   const nodes: Node[] = useMemo(
     () =>
       cards.map((c) => ({
         id: c.cardId,
         type: "card",
-        position: positions[c.cardId] ?? { x: 0, y: 0 },
+        position: posRef.current[c.cardId] ?? { x: 0, y: 0 },
         data: {
           model: c,
-          parentName: c.parentCardId
-            ? nodesById[cards.find((x) => x.cardId === c.parentCardId)?.nodeId ?? ""]?.name
-            : undefined,
+          parentName: c.parentCardId ? nodesById[cardById.get(c.parentCardId)?.nodeId ?? ""]?.name : undefined,
           node: nodesById[c.nodeId],
           graphId,
           commitHash,
           graphLanguage,
           edges,
           nodesById,
-          onOpenChild: (id: string, call?: ResolvedCall) => openChild(c.cardId, id, call),
+          onOpenRelated: (id: string, call?: ResolvedCall, role: "callee" | "caller" = "callee") =>
+            openRelated(c.cardId, id, role, call),
           onFocusNode,
+          onOpenCode,
           onToggle: () =>
             setCards((prev) =>
               prev.map((x) => (x.cardId === c.cardId ? { ...x, minimized: !x.minimized } : x)),
             ),
-          onRemove: () => setCards((prev) => prev.filter((x) => x.cardId !== c.cardId)),
+          onRemove: () => removeCard(c.cardId),
+          onBack: back,
+          cardIndex: cards.indexOf(c),
           active: activeNodeId === c.nodeId,
         },
         style: { width: CARD_W },
+        draggable: true,
+        dragHandle: ".card-drag",
       })),
-    [cards, positions, nodesById, graphId, commitHash, graphLanguage, edges, openChild, onFocusNode, activeNodeId],
+    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenCode, removeCard, back, activeNodeId],
   );
 
   const rfEdges: Edge[] = useMemo(
@@ -167,61 +211,69 @@ function Inner({
       cards
         .filter((c) => c.parentCardId)
         .map((c) => {
-          const activeCards = new Set(cards.filter((x) => x.nodeId === activeNodeId).map((x) => x.cardId));
-          const dimmed = !!activeNodeId && !activeCards.has(c.cardId) && !activeCards.has(c.parentCardId!);
+          const color = c.role === "caller" ? CODE.green : edgeColor(c.call);
           return {
-          id: `e-${c.cardId}`,
-          source: c.parentCardId!,
-          target: c.cardId,
-          label: c.callName,
-          type: "default",
-          animated: false,
-          style: { stroke: edgeColor(c.call), strokeWidth: dimmed ? 1.2 : 2, opacity: dimmed ? 0.22 : 1 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(c.call), width: 18, height: 18 },
-          labelStyle: { fill: "#c9d1e3", fontSize: 10, fontFamily: "ui-monospace, monospace", opacity: dimmed ? 0.3 : 1 },
-          labelBgStyle: { fill: "#161b22", fillOpacity: dimmed ? 0.3 : 0.92 },
-          labelBgPadding: [4, 2] as [number, number],
-          labelBgBorderRadius: 4,
-        };
+            id: `e-${c.cardId}`,
+            source: c.role === "caller" ? c.cardId : c.parentCardId!,
+            target: c.role === "caller" ? c.parentCardId! : c.cardId,
+            label: c.callName,
+            type: "default",
+            animated: false,
+            style: { stroke: color, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+            labelStyle: {
+              fill: CODE.textSub,
+              fontSize: 11,
+              fontFamily: "'Fira Code', ui-monospace, monospace",
+            },
+            labelBgStyle: { fill: CODE.surface, fillOpacity: 0.94 },
+            labelBgPadding: [5, 3] as [number, number],
+            labelBgBorderRadius: 4,
+          };
         }),
-    [cards, activeNodeId],
+    [cards],
   );
 
   const onNodesChange = useCallback((changes: any) => {
-      const arr: any[] = typeof changes?.toArray === "function" ? changes.toArray() : (changes ?? []);
-      const posChanges = arr.filter((ch) => ch.type === "position" && ch.position);
-      if (posChanges.length) {
-        setPositions((prev) => {
-          const next = { ...prev };
-          for (const ch of posChanges) next[ch.id] = ch.position;
-          return next;
-        });
+    const arr: any[] = typeof changes?.toArray === "function" ? changes.toArray() : (changes ?? []);
+    let dirty = false;
+    for (const ch of arr) {
+      if (ch.type === "position" && ch.position) {
+        posRef.current[ch.id] = ch.position;
+        dirty = true;
       }
-    }, []);
+    }
+    if (dirty) forceRender((n) => n + 1);
+  }, []);
 
   const [fittedOnce, setFittedOnce] = useState(false);
   useEffect(() => {
     if (!fittedOnce && nodes.length) {
-      setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 120);
+      const id = setTimeout(() => rf.fitView({ padding: 0.16, duration: 320, maxZoom: 1 }), 120);
       setFittedOnce(true);
+      return () => clearTimeout(id);
     }
   }, [nodes.length, fittedOnce, rf]);
 
-  // Keep every open card in view as the tree grows. Without this, a new child
-  // is placed outside the current viewport and the user sees nothing happen.
+  // Keep every open card in view as the tree grows; without this a new child
+  // lands outside the viewport and the click looks like a no-op.
   useEffect(() => {
-    if (!fittedOnce || nodes.length < 2) return;
-    const id = setTimeout(() => rf.fitView({ padding: 0.18, duration: 450, maxZoom: 1 }), 220);
+    if (!fittedOnce || cards.length < 2) return;
+    const id = setTimeout(() => rf.fitView({ padding: 0.16, duration: 380, maxZoom: 1 }), 220);
     return () => clearTimeout(id);
   }, [cards.length, fittedOnce, rf]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (cards.length > 1) back();
+      else onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [cards.length, back, onClose]);
 
-  // Depth-first tree layout: one column per hop, siblings stacked vertically.
+  // Column-per-hop tree layout: callers land to the left, callees to the right.
   function arrange() {
     const depthOf = (c: CardModel): number => {
       let d = 0;
@@ -229,8 +281,9 @@ function Inner({
       const seen = new Set<string>();
       while (cur?.parentCardId && !seen.has(cur.cardId)) {
         seen.add(cur.cardId);
-        cur = cards.find((x) => x.cardId === cur!.parentCardId);
-        d++;
+        const parentId = cur.parentCardId;
+        cur = cardById.get(parentId);
+        d += cur?.role === "caller" ? -1 : 1;
       }
       return d;
     };
@@ -240,67 +293,111 @@ function Inner({
       const d = depthOf(c);
       const i = rows.get(d) ?? 0;
       rows.set(d, i + 1);
-      next[c.cardId] = { x: d * 700, y: i * 560 };
+      next[c.cardId] = { x: d * (CARD_W + CARD_GAP_X), y: i * 620 };
     }
-    setPositions(next);
-    setTimeout(() => rf.fitView({ padding: 0.15, duration: 400, maxZoom: 1 }), 80);
+    posRef.current = next;
+    forceRender((n) => n + 1);
+    setTimeout(() => rf.fitView({ padding: 0.14, duration: 380, maxZoom: 1 }), 60);
   }
 
   return (
-    <div className="absolute inset-0 z-50" style={{ background: "rgba(0,0,0,0.6)" }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={rfEdges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        fitView
-        minZoom={0.15}
-        maxZoom={1.6}
-        proOptions={{ hideAttribution: true }}
-        onNodeClick={(_, n) => {
-          const model = (n.data as any).model as CardModel;
-          onFocusNode(model.nodeId);
+    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: "rgba(40,42,54,0.94)" }}>
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
+      <div
+        className="flex items-center shrink-0"
+        style={{
+          gap: 10,
+          padding: "0 16px",
+          height: 56,
+          background: CODE.surface,
+          borderBottom: `1px solid ${CODE.border}`,
         }}
-        elevateNodesOnSelect
-        defaultEdgeOptions={{ type: "default" }}
       >
-        <Background color="#1f2630" gap={24} />
-        <Controls showInteractive={false} />
-        <MiniMap
-          pannable
-          zoomable
-          nodeColor={(n: any) => NODE_ACCENTS[(n?.data as any)?.node?.type] ?? "#30363d"}
-          maskColor="rgba(0,0,0,0.55)"
-          style={{ background: "#0d1117", border: "1px solid #30363d", borderRadius: 8 }}
-        />
-      </ReactFlow>
-
-      <div className="absolute bottom-32 left-4 flex items-center gap-2">
         <button
-          onClick={arrange}
-          className="text-xs px-3 py-1.5 rounded-md"
-          style={{ background: C.card, color: C.textSub, border: `1px solid ${C.border}` }}
-          title="Lay the open cards out as a tree"
+          onClick={cards.length > 1 ? back : onClose}
+          title={cards.length > 1 ? "Close the most recently opened card (Esc)" : "Close the code view (Esc)"}
+          style={barBtn}
+          className="hover:!bg-[#44475a]"
         >
-          Auto-arrange
+          <HiOutlineArrowLeft size={15} />
+          {cards.length > 1 ? "Back" : "Close"}
         </button>
+
+        <div style={{ width: 1, height: 22, background: CODE.border }} />
+
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: CODE.text }}>Code view</span>
+        <span style={{ fontSize: 12, color: CODE.textDim, fontFamily: "'Fira Code', monospace" }}>
+          {cards.length} card{cards.length === 1 ? "" : "s"}
+        </span>
+
+        <div className="flex items-center ml-auto" style={{ gap: 8 }}>
+          <button onClick={arrange} style={barBtn} className="hover:!bg-[#44475a]" title="Lay the open cards out as a tree">
+            Auto-arrange
+          </button>
+          <button
+            onClick={onClose}
+            title="Close every card and leave the code view"
+            style={{ ...barBtn, borderColor: `${CODE.red}66`, color: CODE.red }}
+            className="hover:!bg-[#ff555522]"
+          >
+            <HiOutlineXMark size={14} />
+            Close all
+          </button>
+        </div>
       </div>
 
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-xs px-3 py-1.5 rounded-md"
-        style={{ background: C.card, color: C.textSub, border: `1px solid ${C.border}` }}
-      >
-        Close all
-      </button>
+      <div className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={rfEdges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          fitView
+          minZoom={0.2}
+          maxZoom={1.5}
+          proOptions={{ hideAttribution: true }}
+          onNodeClick={(_, n) => onFocusNode(((n.data as any).model as CardModel).nodeId)}
+          elevateNodesOnSelect
+          defaultEdgeOptions={{ type: "default" }}
+        >
+          <Background color={CODE.border} gap={26} />
+          <Controls showInteractive={false} />
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor={(n: any) => NODE_ACCENTS[(n?.data as any)?.node?.type] ?? CODE.border}
+            maskColor="rgba(33,34,44,0.78)"
+            style={{ background: CODE.surface, border: `1px solid ${CODE.border}`, borderRadius: 8 }}
+          />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
 
 const nodeTypes = { card: CardNode };
 
+// ─── Card ─────────────────────────────────────────────────────────────────────
+
 function CardNode({ data }: any) {
-  const { model, parentName, node, graphId, commitHash, graphLanguage, edges, nodesById, onOpenChild, onFocusNode, onToggle, onRemove, active } = data as {
+  const {
+    model,
+    parentName,
+    node,
+    graphId,
+    commitHash,
+    graphLanguage,
+    edges,
+    nodesById,
+    onOpenRelated,
+    onFocusNode,
+    onOpenCode,
+    onToggle,
+    onRemove,
+    onBack,
+    cardIndex,
+    active,
+  } = data as {
     model: CardModel;
     parentName?: string;
     node: CodeNode;
@@ -309,18 +406,23 @@ function CardNode({ data }: any) {
     graphLanguage?: string;
     edges?: CodeEdge[];
     nodesById: Record<string, CodeNode>;
-    onOpenChild: (id: string, call?: ResolvedCall) => void;
+    onOpenRelated: (id: string, call?: ResolvedCall, role?: "callee" | "caller") => void;
     onFocusNode: (id: string) => void;
+    onOpenCode?: (id: string) => void;
     onToggle: () => void;
     onRemove: () => void;
+    onBack: () => void;
+    cardIndex: number;
     active: boolean;
   };
 
   const { data: codeData, isLoading } = useNodeCode(graphId, commitHash, node?.id ?? null);
   const code: string = (codeData as any)?.code ?? (codeData as any)?.rawCode ?? "";
   const [showSummary, setShowSummary] = useState(true);
+  const [showCallers, setShowCallers] = useState(model.role !== "caller" && !model.parentCardId);
   const [copied, setCopied] = useState(false);
 
+  /** Definitions declared inside this node (for the range bands). */
   const children = useMemo(() => {
     if (!node) return [];
     return Object.values(nodesById)
@@ -342,6 +444,21 @@ function CardNode({ data }: any) {
     [node],
   );
 
+  /** Nodes that call this one — the way back up the stack. */
+  const callers = useMemo(() => {
+    if (!edges || !node) return [];
+    const seen = new Set<string>();
+    const out: CodeNode[] = [];
+    for (const e of edges) {
+      if (e.to !== node.id || e.type !== "CALLS" || seen.has(e.from)) continue;
+      const n = nodesById[e.from];
+      if (!n) continue;
+      seen.add(e.from);
+      out.push(n);
+    }
+    return out;
+  }, [edges, node, nodesById]);
+
   const lines = useMemo<string[]>(() => (code ? code.split("\n") : []), [code]);
   const highlighted = useMemo(
     () => (code ? highlightToHtml(code, graphLanguage, node?.filePath) : ""),
@@ -351,44 +468,88 @@ function CardNode({ data }: any) {
   if (!node) return null;
   const summary = (node.technicalSummary || node.businessSummary || "").trim();
   const startLine = node.startLine ?? 1;
+  const accent = NODE_ACCENTS[node.type] ?? CODE.cyan;
 
   return (
     <div
       className="rounded-xl overflow-hidden flex flex-col"
       data-card={model.cardId}
       style={{
-        background: C.card,
-        border: `1px solid ${active ? C.teal : C.border}`,
-        boxShadow: "0 18px 40px rgba(0,0,0,0.45)",
-        maxHeight: model.minimized ? 46 : 520,
+        background: CODE.bg,
+        border: `1px solid ${active ? CODE.cyan : CODE.border}`,
+        boxShadow: active ? `0 0 0 1px ${CODE.cyan}44, 0 22px 48px rgba(0,0,0,0.5)` : "0 18px 40px rgba(0,0,0,0.45)",
+        maxHeight: model.minimized ? 52 : 620,
+        color: CODE.text,
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
 
-      {/* header */}
-      <div className="px-3 py-2 flex items-center gap-2 shrink-0 cursor-grab"
-        style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-        <span className="text-[9px] uppercase tracking-[0.1em] px-1.5 py-0.5 rounded"
-          style={{ color: C.teal, background: `${C.teal}14` }}>
+      {/* ── Header (drag handle) ─────────────────────────────────────── */}
+      <div
+        className="card-drag flex items-center shrink-0"
+        style={{
+          gap: 8,
+          padding: "9px 10px 9px 12px",
+          background: CODE.surface,
+          borderBottom: `1px solid ${CODE.border}`,
+          cursor: "grab",
+        }}
+      >
+        <span
+          style={{
+            padding: "2px 6px",
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.07em",
+            textTransform: "uppercase",
+            color: accent,
+            background: `${accent}22`,
+            border: `1px solid ${accent}44`,
+            flexShrink: 0,
+          }}
+        >
           {node.type.replace(/_/g, " ")}
         </span>
-        <span className="font-mono text-[12px] truncate" style={{ color: C.text }}>{node.name}</span>
-        <span className="font-mono text-[10px] truncate" style={{ color: C.textDim }}>
+        <span
+          style={{
+            fontFamily: "'Fira Code', ui-monospace, monospace",
+            fontSize: 14,
+            fontWeight: 600,
+            color: CODE.text,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {node.name}
+        </span>
+        <span
+          style={{
+            fontFamily: "'Fira Code', ui-monospace, monospace",
+            fontSize: 11.5,
+            color: CODE.textDim,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {node.filePath.split("/").slice(-2).join("/")}:{node.startLine}
         </span>
         {parentName && (
-          <span className="text-[9.5px] truncate shrink-0" style={{ color: C.textDim }} title={`opened from ${parentName}`}>
+          <span
+            title={`opened from ${parentName}`}
+            style={{ fontSize: 11.5, color: CODE.textDim, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+          >
             ← {parentName}
           </span>
         )}
-        {model.minimized && (
-          <span className="font-mono text-[10px] shrink-0" style={{ color: C.textDim }}>
-            · {calls.length} calls
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-1 nodrag">
-          <button
+
+        <div className="ml-auto flex items-center nodrag" style={{ gap: 4 }}>
+          <CardBtn
+            label={copied ? "✓" : "⧉"}
+            title="Copy the whole file slice"
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(code);
@@ -396,99 +557,343 @@ function CardNode({ data }: any) {
                 setTimeout(() => setCopied(false), 1200);
               } catch {}
             }}
-            className="text-[10px] px-1.5 rounded"
-            style={{ color: copied ? C.teal : C.textSub, border: `1px solid ${C.border}` }}
-            title="Copy code"
-          >
-            {copied ? "✓" : "⧉"}
-          </button>
-          <button onClick={onToggle} className="text-[10px] px-1.5 rounded"
-            style={{ color: C.textSub, border: `1px solid ${C.border}` }}>
-            {model.minimized ? "▢" : "–"}
-          </button>
-          <button onClick={onRemove} className="text-[10px] px-1.5 rounded"
-            style={{ color: C.red, border: `1px solid ${C.border}` }}>
-            ✕
-          </button>
+            tone={copied ? CODE.green : CODE.textSub}
+          />
+          <CardBtn
+            label={model.minimized ? "▢" : "–"}
+            title={model.minimized ? "Expand card" : "Minimise card"}
+            onClick={onToggle}
+            tone={CODE.textSub}
+          />
+          <CardBtn label="✕" title="Close this card and its children" onClick={onRemove} tone={CODE.red} />
         </div>
       </div>
 
       {!model.minimized && (
         <>
-          <div className="px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${C.border}` }}>
-            <button onClick={() => setShowSummary((v) => !v)}
-              className="text-[10px] uppercase tracking-[0.12em]"
-              style={{ color: C.textDim }}>
-              Summary {showSummary ? "▾" : "▸"}
+          {/* ── Summary ─────────────────────────────────────────────── */}
+          <div
+            className="shrink-0 nodrag"
+            style={{ padding: "9px 12px", borderBottom: `1px solid ${CODE.border}` }}
+          >
+            <button
+              onClick={() => setShowSummary((v) => !v)}
+              className="flex items-center"
+              style={{
+                gap: 5,
+                border: "none",
+                background: "none",
+                color: CODE.textDim,
+                fontSize: 10.5,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: 0,
+              }}
+            >
+              {showSummary ? <HiOutlineChevronDown size={11} /> : <HiOutlineChevronRight size={11} />}
+              Summary
             </button>
             {showSummary && (
-              <p className="text-[11px] leading-relaxed mt-1" style={{ color: summary ? C.textSub : C.textDim }}>
-                {summary || "No summary for this node. Re-analyze with summarization enabled."}
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 12.5,
+                  lineHeight: 1.6,
+                  color: summary ? CODE.textSub : CODE.textDim,
+                }}
+              >
+                {summary || "No summary for this node — re-analyze with summarization enabled."}
               </p>
             )}
           </div>
 
+          {/* ── Callers (way back up the stack) ─────────────────────── */}
+          {callers.length > 0 && (
+            <div className="shrink-0 nodrag" style={{ padding: "8px 12px", borderBottom: `1px solid ${CODE.border}` }}>
+              <button
+                onClick={() => setShowCallers((v) => !v)}
+                className="flex items-center"
+                style={{
+                  gap: 5,
+                  border: "none",
+                  background: "none",
+                  color: CODE.textDim,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: 0,
+                }}
+              >
+                {showCallers ? <HiOutlineChevronDown size={11} /> : <HiOutlineChevronRight size={11} />}
+                Called by
+                <span style={{ color: CODE.green }}>{callers.length}</span>
+              </button>
+              {showCallers && (
+                <div className="flex flex-wrap" style={{ gap: 5, marginTop: 7 }}>
+                  {callers.map((c) => (
+                    <Hint key={c.id} label={`${EDGE_INFO.CALLS} Open it to the left of this card.`}>
+                      <button
+                        onClick={() => onOpenRelated(c.id, undefined, "caller")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "2px 7px",
+                          borderRadius: 5,
+                          border: `1px solid ${CODE.green}55`,
+                          background: `${CODE.green}12`,
+                          color: CODE.green,
+                          fontFamily: "'Fira Code', monospace",
+                          fontSize: 11,
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    </Hint>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Code ────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-auto nowheel code-scroller" style={{ scrollbarWidth: "thin" }}>
-            {isLoading && <div className="px-3 py-4 text-[11px]" style={{ color: C.textDim }}>Loading…</div>}
+            {isLoading && (
+              <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim }}>Loading…</div>
+            )}
             {!isLoading && lines.length === 0 && (
-              <div className="px-3 py-4 text-[11px]" style={{ color: C.textDim }}>
-                No source code for a {node.type.replace(/_/g, " ")} node.
+              <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim }}>
+                No source stored for a {node.type.replace(/_/g, " ")} node.
               </div>
             )}
             {lines.length > 0 && (
-              <div className="relative" style={{ height: lines.length * LINE_H }}>
+              <div className="relative" style={{ minHeight: lines.length * LINE_H }}>
+                {/* Range bands for definitions declared inside this node. */}
                 {children.map((child, i) => {
                   const top = ((child.startLine ?? startLine) - startLine) * LINE_H;
-                  const height = (((child.endLine ?? 0) - (child.startLine ?? 0)) + 1) * LINE_H;
-                  const color = RANGE_COLORS[i % RANGE_COLORS.length];
+                  const height = ((child.endLine ?? 0) - (child.startLine ?? 0) + 1) * LINE_H;
+                  const color = BAND_COLORS[i % BAND_COLORS.length];
                   return (
-                    <div key={child.id} style={{ position: "absolute", left: 40, right: 150, top, height, background: `${color}18`, borderLeft: `3px solid ${color}aa`, pointerEvents: "none" }} />
+                    <div
+                      key={child.id}
+                      style={{
+                        position: "absolute",
+                        left: 46,
+                        right: 168,
+                        top,
+                        height,
+                        background: `${color}14`,
+                        borderLeft: `2px solid ${color}aa`,
+                        pointerEvents: "none",
+                      }}
+                    />
                   );
                 })}
 
-                <div className="absolute left-0 top-0 text-right select-none font-mono"
-                  style={{ width: 40, color: C.textDim, fontSize: 10.5, lineHeight: `${LINE_H}px`, paddingRight: 6, borderRight: `1px solid ${C.border}` }}>
-                  {lines.map((_, i) => <div key={i}>{startLine + i}</div>)}
+                <div
+                  className="absolute left-0 top-0 text-right select-none"
+                  style={{
+                    width: 46,
+                    color: CODE.comment,
+                    fontFamily: "'Fira Code', ui-monospace, monospace",
+                    fontSize: 11,
+                    lineHeight: `${LINE_H}px`,
+                    paddingRight: 8,
+                    borderRight: `1px solid ${CODE.borderSoft}`,
+                  }}
+                >
+                  {lines.map((_, i) => (
+                    <div key={i}>{startLine + i}</div>
+                  ))}
                 </div>
 
-                <pre className="hljs absolute top-0 nodrag"
-                  style={{ left: 40, right: 150, margin: 0, padding: "0 8px", background: "transparent", fontSize: 11.5, lineHeight: `${LINE_H}px`, fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace' }}
-                  dangerouslySetInnerHTML={{ __html: highlighted }} />
+                <pre
+                  className="hljs absolute top-0 nodrag"
+                  style={{
+                    left: 46,
+                    right: 168,
+                    margin: 0,
+                    padding: "0 10px",
+                    background: "transparent",
+                    fontSize: 12.5,
+                    lineHeight: `${LINE_H}px`,
+                    fontFamily: "'Fira Code', ui-monospace, Menlo, Consolas, monospace",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: highlighted }}
+                />
 
                 {calls.map((c) => {
                   if (c.line == null) return null;
                   const top = (c.line - startLine) * LINE_H;
                   if (top < 0 || top > lines.length * LINE_H) return null;
-                  const flags = [
-                    c.awaited ? "await" : null,
-                    c.defer ?? null,
-                    c.conc ? "conc" : null,
-                    c.repeat ? "loop" : null,
-                    c.maybe ? "maybe" : null,
-                  ].filter(Boolean) as string[];
+                  const markers = markerList(c);
+                  const color = edgeColor(c);
                   return (
-                    <button key={`${c.nodeId}-${c.line}`} data-chip-node={c.nodeId} onClick={() => onOpenChild(c.nodeId, c)}
-                      className="absolute text-[9px] px-1.5 rounded font-mono text-left nodrag"
-                      style={{ right: 4, top: top + 1, height: LINE_H - 2, width: 142, color: edgeColor(c), background: "#161b22", border: `1px solid ${edgeColor(c)}55`, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
-                      title={c.name}>
-                      {c.name}{flags.length ? ` · ${flags.join(" · ")}` : ""} →
-                    </button>
+                    <Hint
+                      key={`${c.nodeId}-${c.line}`}
+                      label={
+                        <span>
+                          <b>{c.name}</b>
+                          {markers.length > 0 && <><br />{markers.map((m) => m.info).join(" ")}</>}
+                          <br />
+                          Click to open this call as a card.
+                        </span>
+                      }
+                      maxWidth={280}
+                    >
+                      <button
+                        data-chip-node={c.nodeId}
+                        onClick={() => onOpenRelated(c.nodeId, c, "callee")}
+                        className="absolute nodrag"
+                        style={{
+                          right: 4,
+                          top: top + 1,
+                          height: LINE_H - 2,
+                          width: 154,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "0 6px",
+                          borderRadius: 4,
+                          border: `1px solid ${color}66`,
+                          background: CODE.surface,
+                          color,
+                          fontFamily: "'Fira Code', monospace",
+                          fontSize: 10.5,
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
+                        {markers.length > 0 && (
+                          <span style={{ color: CODE.textDim, flexShrink: 0 }}>
+                            · {markers.map((m) => m.label).join(" · ")}
+                          </span>
+                        )}
+                        <span style={{ marginLeft: "auto", flexShrink: 0, color }}>→</span>
+                      </button>
+                    </Hint>
                   );
                 })}
               </div>
             )}
           </div>
 
-          <div className="px-2.5 py-1.5 flex items-center gap-1 shrink-0"
-            style={{ borderTop: `1px solid ${C.border}`, background: C.surface }}>
-            <span className="text-[9.5px] font-mono" style={{ color: C.textDim }}>{calls.length} calls</span>
-            <button onClick={() => onFocusNode(node.id)} className="ml-auto text-[9.5px] px-1.5 rounded nodrag"
-              style={{ color: C.teal, border: `1px solid ${C.teal}44` }}>
-              show in graph
-            </button>
+          {/* ── Footer ──────────────────────────────────────────────── */}
+          <div
+            className="flex items-center shrink-0 nodrag"
+            style={{
+              gap: 8,
+              padding: "7px 10px",
+              borderTop: `1px solid ${CODE.border}`,
+              background: CODE.surface,
+            }}
+          >
+            <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: CODE.textDim }}>
+              {calls.length} call{calls.length === 1 ? "" : "s"} · {lines.length} lines
+            </span>
+            <div className="ml-auto flex items-center" style={{ gap: 6 }}>
+              {onOpenCode && (
+                <FooterBtn onClick={() => onOpenCode(node.id)} tone={CODE.purple}>
+                  <HiOutlineCodeBracket size={11} />
+                  Panel
+                </FooterBtn>
+              )}
+              <FooterBtn onClick={() => onFocusNode(node.id)} tone={CODE.cyan}>
+                <HiOutlineCubeTransparent size={11} />
+                Show in graph
+              </FooterBtn>
+              {cardIndex > 0 && (
+                <FooterBtn onClick={onBack} tone={CODE.textSub}>
+                  ← Back
+                </FooterBtn>
+              )}
+            </div>
           </div>
         </>
       )}
     </div>
   );
 }
+
+const BAND_COLORS = [CODE.cyan, CODE.green, CODE.orange, CODE.purple, CODE.pink];
+
+function CardBtn({
+  label,
+  title,
+  onClick,
+  tone,
+}: {
+  label: string;
+  title: string;
+  onClick: () => void;
+  tone: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 26,
+        height: 24,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 5,
+        border: `1px solid ${CODE.border}`,
+        background: "transparent",
+        color: tone,
+        fontSize: 11,
+        lineHeight: 1,
+      }}
+      className="hover:!bg-[#44475a]"
+    >
+      {label}
+    </button>
+  );
+}
+
+function FooterBtn({
+  children,
+  onClick,
+  tone,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  tone: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 7px",
+        borderRadius: 5,
+        border: `1px solid ${CODE.border}`,
+        background: "transparent",
+        color: tone,
+        fontSize: 11,
+      }}
+      className="hover:!bg-[#44475a]"
+    >
+      {children}
+    </button>
+  );
+}
+
+const barBtn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "6px 11px",
+  borderRadius: 7,
+  border: `1px solid ${CODE.border}`,
+  background: "transparent",
+  color: CODE.textSub,
+  fontSize: 12.5,
+  fontWeight: 500,
+};

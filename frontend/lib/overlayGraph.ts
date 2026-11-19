@@ -10,7 +10,7 @@ export function useOverlayGraph() {
     function open(nodeId: string, nodeType?: NodeType, currentFilters?: {
         activeNodeTypes: NodeType[];
         activeEdgeTypes: EdgeType[];
-    }) {
+    }, opts?: { mode?: OverlayGraph["mode"]; hopDepth?: number }) {
         const activeNodeTypes = currentFilters?.activeNodeTypes
         ? [...currentFilters.activeNodeTypes]
         : [...DEFAULT_NODE_TYPES];
@@ -24,12 +24,12 @@ export function useOverlayGraph() {
         ? [...currentFilters.activeEdgeTypes]
         : [...DEFAULT_EDGE_TYPES];
         
-        console.log("Active Node and Edges", currentFilters, activeNodeTypes.join(", "), activeEdgeTypes.join(", "));
         setOverlayStack([{
             rootNodeId: nodeId,
             activeNodeTypes,
             activeEdgeTypes,
-            mode: "full",
+            mode: opts?.mode ?? "full",
+            hopDepth: opts?.hopDepth,
         }]);
     }
 

@@ -77,35 +77,43 @@ export const DEFAULT_EDGE_TYPES: EdgeType[] = [
 
 // ─── Node colors ──────────────────────────────────────────────────────────────
 //
-// A curated light-surface palette: one deep, desaturated tone per semantic
-// family instead of neon pastels. The canvas is paper-coloured now, so the
-// fills carry the identity and the labels stay white on 600/700 tones.
-// Families: teal/cyan = UI, blue/indigo = logic & routing, violet/purple =
-// reactivity & abstraction, amber/green = data & tests, neutral = structural.
+// The committed DevLens canvas palette. These identify a type at a glance and
+// users know them, so they stay as-is; `labelColorFor` below picks ink or paper
+// for the label on each fill instead of assuming white, which no longer works
+// now that the canvas is light.
 
 export const NODE_COLORS: Record<string, string> = {
-  COMPONENT:   "#0f766e", // teal-700
-  HOOK:        "#7c3aed", // violet-600
-  FUNCTION:    "#2563eb", // blue-600
-  STATE_STORE: "#b45309", // amber-700
-  UTILITY:     "#475569", // slate-600
-  FILE:        "#78716c", // stone-500
-  GHOST:       "#a8a29e", // stone-400
-  ROUTE:       "#4f46e5", // indigo-600
-  TEST:        "#059669", // emerald-600
-  STORY:       "#a21caf", // fuchsia-700
-  THIRD_PARTY: "#6b7280", // gray-500
-  // ── OOP / structural types ────────────────────────────────────────────────
-  CLASS:       "#16a34a", // green-600
-  METHOD:      "#0284c7", // sky-600
-  INTERFACE:   "#a16207", // yellow-700
-  ENUM:        "#be123c", // rose-700
-  STRUCT:      "#0891b2", // cyan-600
-  MODULE:      "#4d7c0f", // lime-700
-  TRAIT:       "#7e22ce", // purple-700
-  IMPL_BLOCK:  "#155e75", // cyan-800
-  PACKAGE:     "#db2777", // pink-600
+  COMPONENT:   "#2dd4bf",
+  HOOK:        "#c084fc",
+  FUNCTION:    "#60a5fa",
+  STATE_STORE: "#fb923c",
+  UTILITY:     "#94a3b8",
+  FILE:        "#f472b6",
+  GHOST:       "#6b7280",
+  ROUTE:       "#818cf8",
+  TEST:        "#f97316",
+  STORY:       "#a78bfa",
+  THIRD_PARTY: "#e879f9",
+  // ── Newer OOP / structural types ──────────────────────────────────────────
+  CLASS:       "#4ade80",
+  METHOD:      "#22d3ee",
+  INTERFACE:   "#facc15",
+  ENUM:        "#fb7185",
+  STRUCT:      "#34d399",
+  MODULE:      "#a3e635",
+  TRAIT:       "#d946ef",
+  IMPL_BLOCK:  "#38bdf8",
+  PACKAGE:     "#f43f5e",
 };
+
+/** Ink or paper label, whichever reads on the fill. */
+export function labelColorFor(hex: string): string {
+  const h = hex.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return lum > 0.42 ? "#1c1917" : "#ffffff";
+}
 
 // Bright accent used for chip dots / detail-panel swatches. With the bright
 // fill palette above, the accent is simply the fill colour itself.
@@ -136,25 +144,25 @@ export const NODE_SHAPES: Record<string, string> = {
 };
 
 export const EDGE_COLORS: Record<string, string> = {
-  CALLS: "#2563eb",
-  IMPORTS: "#78716c",
-  READS_FROM: "#b45309",
-  WRITES_TO: "#b91c1c",
-  PROP_PASS: "#0f766e",
-  EMITS: "#7c3aed",
-  LISTENS: "#6366f1",
-  WRAPPED_BY: "#15803d",
-  GUARDS: "#a16207",
-  HANDLES: "#64748b",
-  TESTS: "#c2410c",
-  USES: "#8b5cf6",
-  NEXTJS_API_CALL: "#db2777",
-  NAVIGATES_TO: "#0891b2",
+  CALLS: "#3b82f6",
+  IMPORTS: "#94a3b8",
+  READS_FROM: "#f59e0b",
+  WRITES_TO: "#f85149",
+  PROP_PASS: "#2dd4bf",
+  EMITS: "#c084fc",
+  LISTENS: "#a78bfa",
+  WRAPPED_BY: "#3fb950",
+  GUARDS: "#d29922",
+  HANDLES: "#8286bb",
+  TESTS: "#f97316",
+  USES: "#a78bfa",
+  NEXTJS_API_CALL: "#ec4899",
+  NAVIGATES_TO: "#22d3ee",
   // Structural / new edge types
-  IMPLEMENTS: "#16a34a",
-  EXTENDS: "#a16207",
-  EXPORTS: "#4d7c0f",
-  THROWS: "#be123c",
+  IMPLEMENTS: "#4ade80",
+  EXTENDS: "#facc15",
+  EXPORTS: "#a3e635",
+  THROWS: "#fb7185",
 };
 
 // ─── Layout config ────────────────────────────────────────────────────────────
@@ -176,6 +184,26 @@ export function getLayoutConfig(nodeCount: number) {
   } as any;
 }
 
+/**
+ * Layout for the node overlay. fcose is beautiful and O(n²)-ish; on a 1000-node
+ * subgraph it allocates enough force-layout state to take the tab down, and the
+ * overlay is a browsing surface where instant beats pretty. Beyond a few hundred
+ * nodes, a breadth-first tree is both cheaper and easier to read.
+ */
+export function getSubgraphLayoutConfig(nodeCount: number) {
+  if (nodeCount > 350) {
+    return {
+      name: "breadthfirst",
+      directed: false,
+      spacingFactor: 1.15,
+      animate: false,
+      fit: true,
+      padding: 40,
+    } as any;
+  }
+  return getLayoutConfig(nodeCount);
+}
+
 // ─── Cytoscape styles ─────────────────────────────────────────────────────────
 
 export function getCytoscapeStyles(
@@ -191,10 +219,13 @@ export function getCytoscapeStyles(
         "text-halign":        "center",
         "font-size":          "13px",
         "font-weight":        "600",
-        color:                "#ffffff",
+        color:                "data(labelColor)",
         "text-outline-width": 0,
         "text-wrap":          "ellipsis" as any,
         "text-max-width":     "data(size)",
+        // Labels are the most expensive part of a large canvas; below this zoom
+        // they are illegible anyway, so skip laying them out entirely.
+        "min-zoomed-font-size": 9,
         "padding":            "10px" as any,
         "border-width":       0,
         width:                "data(size)",
@@ -246,7 +277,7 @@ export function getCytoscapeStyles(
       selector: `node[id = "${rootNodeId}"]`,
       style: {
         "border-width":   4,
-        "border-color":   "#0e766e",
+        "border-color":   "#1c1917",
         "border-opacity": 1,
       } as any,
     }] : []),

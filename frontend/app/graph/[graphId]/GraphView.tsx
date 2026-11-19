@@ -1,26 +1,45 @@
 "use client";
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useGraph, useJob, useGraphMeta, useAnalyze } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { keys } from "@/lib/hooks";
 import GraphCanvas, { GraphCanvasHandle } from "@/components/graph/GraphCanvas";
-import type { DiffInfo } from "@/components/graph/NodeDetailPanel";
-import NodePanel from "@/components/graph/NodePanel";
-import CodeFlow from "@/components/graph/CodeFlow";
 import Sidebar from "@/components/graph/Sidebar";
 import { EdgeType, NodeType, NodeDiff, RenderingBoundary } from "@/lib/types";
 import FilterBar from "@/components/graph/FilterBar";
 import { buildAdjacency, bfsReachable } from "@/lib/graphAlgo";
-import { HiOutlineArrowPath, HiOutlineChevronDown } from "react-icons/hi2";
-import { IoArrowBack } from "react-icons/io5";
+import { HiOutlineArrowPath, HiOutlineChevronDown, IoArrowBack } from "@/components/icons";
 import { useOverlayGraph } from "@/lib/overlayGraph";
-import SubgraphOverlay from "@/components/graph/SubgraphOverlay";
 import {
   DEFAULT_EDGE_TYPES,
   DEFAULT_NODE_TYPES,
 } from "@/components/graph/cytoscapeConfig";
+
+// ── Code-split the optional surfaces ─────────────────────────────────────────
+//
+// Only the canvas is needed to open a graph. These three panels are opened on
+// demand and each drags in a large dependency:
+//
+//   NodePanel       → highlight.js (11 grammars)
+//   CodeFlow        → @xyflow/react + @xyflow/system + zustand + highlight.js
+//   SubgraphOverlay → its own cytoscape instance + overlay filters
+//
+// Importing them statically made every cold open of /graph/<id> compile all of
+// that (plus the old react-icons barrels) before the page could paint. Loading
+// them lazily keeps the first compile small and defers the rest to first use.
+const NodePanel = dynamic(() => import("@/components/graph/NodePanel"), {
+  ssr: false,
+});
+const CodeFlow = dynamic(() => import("@/components/graph/CodeFlow"), {
+  ssr: false,
+});
+const SubgraphOverlay = dynamic(
+  () => import("@/components/graph/SubgraphOverlay"),
+  { ssr: false },
+);
 
 interface Props {
   params: Promise<{ graphId: string }>;
@@ -273,42 +292,14 @@ export default function GraphView({ params }: Props) {
 
   //  Update canvas when filters change 
 
+  // Debounced: a filter drag used to fire one canvas rebuild per pointer move.
   useEffect(() => {
     if (!graph) return;
-    canvasRef.current?.updateElements(visibleNodes, visibleEdges);
-  }, [visibleNodes, visibleEdges]);
-
-  //  Diff info for focused node 
-
-  const focusedNodeDiffInfo = useMemo((): DiffInfo | undefined => {
-    if (!diffMode || !diffNodeMap || !focusedNodeId) return undefined;
-    if (diffNodeMap.added.has(focusedNodeId)) return { status: "added" };
-    if (diffNodeMap.removed.has(focusedNodeId)) return { status: "removed" };
-    const sc = diffNodeMap.scoreChanged.get(focusedNodeId);
-    if (sc)
-      return {
-        status: "scoreChanged",
-        scoreBefore: sc.scoreBefore,
-        scoreAfter: sc.scoreAfter,
-        delta: sc.delta,
-      };
-    const mv = diffNodeMap.moved.get(focusedNodeId);
-    if (mv)
-      return {
-        status: "moved",
-        fromFile: mv.fromFile,
-        toFile: mv.toFile,
-      };
-    const cc = diffNodeMap.codeChanged.get(focusedNodeId);
-    if (cc)
-      return {
-        status: "codeChanged",
-        scoreBefore: cc.scoreBefore,
-        scoreAfter: cc.scoreAfter,
-        delta: parseFloat((cc.scoreAfter - cc.scoreBefore).toFixed(2)),
-      };
-    return undefined;
-  }, [diffMode, diffNodeMap, focusedNodeId]);
+    const id = setTimeout(() => {
+      canvasRef.current?.updateElements(visibleNodes, visibleEdges);
+    }, 180);
+    return () => clearTimeout(id);
+  }, [visibleNodes, visibleEdges, graph]);
 
   //  Fullscreen 
 
@@ -386,26 +377,49 @@ export default function GraphView({ params }: Props) {
 
   //  Node focus 
 
+  // One entry point for "show me this node".
+  //
+  // Clicking a node while an overlay is already open must STACK, not replace:
+  // replacing threw away the trail the user had just walked and there was no
+  // way back. `navigate` pushes onto the overlay stack, which the overlay's own
+  // Back button and the panel's Back chip both pop.
   function handleNodeFocus(id: string) {
+    if (!id) return;
     setFocusedNodeId(id);
-    // const node = graph?.nodesById[id];
-    
-    // Only focus on main canvas if overlay is not open
-    // When overlay is open, main canvas is hidden behind it
-    if (!overlay.isOpen) {
-      canvasRef.current?.focusNode(id);
-    }
-    console.log(
-      "HHere is the active node and edge types:",
-      activeNodeTypesRef.current,
-      activeEdgeTypesRef.current,
-    );
     const node = graph?.nodesById[id];
-    console.log("node type:", node?.type, "node:", node);
+
+    if (overlay.isOpen) {
+      if (overlay.current?.rootNodeId !== id) overlay.navigate(id, node?.type as NodeType);
+      return;
+    }
+
+    canvasRef.current?.focusNode(id);
     overlay.open(id, node?.type as NodeType, {
       activeNodeTypes: activeNodeTypesRef.current,
       activeEdgeTypes: activeEdgeTypesRef.current,
     });
+  }
+
+  /** Blast radius / k-hop from the focused node, straight into the overlay. */
+  function handleExplore(mode: "khop" | "blast", depth: number) {
+    if (!focusedNodeId) return;
+    const node = graph?.nodesById[focusedNodeId];
+    const filters = {
+      activeNodeTypes: activeNodeTypesRef.current,
+      activeEdgeTypes: activeEdgeTypesRef.current,
+    };
+    if (overlay.isOpen && overlay.current?.rootNodeId === focusedNodeId) {
+      overlay.updateFilters({ mode, hopDepth: depth });
+    } else {
+      overlay.open(focusedNodeId, node?.type as NodeType, filters, { mode, hopDepth: depth });
+    }
+  }
+
+  /** Pop one overlay, keeping the panel on whatever node we land back on. */
+  function handleOverlayBack() {
+    const prev = overlay.overlayStack[overlay.overlayStack.length - 2];
+    overlay.back();
+    setFocusedNodeId(prev ? prev.rootNodeId : null);
   }
 
   const repoName =
@@ -421,9 +435,11 @@ export default function GraphView({ params }: Props) {
   return (
     <div className="h-screen flex flex-col bg-base text-primary overflow-hidden">
       {/*  Navbar  */}
+      {/* z-50 so the Control Center panel can never slide under the
+          subgraph overlay (which is z-20 inside the canvas area). */}
       <nav
-        className="border-b border-border px-5 py-2 flex items-center gap-3
-                      shrink-0 bg-base/95 backdrop-blur-sm z-10"
+        className="border-b border-border px-5 flex items-center gap-3 shrink-0 bg-base/95 backdrop-blur-sm"
+        style={{ position: "relative", zIndex: 50, minHeight: 52 }}
       >
         <button
           onClick={() => router.back()}
@@ -641,37 +657,42 @@ export default function GraphView({ params }: Props) {
             />
 
             {/* Node panel */}
-                        {focusedNodeId && graph && (
-                          <NodePanel
-                                          node={graph.nodesById[focusedNodeId]}
-                                          graphId={graphId}
-                                          commitHash={graph.gitInfo.commitHash}
-                                          graphLanguage={graph.fingerprint?.language as string | undefined}
-                                          nodesById={graph.nodesById}
-                                          edges={graph.edges}
-                            onClose={() => {
-                              setFocusedNodeId(null);
-                              setCodeStack([]);
-                              clearHighlight();
-                            }}
-                            onNodeFocus={handleNodeFocus}
-                            onOpenCode={(id) => setCodeStack([id])}
-                          />
-                        )}
+            {focusedNodeId && graph?.nodesById[focusedNodeId] && (
+              <NodePanel
+                node={graph.nodesById[focusedNodeId]}
+                graphId={graphId}
+                commitHash={graph.gitInfo.commitHash}
+                graphLanguage={graph.fingerprint?.language as string | undefined}
+                nodesById={graph.nodesById}
+                edges={graph.edges}
+                onClose={() => {
+                  setFocusedNodeId(null);
+                  setCodeStack([]);
+                  clearHighlight();
+                  overlay.close();
+                }}
+                onNodeFocus={handleNodeFocus}
+                onOpenCode={(id) => setCodeStack((prev) => (prev[0] === id ? prev : [id]))}
+                onExplore={handleExplore}
+                overlayDepth={Math.max(0, overlay.overlayStack.length - 1)}
+                onOverlayBack={handleOverlayBack}
+              />
+            )}
 
             {codeStack.length > 0 && graph && (
-                          <CodeFlow
-                            graphId={graphId}
-                            commitHash={graph.gitInfo.commitHash}
-                            graphLanguage={graph.fingerprint?.language as string | undefined}
-                            nodesById={graph.nodesById}
-                            edges={graph.edges}
-                            rootNodeId={codeStack[0]}
-                            activeNodeId={focusedNodeId}
-                            onClose={() => setCodeStack([])}
-                            onFocusNode={handleNodeFocus}
-                          />
-                        )}
+              <CodeFlow
+                graphId={graphId}
+                commitHash={graph.gitInfo.commitHash}
+                graphLanguage={graph.fingerprint?.language as string | undefined}
+                nodesById={graph.nodesById}
+                edges={graph.edges}
+                rootNodeId={codeStack[0]}
+                activeNodeId={focusedNodeId}
+                onClose={() => setCodeStack([])}
+                onFocusNode={handleNodeFocus}
+                onOpenCode={(id) => setCodeStack([id])}
+              />
+            )}
 
             {overlay.isOpen && overlay.current && (
               <SubgraphOverlay

@@ -13,7 +13,7 @@ import { toElements } from "./cytoscopeUtils";
 import cytoscape from "cytoscape";
 import {
   getCytoscapeStyles,
-  getLayoutConfig,
+  getSubgraphLayoutConfig,
 } from "./cytoscapeConfig";
 import OverlayFilterBar from "./OverlayFilterBar";
 import { NodeTooltip, TooltipInfo } from "./GraphCanvas";
@@ -21,6 +21,12 @@ import { NodeTooltip, TooltipInfo } from "./GraphCanvas";
 cytoscape.use(fcose);
 
 const DEFAULT_INITIAL_DEPTH = 6; //When a node is selected this is the depth upto which initially the subgraph will be shown.
+
+// Hard ceiling on how many nodes the overlay will draw. A "full" overlay on a
+// 1000+ node graph handed cytoscape more elements than the tab could hold, which
+// is what made clicking a node crash the page. 500 is far more than anyone scans
+// and keeps layout + paint bounded.
+const MAX_OVERLAY_NODES = 500;
 
 interface SubgraphOverlayProps {
   stack: OverlayGraph[];
@@ -91,8 +97,10 @@ export default function SubgraphOverlay({
   const subgraphNodes: CodeNode[] = [];
   for (const id of allIds) {
     const node = nodesById[id];
-    if (node && current.activeNodeTypes.includes(node.type))
+    if (node && current.activeNodeTypes.includes(node.type)) {
       subgraphNodes.push(node);
+      if (subgraphNodes.length >= MAX_OVERLAY_NODES) break;
+    }
   }
 
   const nodeIdSet = new Set(subgraphNodes.map(n => n.id));
@@ -119,7 +127,7 @@ export default function SubgraphOverlay({
       container: containerRef.current,
       elements: toElements(subgraphNodes, subgraphEdges),
       style: getCytoscapeStyles(current.rootNodeId),
-      layout: getLayoutConfig(subgraphNodes.length),
+      layout: getSubgraphLayoutConfig(subgraphNodes.length),
       boxSelectionEnabled: false,
       userZoomingEnabled: true,
       userPanningEnabled: true,
@@ -129,15 +137,17 @@ export default function SubgraphOverlay({
       maxZoom: 4,
     });
 
-    // After layout completes — zoom into root node
+    // After layout completes — zoom into the root node. Skip the animation on
+    // big subgraphs: the tween re-renders every element for 600ms while the
+    // user is already moving the mouse.
     cy.one("layoutstop", () => {
       const rootNode = cy.getElementById(current.rootNodeId);
-      if (!rootNode.empty()) {
+      if (rootNode.empty()) return;
+      if (subgraphNodes.length > 350) {
+        cy.fit(rootNode, 180);
+      } else {
         cy.animate(
-          {
-            fit: { eles: rootNode, padding: 200 },
-            easing: "ease-in-out-cubic",
-          },
+          { fit: { eles: rootNode, padding: 200 }, easing: "ease-in-out-cubic" },
           { duration: 600 },
         );
       }

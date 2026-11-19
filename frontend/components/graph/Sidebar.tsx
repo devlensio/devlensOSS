@@ -14,7 +14,7 @@ import {
   HiOutlineChevronRight,
   HiOutlineChevronDown,
   HiOutlineXMark,
-} from "react-icons/hi2";
+} from "@/components/icons";
 import { NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
 import { sanitizeSummary } from "@/lib/sanitize";
 

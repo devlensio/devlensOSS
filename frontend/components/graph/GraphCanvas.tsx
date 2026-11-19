@@ -345,16 +345,47 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       updateElements(nodes: CodeNode[], edges: CodeEdge[]) {
         const cy = cyRef.current;
         if (!cy) return;
+
         const newElements = toElements(nodes, edges);
         const newIds      = new Set(newElements.map((e) => e.data.id));
 
+        const removedNodes = cy.nodes().filter((n) => !newIds.has(n.id())).length;
         cy.elements().forEach((ele) => {
           if (!newIds.has(ele.id())) cy.remove(ele);
         });
 
         const existingIds = new Set(cy.elements().map((ele) => ele.id()));
+        const isNodeEl = (e: any) => !("source" in e.data);
         const toAdd = newElements.filter((e) => !existingIds.has(e.data.id));
+        const addedNodes = toAdd.filter(isNodeEl).length;
         if (toAdd.length > 0) cy.add(toAdd);
+
+        // Filtering by edge type only swaps edges — the node positions are still
+        // valid, so re-running a force layout there was pure waste (and on a
+        // 1000-node graph it froze the tab for seconds per keystroke).
+        if (addedNodes === 0 && removedNodes === 0) return;
+
+        if (cy.nodes().length > 400) {
+          // Too big to re-solve. Park each new node next to a neighbour that is
+          // already positioned, so the canvas stays recognisable and cheap.
+          const neighbour = new Map<string, string>();
+          for (const e of edges) {
+            neighbour.set(e.from, e.to);
+            neighbour.set(e.to, e.from);
+          }
+          cy.batch(() => {
+            for (const el of toAdd) {
+              if (!isNodeEl(el)) continue;
+              const anchor = cy.getElementById(neighbour.get(el.data.id) ?? "");
+              const p = anchor.nonempty() ? anchor.position() : { x: 0, y: 0 };
+              cy.getElementById(el.data.id).position({
+                x: p.x + (Math.random() - 0.5) * 90,
+                y: p.y + (Math.random() - 0.5) * 90,
+              });
+            }
+          });
+          return;
+        }
 
         cy.layout(getLayoutConfig(cy.nodes().length)).run();
       },

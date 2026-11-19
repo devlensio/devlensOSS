@@ -1,5 +1,6 @@
 import { CodeEdge, CodeNode, EdgeType, NodeType } from "@/lib/types";
 import { buildCalleeOrder } from "@/lib/callOrder";
+import { labelColorFor, NODE_COLORS } from "./cytoscapeConfig";
 
 export function getScoreRange(nodes: CodeNode[]): { min: number; max: number } {
   const scores = nodes.map(n => n.score ?? 0);
@@ -115,6 +116,9 @@ export function toElements(nodes: CodeNode[], edges: CodeEdge[]) {
       metadata:          n.metadata,
       // Hoisted from metadata so Cytoscape CSS selectors can target it directly
       renderingBoundary: (n.metadata?.renderingBoundary as string) ?? null,
+      // The committed palette is pastel; on a light canvas the label has to be
+      // picked per fill colour instead of always white.
+      labelColor: labelColorFor(NODE_COLORS[n.type] ?? "#64748b"),
     }
   }));
 

@@ -18,8 +18,9 @@ import {
   HiOutlineGlobeAlt,
   HiOutlineCubeTransparent,
   HiOutlineCodeBracket,
-} from "react-icons/hi2";
-import { MdFullscreen, MdFullscreenExit } from "react-icons/md";
+  MdFullscreen,
+  MdFullscreenExit,
+} from "@/components/icons";
 import { EDGE_COLORS, EDGE_TYPES, NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
 import { TypeGlyph } from "./TypeGlyph";
 import {
