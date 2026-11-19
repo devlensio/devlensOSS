@@ -141,7 +141,19 @@ export default function NodePanel({
     return byType;
   }, [edges, node.id]);
 
-  const callers = useMemo(() => dedupeNodes(incoming.get("CALLS") ?? [], nodesById), [incoming, nodesById]);
+  // Any incoming edge counts as a caller: the engine records USES for a
+  // function that is handed around before being invoked, and a node with real
+  // callers must never show an empty "Called by" list.
+  const callers = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const [type, list] of incoming) {
+      for (const e of list) {
+        if (!nodesById[e.from]) continue;
+        if (!seen.has(e.from)) seen.set(e.from, type);
+      }
+    }
+    return [...seen.entries()].map(([id, type]) => ({ node: nodesById[id], type }));
+  }, [incoming, nodesById]);
   const callees = useMemo(() => dedupeNodes(outgoing.get("CALLS") ?? [], nodesById), [outgoing, nodesById]);
 
   // Relations that are not calls (renders, reads, implements…).
@@ -209,6 +221,7 @@ export default function NodePanel({
       {/* Drag any point of the left edge to resize the panel. */}
       <div
         onMouseDown={startResize}
+        data-resize="node-panel"
         title="Drag to resize"
         style={{
           position: "absolute",
@@ -242,15 +255,15 @@ export default function NodePanel({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                padding: "3px 8px",
-                borderRadius: 6,
+                padding: "4px 9px",
+                borderRadius: 999,
                 fontSize: 11,
                 fontWeight: 700,
-                letterSpacing: "0.06em",
+                letterSpacing: "0.07em",
                 textTransform: "uppercase",
-                color: accent,
-                background: `${accent}12`,
-                border: `1px solid ${accent}2e`,
+                color: UI.text,
+                background: `${accent}2e`,
+                border: `1px solid ${accent}66`,
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: 99, background: accent }} />
@@ -278,31 +291,43 @@ export default function NodePanel({
 
           <div className="ml-auto flex items-center gap-2">
             <Hint label="Importance score 0–10, from fan-in, fan-out and how central this node is in the graph">
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "baseline",
-                  gap: 3,
-                  padding: "3px 9px",
-                  borderRadius: 6,
-                  background: UI.elevated,
-                  border: `1px solid ${UI.border}`,
-                  fontFamily: "'Fira Code', monospace",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: UI.text,
-                  cursor: "help",
-                }}
-              >
-                {(node.score ?? 0).toFixed(1)}
-                <span style={{ fontSize: 10.5, color: UI.textGhost, fontWeight: 400 }}>/10</span>
+              <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, cursor: "help" }}>
+                <span
+                  style={{
+                    fontFamily: "'Fira Code', monospace",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: UI.text,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {(node.score ?? 0).toFixed(1)}
+                </span>
+                <span style={{ fontSize: 11, color: UI.textDim, fontWeight: 500 }}>impact</span>
               </span>
             </Hint>
             <button
               onClick={onClose}
               title="Close panel (Esc)"
-              style={{ ...iconBtn, width: 28, height: 28 }}
-              className="hover:bg-[#f4f2ec]"
+              style={{
+                width: 30,
+                height: 30,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 7,
+                border: `1px solid ${UI.border}`,
+                background: UI.surface,
+                color: UI.textSub,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = UI.text;
+                e.currentTarget.style.borderColor = "#cfc8bb";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = UI.textSub;
+                e.currentTarget.style.borderColor = UI.border;
+              }}
             >
               <HiOutlineXMark size={15} />
             </button>
@@ -394,7 +419,9 @@ export default function NodePanel({
                   fontWeight: active ? 600 : 500,
                   color: active ? UI.text : UI.textDim,
                   background: active ? UI.surface : "transparent",
-                  boxShadow: active ? "0 1px 2px rgba(28,25,23,0.08)" : "none",
+                  boxShadow: active
+                    ? `inset 0 -2px 0 ${UI.accent}, 0 1px 2px rgba(28,25,23,0.08)`
+                    : "none",
                   transition: "background 120ms, color 120ms",
                 }}
               >
@@ -456,18 +483,16 @@ export default function NodePanel({
                 </>
               ) : (
                 <Empty>
-                  No summary for this node. Summaries are generated by the LLM pass — re-run
-                  “Re-analyze + Summarize” from the toolbar to fill this in.
+                  No summary stored for this node. Run “Re-analyze + Summarize” from the
+                  toolbar to generate one; the pipeline, relations and metrics below are
+                  built from the graph and are already complete.
                 </Empty>
               )}
             </Section>
 
             {/* How it runs: narrative + the ordered pipeline */}
             {(calls.length > 0 || technical) && (
-              <Section
-                title="How it works"
-                right={calls.length > 0 ? <span style={sectionMeta}>{calls.length} steps</span> : undefined}
-              >
+              <Section title="How it works">
                 {technical && (
                   <div
                     className="summary-html"
@@ -504,7 +529,7 @@ export default function NodePanel({
             {/* Shape */}
             <Section title="Shape">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <Stat label="Lines" value={`${node.startLine}–${node.endLine}`} hint="Source line range this node occupies" />
+                <Stat label="Span" value={`${node.startLine}–${node.endLine}`} hint="Source line range this node occupies" />
                 <Stat label="Callees" value={String(calls.length || callees.length)} hint="Nodes this one invokes" />
                 <Stat label="Callers" value={String(callers.length)} hint="Nodes that invoke this one" />
                 <Stat label="Relations" value={String(relationCount)} hint="Non-call edges — props, state, routes, implementations" />
@@ -582,11 +607,11 @@ export default function NodePanel({
                 <div className="flex flex-col" style={{ gap: 2 }}>
                   {callers.map((c) => (
                     <NodeRow
-                      key={`caller-${c.id}`}
-                      node={c}
-                      meta="calls this"
-                      onFocus={() => onNodeFocus(c.id)}
-                      onOpen={() => onOpenCode(c.id)}
+                      key={`caller-${c.node.id}`}
+                      node={c.node}
+                      meta={`${EDGE_VERB[c.type] ?? "links"} this`}
+                      onFocus={() => onNodeFocus(c.node.id)}
+                      onOpen={() => onOpenCode(c.node.id)}
                     />
                   ))}
                 </div>
@@ -817,11 +842,12 @@ export default function NodePanel({
                 )}
 
                 <div className="flex flex-col">
-                  {filteredCalls.map((call) => (
+                  {filteredCalls.map((call, i) => (
                     <FlowStep
                       key={`${call.nodeId}-${call.firstOrder}`}
                       call={call}
                       index={calls.indexOf(call) + 1}
+                      last={i === filteredCalls.length - 1}
                       graphId={graphId}
                       commitHash={commitHash}
                       graphLanguage={graphLanguage}
@@ -933,11 +959,11 @@ function Section({ title, right, children }: { title: string; right?: ReactNode;
         <h3
           style={{
             margin: 0,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: 700,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.07em",
             textTransform: "uppercase",
-            color: UI.textDim,
+            color: UI.textSub,
           }}
         >
           {title}
@@ -951,7 +977,7 @@ function Section({ title, right, children }: { title: string; right?: ReactNode;
 
 function Note({ children }: { children: ReactNode }) {
   return (
-    <p style={{ margin: "0 0 10px", fontSize: 12.5, lineHeight: 1.55, color: UI.textDim }}>{children}</p>
+    <p style={{ margin: "0 0 10px", fontSize: 13, lineHeight: 1.6, color: UI.textDim }}>{children}</p>
   );
 }
 
@@ -959,13 +985,11 @@ function Empty({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
-        border: `1px dashed ${UI.border}`,
-        borderRadius: 9,
-        padding: "11px 13px",
-        fontSize: 12.5,
+        borderLeft: `2px solid ${UI.border}`,
+        padding: "2px 0 2px 12px",
+        fontSize: 13,
         lineHeight: 1.6,
         color: UI.textDim,
-        background: UI.bg,
       }}
     >
       {children}
@@ -986,11 +1010,11 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
           cursor: "help",
         }}
       >
-        <div style={{ fontSize: 11, color: UI.textGhost, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 11.5, color: UI.textDim, marginBottom: 3 }}>{label}</div>
         <div
           style={{
             fontFamily: "'Fira Code', monospace",
-            fontSize: 15,
+            fontSize: 17,
             fontWeight: 600,
             color: UI.text,
             letterSpacing: "-0.01em",
@@ -1215,10 +1239,30 @@ function NodeRow({
         </span>
       </button>
       <span style={{ fontSize: 11.5, color: UI.textGhost, flexShrink: 0 }}>{meta}</span>
-      <button onClick={onOpen} title={`Open ${node.name} in the code view`} style={microBtn} className="hover:bg-white">
-        <HiOutlineCodeBracket size={12} />
-      </button>
+      <MicroCodeBtn name={node.name} onClick={onOpen} />
     </div>
+  );
+}
+
+function MicroCodeBtn({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={`Open ${name} in the code view`}
+      style={microBtn}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = UI.accent;
+        e.currentTarget.style.borderColor = UI.accentBorder;
+        e.currentTarget.style.background = UI.accentSoft;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = UI.textSub;
+        e.currentTarget.style.borderColor = "#d5cec1";
+        e.currentTarget.style.background = UI.surface;
+      }}
+    >
+      <HiOutlineCodeBracket size={13} />
+    </button>
   );
 }
 
@@ -1240,19 +1284,35 @@ function PipeStep({
 }) {
   const markers = markerList(call);
   return (
-    <div style={{ position: "relative", paddingBottom: last ? 0 : 14 }}>
+    <div style={{ position: "relative", paddingBottom: last ? 0 : 18 }}>
       {!last && (
-        <span
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: 11,
-            top: 24,
-            bottom: 0,
-            width: 1,
-            background: UI.border,
-          }}
-        />
+        <>
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 11,
+              top: 25,
+              bottom: 6,
+              width: 2,
+              borderRadius: 2,
+              background: "#d9d2c5",
+            }}
+          />
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 6,
+              bottom: 2,
+              color: "#a9a196",
+              fontSize: 10,
+              lineHeight: 1,
+            }}
+          >
+            ▼
+          </span>
+        </>
       )}
       <div className="flex items-center" style={{ gap: 8 }}>
         <span style={{ ...indexBadge, width: 23, height: 23, borderRadius: 99, zIndex: 1 }}>{index}</span>
@@ -1274,9 +1334,7 @@ function PipeStep({
             border={MARKER_TONES[m.tone].border}
           />
         ))}
-        <button onClick={() => onOpen(call.nodeId)} title={`Open ${call.name} in the code view`} style={microBtn} className="hover:bg-white">
-          <HiOutlineCodeBracket size={12} />
-        </button>
+        <MicroCodeBtn name={call.name} onClick={() => onOpen(call.nodeId)} />
       </div>
     </div>
   );
@@ -1286,6 +1344,7 @@ function PipeStep({
 function FlowStep({
   call,
   index,
+  last,
   graphId,
   commitHash,
   graphLanguage,
@@ -1295,6 +1354,7 @@ function FlowStep({
 }: {
   call: ResolvedCall;
   index: number;
+  last: boolean;
   graphId: string;
   commitHash: string;
   graphLanguage?: string;
@@ -1317,30 +1377,15 @@ function FlowStep({
   return (
     <div
       style={{
+        position: "relative",
         borderTop: index === 1 ? "none" : `1px solid ${UI.borderSubtle}`,
         background: open ? UI.bg : "transparent",
         borderRadius: open ? 9 : 0,
+        paddingBottom: last ? 0 : 8,
       }}
     >
       <div className="flex items-center" style={{ gap: 9, padding: "8px 6px" }}>
         <span style={{ ...indexBadge }}>{index}</span>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          style={{
-            width: 20,
-            height: 20,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "none",
-            background: "transparent",
-            color: UI.textGhost,
-            flexShrink: 0,
-          }}
-          title={open ? "Collapse details" : "Show summary and code"}
-        >
-          {open ? <HiOutlineChevronDown size={13} /> : <HiOutlineChevronRight size={13} />}
-        </button>
         <button
           onClick={() => onFocus(call.nodeId)}
           style={{ ...nameBtn, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -1363,10 +1408,58 @@ function FlowStep({
           {call.firstOrder != null ? `#${call.firstOrder}` : ""}
           {call.line != null ? ` :${call.line}` : ""}
         </span>
-        <button onClick={() => onOpen(call.nodeId)} title={`Open ${call.name} in the code view`} style={microBtn} className="hover:bg-white">
-          <HiOutlineCodeBracket size={12} />
+        <button
+          onClick={() => setOpen((v) => !v)}
+          title={open ? "Hide details" : "Show summary and code"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "0 7px",
+            height: 26,
+            borderRadius: 6,
+            border: `1px solid #d5cec1`,
+            background: open ? UI.elevated : UI.surface,
+            color: UI.textSub,
+            fontSize: 11.5,
+            flexShrink: 0,
+          }}
+        >
+          {open ? <HiOutlineChevronDown size={12} /> : <HiOutlineChevronRight size={12} />}
+          details
         </button>
+        <MicroCodeBtn name={call.name} onClick={() => onOpen(call.nodeId)} />
       </div>
+
+      {/* Sequence cue: the next call runs after this one. */}
+      {!last && (
+        <>
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 15,
+              top: 34,
+              bottom: 4,
+              width: 1,
+              background: UI.border,
+            }}
+          />
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 10,
+              bottom: 2,
+              color: UI.textGhost,
+              fontSize: 9,
+              lineHeight: 1,
+            }}
+          >
+            ▼
+          </span>
+        </>
+      )}
 
       {open && (
         <div style={{ padding: "0 8px 12px 43px" }}>
@@ -1495,9 +1588,7 @@ function CallerBranch({
         <span style={{ fontSize: 11, color: UI.textGhost, flexShrink: 0 }}>
           {node.type.replace(/_/g, " ").toLowerCase()}
         </span>
-        <button onClick={() => onOpen(id)} title={`Open ${node.name} in the code view`} style={microBtn} className="hover:bg-white">
-          <HiOutlineCodeBracket size={12} />
-        </button>
+        <MicroCodeBtn name={node.name} onClick={() => onOpen(id)} />
       </div>
 
       {open && parents.length > 0 && (
@@ -1690,19 +1781,20 @@ const nameBtn: CSSProperties = {
 
 const lineMeta: CSSProperties = {
   fontFamily: "'Fira Code', monospace",
-  fontSize: 11,
-  color: UI.textGhost,
+  fontSize: 11.5,
+  color: UI.textDim,
 };
 
 const microBtn: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: 25,
-  height: 24,
+  width: 28,
+  height: 26,
   borderRadius: 6,
-  border: `1px solid #d9d3c7`,
+  border: `1px solid #d5cec1`,
   background: UI.surface,
   color: UI.textSub,
   flexShrink: 0,
+  transition: "color 120ms, border-color 120ms, background 120ms",
 };

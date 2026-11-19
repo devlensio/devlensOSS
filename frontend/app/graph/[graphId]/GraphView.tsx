@@ -435,11 +435,15 @@ export default function GraphView({ params }: Props) {
   return (
     <div className="h-screen flex flex-col bg-base text-primary overflow-hidden">
       {/*  Navbar  */}
-      {/* z-50 so the Control Center panel can never slide under the
-          subgraph overlay (which is z-20 inside the canvas area). */}
+      {/* The toolbar owns the highest z-index on the page so its Filters panel
+          is never covered. The canvas area stacks its own layers — sidebar 20,
+          subgraph overlay 20, node panel 30, code view 50 — and all of them are
+          descendants of a non-positioned flex item, so they compete in the root
+          stacking context. Beating every one of those numbers is the only way a
+          dropdown opened from the toolbar can stay on top of an open code view. */}
       <nav
         className="border-b border-border px-5 flex items-center gap-3 shrink-0 bg-base/95 backdrop-blur-sm"
-        style={{ position: "relative", zIndex: 50, minHeight: 52 }}
+        style={{ position: "relative", zIndex: 100, minHeight: 52 }}
       >
         <button
           onClick={() => router.back()}

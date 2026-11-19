@@ -447,19 +447,22 @@ function CardNode({ data }: any) {
     [node],
   );
 
-  /** Nodes that call this one — the way back up the stack. */
+  /**
+   * Everything that reaches this node — the way back up the stack.
+   *
+   * CALLS-only was too narrow: the engine emits USES for a function that is
+   * referenced and then invoked through a wrapper, so a node with real callers
+   * showed an empty list. Any incoming edge counts; the chip names the relation.
+   */
   const callers = useMemo(() => {
     if (!edges || !node) return [];
-    const seen = new Set<string>();
-    const out: CodeNode[] = [];
+    const seen = new Map<string, string>();
     for (const e of edges) {
-      if (e.to !== node.id || e.type !== "CALLS" || seen.has(e.from)) continue;
-      const n = nodesById[e.from];
-      if (!n) continue;
-      seen.add(e.from);
-      out.push(n);
+      if (e.to !== node.id || e.from === node.id) continue;
+      if (!nodesById[e.from]) continue;
+      if (!seen.has(e.from)) seen.set(e.from, e.type);
     }
-    return out;
+    return [...seen.entries()].map(([id, type]) => ({ node: nodesById[id], type }));
   }, [edges, node, nodesById]);
 
   const lines = useMemo<string[]>(() => (code ? code.split("\n") : []), [code]);
@@ -636,9 +639,9 @@ function CardNode({ data }: any) {
               {showCallers && (
                 <div className="flex flex-wrap" style={{ gap: 5, marginTop: 7 }}>
                   {callers.map((c) => (
-                    <Hint key={c.id} label={`${EDGE_INFO.CALLS} Open it to the left of this card.`}>
+                    <Hint key={c.node.id} label={`${EDGE_INFO[c.type] ?? c.type} Open it to the left of this card.`}>
                       <button
-                        onClick={() => onOpenRelated(c.id, undefined, "caller")}
+                        onClick={() => onOpenRelated(c.node.id, undefined, "caller")}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -652,7 +655,7 @@ function CardNode({ data }: any) {
                           fontSize: 11,
                         }}
                       >
-                        {c.name}
+                        {c.node.name}
                       </button>
                     </Hint>
                   ))}

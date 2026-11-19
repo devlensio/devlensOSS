@@ -262,6 +262,29 @@ export default function SubgraphOverlay({
           }
         />
 
+        {/* Mode chip — the overlay is three different views; say which one. */}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 9px",
+            borderRadius: 999,
+            border: `1px solid ${current.mode === "blast" ? "rgba(185,28,28,0.3)" : UI.accentBorder}`,
+            background: current.mode === "blast" ? "rgba(185,28,28,0.06)" : UI.accentSoft,
+            color: current.mode === "blast" ? "#b91c1c" : UI.accent,
+            fontSize: 11.5,
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {current.mode === "blast"
+            ? `Blast radius · ${current.hopDepth ?? "all"} hops back`
+            : current.mode === "khop"
+              ? `K-hop · ${current.hopDepth ?? "all"} hops out`
+              : "Full neighbourhood"}
+        </span>
+
         <div className="flex-1" />
 
         {/* Node count */}
