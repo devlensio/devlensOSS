@@ -57,7 +57,10 @@ interface Props {
   activeNodeId?: string | null;
   onClose: () => void;
   onFocusNode: (nodeId: string) => void;
-  onOpenCode?: (nodeId: string) => void;
+  /** Leave the code view and open this node in the details panel. */
+  onOpenPanel?: (nodeId: string) => void;
+  /** Leave the code view and focus this node on the canvas. */
+  onShowInGraph?: (nodeId: string) => void;
 }
 
 let seq = 0;
@@ -95,7 +98,8 @@ function Inner({
   activeNodeId,
   onClose,
   onFocusNode,
-  onOpenCode,
+  onOpenPanel,
+  onShowInGraph,
 }: Props) {
   const [cards, setCards] = useState<CardModel[]>([{ cardId: `c${++seq}`, nodeId: rootNodeId, role: "callee" }]);
   // Positions live in React Flow's store while dragging. Mirroring them into
@@ -190,7 +194,8 @@ function Inner({
           onOpenRelated: (id: string, call?: ResolvedCall, role: "callee" | "caller" = "callee") =>
             openRelated(c.cardId, id, role, call),
           onFocusNode,
-          onOpenCode,
+          onOpenPanel,
+          onShowInGraph,
           onToggle: () =>
             setCards((prev) =>
               prev.map((x) => (x.cardId === c.cardId ? { ...x, minimized: !x.minimized } : x)),
@@ -198,13 +203,15 @@ function Inner({
           onRemove: () => removeCard(c.cardId),
           onBack: back,
           cardIndex: cards.indexOf(c),
+          isLastCard: cards.indexOf(c) === cards.length - 1,
           active: activeNodeId === c.nodeId,
+          openNodeIds: new Set(cards.map((x) => x.nodeId)),
         },
         style: { width: CARD_W },
         draggable: true,
         dragHandle: ".card-drag",
       })),
-    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenCode, removeCard, back, activeNodeId, posVersion],
+    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenPanel, onShowInGraph, removeCard, back, activeNodeId, posVersion],
   );
 
   const rfEdges: Edge[] = useMemo(
@@ -361,7 +368,6 @@ function Inner({
           minZoom={0.2}
           maxZoom={1.5}
           proOptions={{ hideAttribution: true }}
-          onNodeClick={(_, n) => onFocusNode(((n.data as any).model as CardModel).nodeId)}
           elevateNodesOnSelect
           defaultEdgeOptions={{ type: "default" }}
         >
@@ -396,12 +402,15 @@ function CardNode({ data }: any) {
     nodesById,
     onOpenRelated,
     onFocusNode,
-    onOpenCode,
+    onOpenPanel,
+    onShowInGraph,
     onToggle,
     onRemove,
     onBack,
     cardIndex,
+    isLastCard,
     active,
+    openNodeIds,
   } = data as {
     model: CardModel;
     parentName?: string;
@@ -413,12 +422,15 @@ function CardNode({ data }: any) {
     nodesById: Record<string, CodeNode>;
     onOpenRelated: (id: string, call?: ResolvedCall, role?: "callee" | "caller") => void;
     onFocusNode: (id: string) => void;
-    onOpenCode?: (id: string) => void;
+    onOpenPanel?: (id: string) => void;
+    onShowInGraph?: (id: string) => void;
     onToggle: () => void;
     onRemove: () => void;
     onBack: () => void;
     cardIndex: number;
+    isLastCard: boolean;
     active: boolean;
+    openNodeIds: Set<string>;
   };
 
   const { data: codeData, isLoading } = useNodeCode(graphId, commitHash, node?.id ?? null);
@@ -641,8 +653,16 @@ function CardNode({ data }: any) {
               {showCallers && (
                 <div className="flex flex-wrap" style={{ gap: 5, marginTop: 7 }}>
                   {callers.map((c) => (
-                    <Hint key={c.node.id} label={`${EDGE_INFO[c.type] ?? c.type} Open it to the left of this card.`}>
+                    <Hint
+                      key={c.node.id}
+                      label={
+                        openNodeIds.has(c.node.id)
+                          ? `${c.node.name} is already open in this view.`
+                          : `${EDGE_INFO[c.type] ?? c.type} Open it to the left of this card.`
+                      }
+                    >
                       <button
+                        disabled={openNodeIds.has(c.node.id)}
                         onClick={() => onOpenRelated(c.node.id, undefined, "caller")}
                         style={{
                           display: "inline-flex",
@@ -650,11 +670,12 @@ function CardNode({ data }: any) {
                           gap: 5,
                           padding: "2px 7px",
                           borderRadius: 5,
-                          border: `1px solid ${CODE.green}55`,
-                          background: `${CODE.green}12`,
-                          color: CODE.green,
+                          border: `1px solid ${openNodeIds.has(c.node.id) ? CODE.border : `${CODE.green}55`}`,
+                          background: openNodeIds.has(c.node.id) ? "transparent" : `${CODE.green}12`,
+                          color: openNodeIds.has(c.node.id) ? CODE.textDim : CODE.green,
                           fontFamily: "'Fira Code', monospace",
                           fontSize: 11,
+                          cursor: openNodeIds.has(c.node.id) ? "default" : "pointer",
                         }}
                       >
                         {c.node.name}
@@ -776,6 +797,7 @@ function CardNode({ data }: any) {
                       label={
                         <span>
                           <b>{c.name}</b>
+                          {openNodeIds.has(c.nodeId) ? " — already open in this view." : ""}
                           {markers.length > 0 && <><br />{markers.map((m) => m.info).join(" ")}</>}
                           <br />
                           Click to open this call as a card.
@@ -812,7 +834,9 @@ function CardNode({ data }: any) {
                             · {markers.map((m) => m.label).join(" · ")}
                           </span>
                         )}
-                        <span style={{ marginLeft: "auto", flexShrink: 0, color }}>→</span>
+                        <span style={{ marginLeft: "auto", flexShrink: 0, color: openNodeIds.has(c.nodeId) ? CODE.textDim : color }}>
+                          {openNodeIds.has(c.nodeId) ? "•" : "→"}
+                        </span>
                       </button>
                     </Hint>
                   );
@@ -835,17 +859,17 @@ function CardNode({ data }: any) {
               {calls.length} call{calls.length === 1 ? "" : "s"} · {lines.length} lines
             </span>
             <div className="ml-auto flex items-center" style={{ gap: 6 }}>
-              {onOpenCode && (
-                <FooterBtn onClick={() => onOpenCode(node.id)} tone={CODE.purple}>
+              {onOpenPanel && (
+                <FooterBtn onClick={() => onOpenPanel(node.id)} tone={CODE.purple}>
                   <HiOutlineCodeBracket size={11} />
                   Panel
                 </FooterBtn>
               )}
-              <FooterBtn onClick={() => onFocusNode(node.id)} tone={CODE.cyan}>
+              <FooterBtn onClick={() => (onShowInGraph ?? onFocusNode)(node.id)} tone={CODE.cyan}>
                 <HiOutlineCubeTransparent size={11} />
                 Show in graph
               </FooterBtn>
-              {cardIndex > 0 && (
+              {cardIndex > 0 && isLastCard && (
                 <FooterBtn onClick={onBack} tone={CODE.textSub}>
                   ← Back
                 </FooterBtn>

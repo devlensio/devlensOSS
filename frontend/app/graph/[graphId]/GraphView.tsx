@@ -415,6 +415,26 @@ export default function GraphView({ params }: Props) {
     }
   }
 
+  /**
+   * Card footer destinations. Both of them leave the code view first: the panel
+   * and the canvas are *behind* that overlay, so acting on them without closing
+   * it made the buttons look broken.
+   */
+  function handlePanelFromCode(id: string) {
+    setCodeStack([]);
+    setFocusedNodeId(id);
+    const node = graph?.nodesById[id];
+    if (overlay.isOpen) overlay.navigate(id, node?.type as NodeType);
+  }
+
+  function handleGraphFromCode(id: string) {
+    setCodeStack([]);
+    setFocusedNodeId(null);
+    const node = graph?.nodesById[id];
+    if (overlay.isOpen) overlay.navigate(id, node?.type as NodeType);
+    else canvasRef.current?.focusNode(id);
+  }
+
   /** Pop one overlay, keeping the panel on whatever node we land back on. */
   function handleOverlayBack() {
     const prev = overlay.overlayStack[overlay.overlayStack.length - 2];
@@ -699,7 +719,8 @@ export default function GraphView({ params }: Props) {
                 activeNodeId={focusedNodeId}
                 onClose={() => setCodeStack([])}
                 onFocusNode={handleNodeFocus}
-                onOpenCode={(id) => setCodeStack([id])}
+                onOpenPanel={handlePanelFromCode}
+                onShowInGraph={handleGraphFromCode}
               />
             )}
 

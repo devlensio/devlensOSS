@@ -30,6 +30,30 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* DevLens is a light product. Without this, the browser treats the document as
+   dark-capable and lets `prefers-color-scheme: dark` leak into UA-painted
+   surfaces and into libraries that ship light-dark() defaults. */
+html { color-scheme: light; }
+
+/* React Flow ships `color-scheme: light dark` plus `light-dark()` defaults,
+   including `--xy-background-color-default: light-dark(transparent, #141414)`.
+   On a machine that prefers dark, its pane therefore painted itself #141414 —
+   a black canvas inside our light code view — no matter what the component
+   style said. Pin the surface to our tokens so the theme is ours, not the OS's. */
+.react-flow {
+  color-scheme: light;
+  --xy-background-color: #f7f5f0;
+  --xy-background-color-default: #f7f5f0;
+  --xy-background-pattern-dots-color-default: #ddd6c9;
+  --xy-minimap-background-color: #ffffff;
+  --xy-minimap-mask-background-color: rgba(247, 245, 240, 0.82);
+  --xy-minimap-node-background-color: #e2e2e2;
+  --xy-controls-button-background-color: #ffffff;
+  --xy-controls-button-background-color-hover: #f4f2ec;
+  --xy-edge-label-background-color: #ffffff;
+  --xy-attribution-background-color: rgba(255, 255, 255, 0.6);
+}
+
 /* Every interactive affordance says it is interactive. */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
