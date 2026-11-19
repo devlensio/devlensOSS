@@ -11,6 +11,7 @@ import {
   Position,
   MarkerType,
   useReactFlow,
+  useNodesState,
   type Node,
   type Edge,
 } from "@xyflow/react";
@@ -32,7 +33,13 @@ import {
 } from "@/components/icons";
 
 const LINE_H = 22;
+
+/** Types that intentionally have no source body (they reference code instead). */
+const NO_BODY_TYPES = new Set(["ROUTE", "GHOST", "PACKAGE", "THIRD_PARTY"]);
 const CARD_W = 620;
+const CARD_H = 600;
+const MIN_CARD_W = 420;
+const MIN_CARD_H = 240;
 const CARD_GAP_X = 150;
 const CARD_GAP_Y = 110;
 
@@ -45,6 +52,9 @@ interface CardModel {
   call?: ResolvedCall;
   role?: "callee" | "caller";
   minimized?: boolean;
+  /** Card size once the user has dragged the corner handle. */
+  w?: number;
+  h?: number;
 }
 
 interface Props {
@@ -101,15 +111,17 @@ function Inner({
   onOpenPanel,
   onShowInGraph,
 }: Props) {
-  const [cards, setCards] = useState<CardModel[]>([{ cardId: `c${++seq}`, nodeId: rootNodeId, role: "callee" }]);
-  // Positions live in React Flow's store while dragging. Mirroring them into
-  // React state on every pointer move re-rendered every card (hundreds of
-  // highlighted lines each) in the middle of the gesture, which is what made
-  // the canvas blank out until the drag ended.
+  // Positions belong to React Flow: nodes are uncontrolled (`defaultPosition`
+  // only), so dragging moves the DOM directly and never waits for React. The
+  // ref holds the *initial* spot for cards that do not exist yet.
   const posRef = useRef<Record<string, { x: number; y: number }>>({});
-  // Bumped when the position ref changes, so the memo below re-reads it.
-  const [posVersion, setPosVersion] = useState(0);
+  const [cards, setCards] = useState<CardModel[]>(() => {
+    const cardId = `c${++seq}`;
+    posRef.current[cardId] = { x: 24, y: 18 };
+    return [{ cardId, nodeId: rootNodeId, role: "callee" }];
+  });
   const rf = useReactFlow();
+  const sizesRef = useRef<Record<string, { w: number; h: number }>>({});
 
   const cardById = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
 
@@ -118,11 +130,14 @@ function Inner({
       setCards((prev) => {
         if (prev.some((c) => c.nodeId === nodeId)) return prev;
         const parent = prev.find((c) => c.cardId === parentCardId);
-        const base = posRef.current[parentCardId] ?? { x: 0, y: 0 };
+        // A card the user has dragged lives at its React Flow position, not the
+        // spawn point, so children are placed relative to where it is now.
+        const base = rf.getNode(parentCardId)?.position ?? posRef.current[parentCardId] ?? { x: 0, y: 0 };
         const siblings = prev.filter((c) => c.parentCardId === parentCardId).length;
         const cardId = `c${++seq}`;
+        const parentW = sizesRef.current[parentCardId]?.w ?? CARD_W;
         posRef.current[cardId] = {
-          x: base.x + (role === "caller" ? -(CARD_W + CARD_GAP_X) : CARD_W + CARD_GAP_X),
+          x: base.x + (role === "caller" ? -(parentW + CARD_GAP_X) : parentW + CARD_GAP_X),
           y: base.y + siblings * CARD_GAP_Y,
         };
         return [
@@ -176,43 +191,92 @@ function Inner({
     if (cards.length === 0) onClose();
   }, [cards.length, onClose]);
 
-  const nodes: Node[] = useMemo(
-    () =>
-      cards.map((c) => ({
-        id: c.cardId,
-        type: "card",
-        position: posRef.current[c.cardId] ?? { x: 0, y: 0 },
-        data: {
-          model: c,
-          parentName: c.parentCardId ? nodesById[cardById.get(c.parentCardId)?.nodeId ?? ""]?.name : undefined,
-          node: nodesById[c.nodeId],
-          graphId,
-          commitHash,
-          graphLanguage,
-          edges,
-          nodesById,
-          onOpenRelated: (id: string, call?: ResolvedCall, role: "callee" | "caller" = "callee") =>
-            openRelated(c.cardId, id, role, call),
-          onFocusNode,
-          onOpenPanel,
-          onShowInGraph,
-          onToggle: () =>
-            setCards((prev) =>
-              prev.map((x) => (x.cardId === c.cardId ? { ...x, minimized: !x.minimized } : x)),
-            ),
-          onRemove: () => removeCard(c.cardId),
-          onBack: back,
-          cardIndex: cards.indexOf(c),
-          isLastCard: cards.indexOf(c) === cards.length - 1,
-          active: activeNodeId === c.nodeId,
-          openNodeIds: new Set(cards.map((x) => x.nodeId)),
-        },
-        style: { width: CARD_W },
-        draggable: true,
-        dragHandle: ".card-drag",
-      })),
-    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenPanel, onShowInGraph, removeCard, back, activeNodeId, posVersion],
-  );
+  /**
+   * Corner resize. Sizes are React state (they change the card's box, not its
+   * transform), but pointer events are coalesced into one update per frame so a
+   * fast drag does not re-render the highlighted code on every mousemove.
+   */
+  const startResize = useCallback((e: React.MouseEvent, cardId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const start = sizesRef.current[cardId] ?? { w: CARD_W, h: CARD_H };
+    let pending = { ...start };
+    let raf = 0;
+    const flush = () => {
+      raf = 0;
+      sizesRef.current[cardId] = pending;
+      setCards((prev) => prev.map((c) => (c.cardId === cardId ? { ...c, w: pending.w, h: pending.h } : c)));
+    };
+    const move = (ev: MouseEvent) => {
+      pending = {
+        w: Math.max(MIN_CARD_W, Math.min(1600, start.w + (ev.clientX - startX))),
+        h: Math.max(MIN_CARD_H, Math.min(1400, start.h + (ev.clientY - startY))),
+      };
+      if (!raf) raf = requestAnimationFrame(flush);
+    };
+    const up = () => {
+      if (raf) cancelAnimationFrame(raf);
+      flush();
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "nwse-resize";
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  }, []);
+
+  // React Flow owns node positions; `data` is rebuilt only when the card list or
+  // its inputs change. During a drag only the position updates, the data object
+  // keeps its identity, and the memoised card body skips re-rendering — which is
+  // what makes the card follow the pointer instead of teleporting at drop.
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+
+  useEffect(() => {
+    setNodes((prev) => {
+      const byId = new Map(prev.map((n) => [n.id, n]));
+      return cards.map((c) => {
+        const existing = byId.get(c.cardId);
+        return {
+          id: c.cardId,
+          type: "card",
+          position: existing?.position ?? posRef.current[c.cardId] ?? { x: 0, y: 0 },
+          data: {
+            model: c,
+            parentName: c.parentCardId ? nodesById[cardById.get(c.parentCardId)?.nodeId ?? ""]?.name : undefined,
+            node: nodesById[c.nodeId],
+            graphId,
+            commitHash,
+            graphLanguage,
+            edges,
+            nodesById,
+            onOpenRelated: (id: string, call?: ResolvedCall, role: "callee" | "caller" = "callee") =>
+              openRelated(c.cardId, id, role, call),
+            onFocusNode,
+            onOpenPanel,
+            onShowInGraph,
+            onToggle: () =>
+              setCards((p) => p.map((x) => (x.cardId === c.cardId ? { ...x, minimized: !x.minimized } : x))),
+            onRemove: () => removeCard(c.cardId),
+            onBack: back,
+            onResizeStart: (e: React.MouseEvent) => startResize(e, c.cardId),
+            cardIndex: cards.indexOf(c),
+            isLastCard: cards.indexOf(c) === cards.length - 1,
+            active: activeNodeId === c.nodeId,
+            openNodeIds: new Set(cards.map((x) => x.nodeId)),
+          },
+          style: { width: c.w ?? CARD_W },
+          draggable: true,
+          dragHandle: ".card-drag",
+        } as Node;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, nodesById, graphId, commitHash, graphLanguage, edges, activeNodeId, cardById]);
 
   const rfEdges: Edge[] = useMemo(
     () =>
@@ -241,30 +305,6 @@ function Inner({
         }),
     [cards],
   );
-
-  const onNodesChange = useCallback((changes: any) => {
-    const arr: any[] = typeof changes?.toArray === "function" ? changes.toArray() : (changes ?? []);
-    let dirty = false;
-    for (const ch of arr) {
-      if (ch.type === "position" && ch.position) {
-        posRef.current[ch.id] = ch.position;
-        dirty = true;
-      }
-    }
-    if (dirty) setPosVersion((n) => n + 1);
-  }, []);
-
-  // The first card is pinned near the top-left at 1:1 rather than fitted:
-  // fitting a 600px-tall card into a shorter pane silently clipped it at the
-  // bottom and left dead space above. Later cards still get a fitView so the
-  // tree stays in frame.
-  useEffect(() => {
-    const root = cards[0];
-    if (!root || posRef.current[root.cardId]) return;
-    posRef.current[root.cardId] = { x: 24, y: 18 };
-    setPosVersion((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Keep every open card in view as the tree grows; without this a new child
   // lands outside the viewport and the click looks like a no-op.
@@ -307,7 +347,7 @@ function Inner({
       next[c.cardId] = { x: d * (CARD_W + CARD_GAP_X), y: i * 620 };
     }
     posRef.current = next;
-    setPosVersion((n) => n + 1);
+    rf.setNodes((current) => current.map((n) => ({ ...n, position: next[n.id] ?? n.position })));
     setTimeout(() => rf.fitView({ padding: 0.14, duration: 380, maxZoom: 1 }), 60);
   }
 
@@ -386,11 +426,11 @@ function Inner({
   );
 }
 
-const nodeTypes = { card: CardNode };
+
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-function CardNode({ data }: any) {
+function CardNodeInner({ data }: any) {
   const {
     model,
     parentName,
@@ -407,6 +447,7 @@ function CardNode({ data }: any) {
     onToggle,
     onRemove,
     onBack,
+    onResizeStart,
     cardIndex,
     isLastCard,
     active,
@@ -427,6 +468,7 @@ function CardNode({ data }: any) {
     onToggle: () => void;
     onRemove: () => void;
     onBack: () => void;
+    onResizeStart: (e: React.MouseEvent) => void;
     cardIndex: number;
     isLastCard: boolean;
     active: boolean;
@@ -496,15 +538,37 @@ function CardNode({ data }: any) {
       className="rounded-xl overflow-hidden flex flex-col"
       data-card={model.cardId}
       style={{
+        position: "relative",
         background: CODE.bg,
         border: `1px solid ${active ? CODE.cyan : CODE.border}`,
         boxShadow: active ? `0 0 0 1px ${CODE.cyan}55, 0 24px 56px rgba(0,0,0,0.55)` : "0 18px 40px rgba(0,0,0,0.45)",
-        maxHeight: model.minimized ? 52 : "min(600px, calc(100vh - 220px))",
+        // A dragged size wins; otherwise stay within the viewport.
+        height: model.minimized ? 52 : model.h,
+        maxHeight: model.minimized ? 52 : model.h ?? "min(600px, calc(100vh - 220px))",
         color: CODE.text,
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+
+      {/* Corner grip: drag to resize the card in both axes. */}
+      {!model.minimized && (
+        <div
+          className="nodrag"
+          onMouseDown={onResizeStart}
+          title="Drag to resize this card"
+          style={{
+            position: "absolute", right: 0, bottom: 0, width: 20, height: 20,
+            cursor: "nwse-resize", zIndex: 20,
+            display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+            padding: 3, color: CODE.textDim,
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+            <path d="M9 1 1 9M9 5 5 9" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
 
       {/* ── Header (drag handle) ─────────────────────────────────────── */}
       <div
@@ -712,13 +776,28 @@ function CardNode({ data }: any) {
               </div>
             )}
             {!isLoading && !codeError && lines.length === 0 && (
-              <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim, lineHeight: 1.6 }}>
-                The engine stored no source for this {node.type.replace(/_/g, " ").toLowerCase()} node.
-                <div style={{ marginTop: 4, color: CODE.textDim }}>
-                  Structural nodes such as ROUTE, PACKAGE and THIRD_PARTY point at code rather than
-                  owning a body.
+              NO_BODY_TYPES.has(node.type) ? (
+                <div style={{ padding: "14px 12px", fontSize: 12, color: CODE.textDim, lineHeight: 1.6 }}>
+                  {node.type.replace(/_/g, " ")} nodes point at code rather than owning a body, so
+                  there is nothing to show here. Open the file node, or one of its members, instead.
                 </div>
-              </div>
+              ) : (
+                <div style={{ padding: "14px 12px", fontSize: 12.5, color: CODE.textDim, lineHeight: 1.6 }}>
+                  The engine returned no source for this {node.type.replace(/_/g, " ").toLowerCase()} node.
+                  That usually means the graph was being rebuilt when the request went out.
+                  <button
+                    onClick={() => refetchCode()}
+                    style={{
+                      display: "block",
+                      marginTop: 8, padding: "4px 10px", borderRadius: 6,
+                      border: `1px solid ${CODE.border}`, background: CODE.elevated,
+                      color: CODE.text, fontSize: 12,
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )
             )}
             {lines.length > 0 && (
               <div className="relative" style={{ minHeight: lines.length * LINE_H }}>
@@ -985,3 +1064,10 @@ const barBtn: React.CSSProperties = {
   fontWeight: 500,
   cursor: "pointer",
 };
+/**
+ * The card body renders hundreds of highlighted lines, so it must not re-render
+ * once per drag frame. Its `data` object is stable across a drag (only the node
+ * position changes), which is exactly what this comparator relies on.
+ */
+const CardNode = memo(CardNodeInner, (a: any, b: any) => a.data === b.data);
+const nodeTypes = { card: CardNode };

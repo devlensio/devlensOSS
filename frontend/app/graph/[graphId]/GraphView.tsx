@@ -653,6 +653,11 @@ export default function GraphView({ params }: Props) {
             <div className="text-[13px] leading-relaxed break-words">
               {job.error || "The engine did not report a reason."}
             </div>
+            {/commit data not found/i.test(job.error ?? "") && (
+              <div className="text-[12.5px] leading-relaxed text-muted mt-1">
+                The stored graph for that commit is missing — re-analyze the repository to rebuild it.
+              </div>
+            )}
           </div>
           <button
             onClick={() => handleReanalyze(true)}
