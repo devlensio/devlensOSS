@@ -208,7 +208,7 @@ DevLens ships a local web app over the same graph the CLI and MCP server read. N
 
 ### What you can actually do in it
 
-| | |
+| Feature | What it gives you |
 | :-- | :-- |
 | **Read the map, not the folder tree** | Every file, component, hook, route, class and test is a node sized by importance. The highest-impact nodes keep their labels at overview zoom, so the first screen is a summary of where the weight sits — not an unlabelled hairball. |
 | **Ask a node what it is** | Click any node for its business and technical summary, then the **execution pipeline**: the calls its body makes, numbered in the order it makes them, with `await`, `loop`, `maybe` and `×N` markers. |
@@ -229,6 +229,10 @@ DevLens ships a local web app over the same graph the CLI and MCP server read. N
 </tr>
 </table>
 
+![runSummarization in devlens-engine: 20 resolved calls in body order](assets/screenshots/09-engine-flow.png)
+
+*The Flow tab on a real function (`runSummarization` in devlens-engine): twenty resolved calls, numbered in the order the body makes them. Nothing is collapsed into "and 18 more".*
+
 ![Blast radius — what depends on this node, two hops back](assets/screenshots/04-blast-radius.png)
 
 <table>
@@ -239,6 +243,17 @@ DevLens ships a local web app over the same graph the CLI and MCP server read. N
 <tr>
 <td><em>Code view: source cards for a function and the calls it makes. Click a badge to open the callee; <b>Called by</b> walks back up.</em></td>
 <td><em>Upstream: who reaches this node, expandable up the call chain.</em></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="50%"><img src="assets/screenshots/07b-code-map.png" alt="Call badges aligned to the lines that make them" /></td>
+<td width="50%"><img src="assets/screenshots/07c-code-view-caller.png" alt="A caller opened as a second card" /></td>
+</tr>
+<tr>
+<td><em>Every call badge sits on the line that makes the call, with its ordering flags — <code>await</code>, <code>maybe</code>, <code>×N</code>. Click it to open the callee as a card.</em></td>
+<td><em>Walk the stack in place: a caller opens to the left of the card, arrow pointing the way the call goes.</em></td>
 </tr>
 </table>
 
@@ -399,7 +414,7 @@ The same operations are available over HTTP: `POST /api/reindex` and `POST /api/
 <img src="assets/screenshots/01-home.png" alt="Analyzed repositories" width="49%" />
 <img src="assets/screenshots/05-filters.png" alt="Filter control centre" width="49%" />
 <br/>
-<em>Repository list · filter control centre with live counts</em>
+<em>Repository list · filter control centre with live counts from your graph</em>
 </div>
 
 <br/>
