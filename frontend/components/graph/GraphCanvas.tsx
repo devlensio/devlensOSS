@@ -317,10 +317,12 @@ interface GraphCanvasProps {
   nodes:        CodeNode[];
   edges:        CodeEdge[];
   onNodeClick?: (nodeId: string) => void;
+  /** When set, everything outside the node's closed neighbourhood is dimmed. */
+  focusedNodeId?: string | null;
 }
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
-  ({ nodes, edges, onNodeClick }, ref) => {
+  ({ nodes, edges, onNodeClick, focusedNodeId }, ref) => {
     const containerRef  = useRef<HTMLDivElement>(null);
     const cyRef         = useRef<cytoscape.Core | null>(null);
     const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -328,19 +330,23 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
 
     useImperativeHandle(ref, () => ({
       focusNode(nodeId: string) {
-        const cy = cyRef.current;
-        if (!cy) return;
-        const node = cy.getElementById(nodeId);
-        if (node.empty()) return;
-        cy.animate(
-          { fit: { eles: node, padding: 250 }, easing: "ease-in-out-cubic" },
-          { duration: 500 },
-        );
-        cy.elements().unselect();
-        cy.nodes().style("z-index", 1);
-        node.select();
-        node.style("z-index", 9999);
-      },
+              const cy = cyRef.current;
+              if (!cy) return;
+              const node = cy.getElementById(nodeId);
+              if (node.empty()) return;
+              const hood = node.closedNeighborhood();
+              cy.elements().removeClass("ego-dim ego-focus");
+              if (hood.length > 1) cy.elements().difference(hood).addClass("ego-dim");
+              node.connectedEdges().addClass("ego-focus");
+              cy.animate(
+                { fit: { eles: hood.length > 1 ? hood : node, padding: 120 }, easing: "ease-in-out-cubic" },
+                { duration: 500 },
+              );
+              cy.elements().unselect();
+              cy.nodes().style("z-index", 1);
+              node.select();
+              node.style("z-index", 9999);
+            },
 
       highlightNodes(nodeIds: string[]) {
         const cy = cyRef.current;
@@ -420,7 +426,20 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
     }));
 
     useEffect(() => {
-      if (!containerRef.current) return;
+          const cy = cyRef.current;
+          if (!cy) return;
+          cy.elements().removeClass("ego-dim ego-focus");
+          if (!focusedNodeId) return;
+          const node = cy.getElementById(focusedNodeId);
+          if (node.empty()) return;
+          const hood = node.closedNeighborhood();
+          cy.elements().difference(hood).addClass("ego-dim");
+          node.connectedEdges().addClass("ego-focus");
+          cy.animate({ fit: { eles: hood, padding: 90 } }, { duration: 450, easing: "ease-in-out-cubic" });
+        }, [focusedNodeId]);
+
+        useEffect(() => {
+          if (!containerRef.current) return;
 
       cyRef.current = cytoscape({
         container: containerRef.current,

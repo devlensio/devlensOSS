@@ -6,7 +6,9 @@ import { useGraph, useJob, useGraphMeta, useAnalyze } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { keys } from "@/lib/hooks";
 import GraphCanvas, { GraphCanvasHandle } from "@/components/graph/GraphCanvas";
-import NodeDetailPanel, { DiffInfo } from "@/components/graph/NodeDetailPanel";
+import type { DiffInfo } from "@/components/graph/NodeDetailPanel";
+import NodePanel from "@/components/graph/NodePanel";
+import CodeFlow from "@/components/graph/CodeFlow";
 import Sidebar from "@/components/graph/Sidebar";
 import { EdgeType, NodeType, NodeDiff, RenderingBoundary } from "@/lib/types";
 import FilterBar from "@/components/graph/FilterBar";
@@ -68,6 +70,7 @@ export default function GraphView({ params }: Props) {
   const [reanalyzing, setReanalyzing] = useState(false);
   const [reloadPending, setReloadPending] = useState(false);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [codeStack, setCodeStack] = useState<string[]>([]);
   const [activeNodeTypes, setActiveNodeTypes] =
     useState<NodeType[]>(DEFAULT_NODE_TYPES);
   const [activeEdgeTypes, setActiveEdgeTypes] =
@@ -611,9 +614,10 @@ export default function GraphView({ params }: Props) {
         {!isAnalyzing && !graphLoading && !reanalyzing && graph && (
           <div className="absolute inset-0">
             <GraphCanvas
-              ref={canvasRef}
-              nodes={visibleNodes}
-              edges={visibleEdges}
+                          ref={canvasRef}
+                          nodes={visibleNodes}
+                          edges={visibleEdges}
+                          focusedNodeId={focusedNodeId}
               onNodeClick={(id) => {
                 if (id) {
                   handleNodeFocus(id);
@@ -636,29 +640,38 @@ export default function GraphView({ params }: Props) {
               onDiffClear={handleDiffClear}
             />
 
-            {/* NodeDetailPanel */}
-            {focusedNodeId && (
-              <NodeDetailPanel
-                nodeId={focusedNodeId}
-                graphId={graphId}
-                commitHash={graph.gitInfo.commitHash}
-                nodesById={graph.nodesById}
-                edges={graph.edges}
-                graphLanguage={
-                  graph.fingerprint?.language as string | undefined
-                }
-                onClose={() => {
-                  setFocusedNodeId(null);
-                  clearHighlight();
-                }}
-                onNodeFocus={handleNodeFocus}
-                onHighlight={highlight}
-                onClearHighlight={clearHighlight}
-                onUpdateOverlay={overlay.isOpen ? overlay.updateFilters : undefined}
-                diffInfo={focusedNodeDiffInfo}
-                diffFromHash={diffMode ? diffFromHash : undefined}
-              />
-            )}
+            {/* Node panel */}
+                        {focusedNodeId && graph && (
+                          <NodePanel
+                                          node={graph.nodesById[focusedNodeId]}
+                                          graphId={graphId}
+                                          commitHash={graph.gitInfo.commitHash}
+                                          graphLanguage={graph.fingerprint?.language as string | undefined}
+                                          nodesById={graph.nodesById}
+                                          edges={graph.edges}
+                            onClose={() => {
+                              setFocusedNodeId(null);
+                              setCodeStack([]);
+                              clearHighlight();
+                            }}
+                            onNodeFocus={handleNodeFocus}
+                            onOpenCode={(id) => setCodeStack([id])}
+                          />
+                        )}
+
+            {codeStack.length > 0 && graph && (
+                          <CodeFlow
+                            graphId={graphId}
+                            commitHash={graph.gitInfo.commitHash}
+                            graphLanguage={graph.fingerprint?.language as string | undefined}
+                            nodesById={graph.nodesById}
+                            edges={graph.edges}
+                            rootNodeId={codeStack[0]}
+                            activeNodeId={focusedNodeId}
+                            onClose={() => setCodeStack([])}
+                            onFocusNode={handleNodeFocus}
+                          />
+                        )}
 
             {overlay.isOpen && overlay.current && (
               <SubgraphOverlay

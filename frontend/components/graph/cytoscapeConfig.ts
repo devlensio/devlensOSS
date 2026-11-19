@@ -278,10 +278,11 @@ export function getCytoscapeStyles(
       selector: "edge",
       style: {
         label:                     "data(label)",
-        "font-size":               "9px",
+        "font-size":               "10px",
         "font-weight":             "500",
         color:                     "#e2e8f0",
-        "text-rotation":           "autorotate" as any,
+        // Horizontal pills read far better than labels rotated along the edge.
+        "text-rotation":           "none" as any,
         "text-margin-y":           -10,
         "text-outline-width":      0,
         "text-background-color":   "#1e293b",
@@ -334,6 +335,39 @@ export function getCytoscapeStyles(
         "border-color": "#f0f6fc",
         opacity:        1,
       },
+    },
+
+    // ── Focus mode ───────────────────────────────────────────────────────────
+    // A selected node dims everything outside its closed neighbourhood, so the
+    // ego network is the only thing on screen. Edge ordinals are promoted to a
+    // readable pill: 9px labels on a thousand-node canvas were unreadable.
+    {
+      selector: "node.ego-dim",
+      style: {
+        opacity: 0.08,
+      } as any,
+    },
+    {
+      selector: "edge.ego-dim",
+      style: {
+        opacity: 0.06,
+      } as any,
+    },
+    {
+      selector: "edge.ego-focus",
+      style: {
+        "font-size":                 12,
+        width:                       2,
+        "text-background-color":     "#0d1117",
+        "text-background-opacity":   0.94,
+        "text-background-padding":   3,
+        "text-background-shape":     "roundrectangle",
+        "text-border-color":         "#30363d",
+        "text-border-width":         1,
+        "text-border-opacity":       1,
+        color:                       "#e6edf3",
+        "z-index":                   50,
+      } as any,
     },
   ];
 }

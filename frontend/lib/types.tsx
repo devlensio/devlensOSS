@@ -48,6 +48,8 @@ export interface ResolvedCall {
   /** `order` of the first call site that resolved to this node. */
   firstOrder?: number;
   line?:       number;
+  /** Every ordinal that reached this target, only when more than one. */
+  orders?:     number[];
   defer?:      CallDefer;
   deferDetail?: string;
   awaited?:    boolean;

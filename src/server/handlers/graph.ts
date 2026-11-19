@@ -1,4 +1,5 @@
 import { PipelineResult, deleteCommit, getNodeCode, CodeNode, storage } from "devlensio";
+import { getNodeCodeFor } from "../../core/queries.js";
 
 
 // Shared response builder — adds nodesById for O(1) frontend lookups.
@@ -93,9 +94,17 @@ export function handleDeleteCommit(graphId: string, commitHash: string): Respons
 }
 
 export function handleGetCodeNode(graphId: string, commitHash: string, nodeId: string): Response {
-    const node = getNodeCode(graphId, commitHash, nodeId);
-    if (!node) {
-        return Response.json({ success: false, error: "Node not found" }, { status: 404 });
+    // getNodeCodeFor falls back to reading the range from disk when the node
+    // carries no rawCode (FILE nodes and anything summarised away). The stored
+    // graph is still the source of truth for the range.
+    try {
+        const node = getNodeCodeFor(graphId, nodeId, commitHash);
+        return Response.json({ success: true, data: node });
+    } catch {
+        const node = getNodeCode(graphId, commitHash, nodeId);
+        if (!node) {
+            return Response.json({ success: false, error: "Node not found" }, { status: 404 });
+        }
+        return Response.json({ success: true, data: node });
     }
-    return Response.json({ success: true, data: node });
 }
