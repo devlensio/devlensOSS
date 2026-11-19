@@ -16,62 +16,50 @@ import {
   HiOutlineXMark,
 } from "@/components/icons";
 import { NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
+import { UI } from "@/lib/theme";
+import { HiOutlineCodeBracket } from "@/components/icons";
 import { sanitizeSummary } from "@/lib/sanitize";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const C = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  elevated:  "#21262d",
-  border:    "#30363d",
-  borderSub: "#21262d",
-  text:      "#e6edf3",
-  textSub:   "#8b949e",
-  textDim:   "#6e7681",
-  textGhost: "#484f58",
-  teal:      "#2dd4bf",
-  rail:      "#090c10",
+  bg:        UI.bg,
+  surface:   UI.surface,
+  elevated:  UI.elevated,
+  border:    UI.border,
+  borderSub: UI.borderSubtle,
+  text:      UI.text,
+  textSub:   UI.textSub,
+  textDim:   UI.textDim,
+  textGhost: UI.textGhost,
+  teal:      UI.accent,
+  rail:      UI.elevated,
 };
 
 
-const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: string }> = {
-  COMPONENT:   { bg: "#2dd4bf18", text: "#2dd4bf", border: "#2dd4bf30" },
-  HOOK:        { bg: "#c084fc18", text: "#c084fc", border: "#c084fc30" },
-  FUNCTION:    { bg: "#60a5fa18", text: "#60a5fa", border: "#60a5fa30" },
-  STATE_STORE: { bg: "#a5314118", text: "#a53141", border: "#a5314130" },
-  UTILITY:     { bg: "#94a3b818", text: "#94a3b8", border: "#94a3b830" },
-  FILE:        { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-  GHOST:       { bg: "#6b728018", text: "#6b7280", border: "#6b728030" },
-  ROUTE:       { bg: "#818cf818", text: "#818cf8", border: "#818cf830" },
-  TEST:        { bg: "#f9731618", text: "#f97316", border: "#f9731630" },
-  STORY:       { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-  THIRD_PARTY: { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
-  CLASS:       { bg: "#4ade8018", text: "#4ade80", border: "#4ade8030" },
-  METHOD:      { bg: "#22d3ee18", text: "#22d3ee", border: "#22d3ee30" },
-  INTERFACE:   { bg: "#facc1518", text: "#facc15", border: "#facc1530" },
-  ENUM:        { bg: "#fb718518", text: "#fb7185", border: "#fb718530" },
-  STRUCT:      { bg: "#34d39918", text: "#34d399", border: "#34d39930" },
-  MODULE:      { bg: "#a3e63518", text: "#a3e635", border: "#a3e63530" },
-  TRAIT:       { bg: "#e879f918", text: "#e879f9", border: "#e879f930" },
-  IMPL_BLOCK:  { bg: "#38bdf818", text: "#38bdf8", border: "#38bdf830" },
-  PACKAGE:     { bg: "#f472b618", text: "#f472b6", border: "#f472b630" },
-};
-
-
+// Node type colour is carried by a dot, never by the text: twenty neon text
+// colours on a white panel read as noise, and the label has to stay readable.
+const typeTint = (type: string) => NODE_COLORS[type] ?? UI.textDim;
+const TYPE_COLORS_FULL: Record<string, { bg: string; text: string; border: string }> =
+  Object.fromEntries(
+    Object.keys(NODE_COLORS).map((t) => [
+      t,
+      { bg: UI.elevated, text: UI.textSub, border: UI.border },
+    ]),
+  );
 
 const DIFF_COLORS = {
-  added:        { text: "#3fb950", bg: "#3fb95015", border: "#3fb95030" },
-  removed:      { text: "#f85149", bg: "#f8514915", border: "#f8514930" },
-  codeChanged:  { text: "#f59e0b", bg: "#f59e0b15", border: "#f59e0b30" },
-  scoreChanged: { text: "#d29922", bg: "#d2992215", border: "#d2992230" },
-  moved:        { text: "#818cf8", bg: "#818cf815", border: "#818cf830" },
+  added:        { text: "#15803d", bg: "rgba(21,128,61,0.07)",  border: "rgba(21,128,61,0.22)" },
+  removed:      { text: "#b91c1c", bg: "rgba(185,28,28,0.07)",  border: "rgba(185,28,28,0.22)" },
+  codeChanged:  { text: "#b45309", bg: "rgba(180,83,9,0.07)",   border: "rgba(180,83,9,0.22)" },
+  scoreChanged: { text: "#a16207", bg: "rgba(161,98,7,0.07)",   border: "rgba(161,98,7,0.22)" },
+  moved:        { text: "#4f46e5", bg: "rgba(79,70,229,0.07)",  border: "rgba(79,70,229,0.22)" },
 };
 
 const SEV_COLORS_PANEL = {
-  high:   { text: "#f85149", bg: "#f8514912", border: "#f8514930", label: "High"   },
-  medium: { text: "#f0883e", bg: "#f0883e12", border: "#f0883e30", label: "Medium" },
-  low:    { text: "#d29922", bg: "#d2992212", border: "#d2992230", label: "Low"    },
+  high:   { text: "#b91c1c", bg: "rgba(185,28,28,0.07)", border: "rgba(185,28,28,0.22)", label: "High"   },
+  medium: { text: "#b45309", bg: "rgba(180,83,9,0.07)",  border: "rgba(180,83,9,0.22)",  label: "Medium" },
+  low:    { text: "#a16207", bg: "rgba(161,98,7,0.07)",  border: "rgba(161,98,7,0.22)",  label: "Low"    },
 };
 
 const SEV_ORDER = ["high", "medium", "low"] as const;
@@ -94,6 +82,7 @@ interface SidebarProps {
   visibleNodes:   CodeNode[];
   highlightedIds: string[];
   onNodeFocus:    (nodeId: string) => void;
+  onOpenCode:     (nodeId: string) => void;
   onDiffActivate: (diff: NodeDiff, fromHash: string, toHash: string) => void;
   onDiffClear:    () => void;
 }
@@ -103,7 +92,7 @@ interface SidebarProps {
 export default function Sidebar({
   graph, meta, graphId,
   visibleNodes, highlightedIds,
-  onNodeFocus, onDiffActivate, onDiffClear,
+  onNodeFocus, onOpenCode, onDiffActivate, onDiffClear,
 }: SidebarProps) {
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
   const [panelWidth,  setPanelWidth]  = useState(DEF_PANEL);
@@ -203,9 +192,9 @@ export default function Sidebar({
 
               {badge !== undefined && (
                 <span
-                  className="absolute -top-1 -right-1 text-xs font-bold rounded-full
+                  className="absolute -top-1 -right-1 text-[13px] font-bold rounded-full
                              w-4 h-4 flex items-center justify-center pointer-events-none"
-                  style={{ background: C.teal, color: C.bg, fontSize: "9px" }}
+                  style={{ background: C.teal, color: "#ffffff", fontSize: "9.5px" }}
                 >
                   {badge > 99 ? "99+" : badge}
                 </span>
@@ -223,9 +212,9 @@ export default function Sidebar({
           <div
             className="flex-1 flex flex-col overflow-hidden"
             style={{
-              background:     "rgba(13,17,23,0.95)",
-              borderRight:    `1px solid ${C.borderSub}`,
-              backdropFilter: "blur(12px)",
+              background:  C.surface,
+              borderRight: `1px solid ${C.border}`,
+              boxShadow:   "8px 0 24px rgba(28,25,23,0.05)",
             }}
           >
             {/* Panel header */}
@@ -233,7 +222,7 @@ export default function Sidebar({
               className="flex items-center justify-between px-4 py-3 shrink-0"
               style={{ borderBottom: `1px solid ${C.borderSub}` }}
             >
-              <span className="text-sm font-semibold" style={{ color: C.text }}>
+              <span className="font-semibold" style={{ color: C.text, fontSize: 14.5 }}>
                 {ICONS.find(i => i.id === activePanel)?.title}
               </span>
               <button
@@ -257,6 +246,7 @@ export default function Sidebar({
                   nodes={visibleNodes}
                   nodesById={graph?.nodesById ?? {}}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                 />
               )}
               {activePanel === "search"   && (
@@ -264,6 +254,7 @@ export default function Sidebar({
                   nodes={graph?.nodes ?? []}
                   nodesById={graph?.nodesById ?? {}}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                 />
               )}
               {activePanel === "highlighted" && (
@@ -271,6 +262,7 @@ export default function Sidebar({
                   ids={highlightedIds}
                   nodesById={graph?.nodesById ?? {}}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                 />
               )}
               {activePanel === "files"    && (
@@ -278,6 +270,7 @@ export default function Sidebar({
                   nodes={graph?.nodes ?? []}
                   nodesById={graph?.nodesById ?? {}}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                 />
               )}
               {activePanel === "diff"     && (
@@ -286,6 +279,7 @@ export default function Sidebar({
                   graphId={graphId}
                   nodesById={graph?.nodesById ?? {}}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                   onDiffActivate={onDiffActivate}
                   onDiffClear={onDiffClear}
                 />
@@ -294,6 +288,7 @@ export default function Sidebar({
                 <SecurityPanel
                   nodes={graph?.nodes ?? []}
                   onNodeFocus={onNodeFocus}
+                  onOpenCode={onOpenCode}
                 />
               )}
             </div>
@@ -329,11 +324,12 @@ function SearchInput({ value, onChange, placeholder }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full text-xs py-2 pl-8 pr-8 rounded-lg outline-none transition-colors"
+        className="w-full py-2 pl-8 pr-8 rounded-lg outline-none transition-colors"
         style={{
-          background: C.elevated,
-          border:     `1px solid ${C.borderSub}`,
+          background: C.surface,
+          border:     `1px solid ${C.border}`,
           color:      C.text,
+          fontSize:   13,
         }}
         onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
         onBlur={e  => (e.currentTarget.style.borderColor = C.borderSub)}
@@ -368,17 +364,22 @@ function TypeFilterChips({ active, onToggle }: {
           <button
             key={type}
             onClick={() => onToggle(type)}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border
-                       text-xs transition-all"
+            title={on ? `Hide ${type.replace(/_/g, " ").toLowerCase()} nodes` : `Show ${type.replace(/_/g, " ").toLowerCase()} nodes`}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all"
             style={{
-              background:  on ? `${color}18` : "transparent",
-              borderColor: on ? `${color}40` : C.borderSub,
-              color:       on ? color        : C.textGhost,
+              background:  on ? C.elevated : "transparent",
+              borderColor: on ? C.border : "transparent",
+              color:       on ? C.text : C.textGhost,
+              fontWeight:  on ? 600 : 400,
+              fontSize:    11.5,
             }}
           >
             <span
               className="w-1.5 h-1.5 rounded-full"
-              style={{ background: on ? color : C.textGhost }}
+              style={{
+                background: on ? color : "transparent",
+                border: on ? "none" : `1px solid ${C.textGhost}`,
+              }}
             />
             {type.charAt(0) + type.slice(1).toLowerCase().replace(/_/g, " ")}
           </button>
@@ -390,28 +391,59 @@ function TypeFilterChips({ active, onToggle }: {
 
 // ─── Shared: NodeRow ──────────────────────────────────────────────────────────
 
-function NodeRow({ node, onFocus }: { node: CodeNode; onFocus: () => void }) {
-  const color = NODE_COLORS[node.type] ?? C.textSub;
+function NodeRow({ node, onFocus, onOpenCode }: {
+  node: CodeNode;
+  onFocus: () => void;
+  onOpenCode: () => void;
+}) {
+  const color = typeTint(node.type);
   return (
-    <button
-      onClick={onFocus}
-      className="w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors"
+    <div
+      className="group w-full flex items-center gap-2.5 px-4 py-2 transition-colors"
+      style={{ borderBottom: `1px solid transparent` }}
       onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = C.elevated)}
       onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
     >
       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-      <span className="flex-1 min-w-0">
-        <span className="text-xs font-mono font-medium truncate block" style={{ color: C.text }}>
+      <button
+        onClick={onFocus}
+        className="flex-1 min-w-0 text-left"
+        title={`Open ${node.name} in the graph`}
+      >
+        <span className="font-mono font-medium truncate block" style={{ color: C.text, fontSize: 13 }}>
           {node.name}
         </span>
-        <span className="text-xs truncate block" style={{ color: C.textGhost }}>
+        <span className="truncate block" style={{ color: C.textDim, fontSize: 11.5 }}>
           {node.filePath.split("/").slice(-2).join("/")}
         </span>
-      </span>
-      <span className="text-xs font-mono shrink-0" style={{ color: C.textGhost }}>
+      </button>
+      <span className="font-mono shrink-0 tabular-nums" style={{ color: C.textDim, fontSize: 11.5 }}>
         {(node.score ?? 0).toFixed(1)}
       </span>
-    </button>
+      <button
+        onClick={onOpenCode}
+        title={`Open ${node.name} in the code view`}
+        className="shrink-0 flex items-center justify-center rounded"
+        style={{
+          width: 24, height: 24,
+          border: `1px solid ${C.border}`,
+          background: C.surface,
+          color: C.textDim,
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = C.teal;
+          e.currentTarget.style.borderColor = `${C.teal}55`;
+          e.currentTarget.style.background = `${C.teal}0d`;
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = C.textDim;
+          e.currentTarget.style.borderColor = C.border;
+          e.currentTarget.style.background = C.surface;
+        }}
+      >
+        <HiOutlineCodeBracket size={12} />
+      </button>
+    </div>
   );
 }
 
@@ -420,8 +452,8 @@ function NodeRow({ node, onFocus }: { node: CodeNode; onFocus: () => void }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="px-4 py-3" style={{ borderBottom: `1px solid ${C.borderSub}` }}>
-      <p className="text-xs font-semibold uppercase tracking-widest mb-3"
-         style={{ color: C.textGhost }}>
+      <p className="font-semibold uppercase mb-3"
+         style={{ color: C.textDim, fontSize: 11, letterSpacing: "0.08em" }}>
         {title}
       </p>
       {children}
@@ -434,8 +466,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function EmptyState({ message, sub }: { message: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-full py-12 px-6 text-center">
-      <p className="text-sm font-medium mb-1" style={{ color: C.textDim }}>{message}</p>
-      {sub && <p className="text-xs leading-relaxed" style={{ color: C.textGhost }}>{sub}</p>}
+      <p className="font-medium mb-1" style={{ color: C.textSub, fontSize: 14 }}>{message}</p>
+      {sub && <p className="leading-relaxed" style={{ color: C.textGhost, fontSize: 12.5 }}>{sub}</p>}
     </div>
   );
 }
@@ -487,9 +519,9 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
         <div className="space-y-2">
           {items.map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: C.textGhost }}>{label}</span>
+              <span className="text-[13px]" style={{ color: C.textGhost }}>{label}</span>
               <span
-                className="text-xs font-mono font-medium px-2 py-0.5 rounded-lg"
+                className="text-[13px] font-mono font-medium px-2 py-0.5 rounded-lg"
                 style={{ background: C.elevated, color: C.teal }}
               >
                 {value}
@@ -497,16 +529,16 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
             </div>
           ))}
           <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: C.textGhost }}>State</span>
-            <span className="text-xs font-mono" style={{ color: C.textSub }}>{stateLibs}</span>
+            <span className="text-[13px]" style={{ color: C.textGhost }}>State</span>
+            <span className="text-[13px] font-mono" style={{ color: C.textSub }}>{stateLibs}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: C.textGhost }}>Databases</span>
-            <span className="text-xs font-mono" style={{ color: C.textSub }}>{databases}</span>
+            <span className="text-[13px]" style={{ color: C.textGhost }}>Databases</span>
+            <span className="text-[13px] font-mono" style={{ color: C.textSub }}>{databases}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: C.textGhost }}>Data fetching</span>
-            <span className="text-xs font-mono" style={{ color: C.textSub }}>{dataFetch}</span>
+            <span className="text-[13px]" style={{ color: C.textGhost }}>Data fetching</span>
+            <span className="text-[13px] font-mono" style={{ color: C.textSub }}>{dataFetch}</span>
           </div>
         </div>
       </Section>
@@ -525,8 +557,8 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
               className="flex flex-col gap-0.5 px-3 py-2.5 rounded-xl"
               style={{ background: C.elevated, border: `1px solid ${C.borderSub}` }}
             >
-              <span className="text-xs" style={{ color: C.textGhost }}>{label}</span>
-              <span className="text-sm font-mono font-semibold" style={{ color: C.teal }}>
+              <span className="text-[13px]" style={{ color: C.textGhost }}>{label}</span>
+              <span className="text-[14.5px] font-mono font-semibold" style={{ color: C.teal }}>
                 {value}
               </span>
             </div>
@@ -545,7 +577,7 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
             return (
               <div key={type} className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-xs flex-1" style={{ color: C.textSub }}>
+                <span className="text-[13px] flex-1" style={{ color: C.textSub }}>
                   {type.replace(/_/g, " ")}
                 </span>
                 <div
@@ -557,7 +589,7 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
                     style={{ width: `${pct}%`, background: color }}
                   />
                 </div>
-                <span className="text-xs font-mono w-6 text-right" style={{ color: C.textGhost }}>
+                <span className="text-[13px] font-mono w-6 text-right" style={{ color: C.textGhost }}>
                   {count}
                 </span>
               </div>
@@ -569,7 +601,7 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
       {/* Last commit */}
       <Section title="Last Commit">
         <div
-          className="px-3 py-2.5 rounded-xl text-xs font-mono"
+          className="px-3 py-2.5 rounded-xl text-[13px] font-mono"
           style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.textSub }}
         >
           {graph.gitInfo.message || "No message"}
@@ -585,23 +617,23 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
           <div className="flex items-center gap-2">
             <span
               className="w-2 h-2 rounded-full shrink-0"
-              style={{ background: isIndexed ? C.teal : "#f59e0b" }}
+              style={{ background: isIndexed ? C.teal : "#b45309" }}
             />
-            <span className="text-xs" style={{ color: C.textSub }}>
+            <span className="text-[13px]" style={{ color: C.textSub }}>
               {isIndexed ? "indexed" : "not indexed"}
             </span>
           </div>
           <button
             onClick={reindex}
             disabled={indexBusy}
-            className="text-xs font-mono px-2.5 py-1 rounded-lg disabled:opacity-50"
+            className="text-[13px] font-mono px-2.5 py-1 rounded-lg disabled:opacity-50"
             style={{ background: C.teal + "1a", color: C.teal, border: `1px solid ${C.teal}33` }}
           >
             {indexBusy ? "indexing..." : "reindex"}
           </button>
         </div>
         {!isIndexed && (
-          <p className="text-xs mt-2" style={{ color: C.textGhost }}>
+          <p className="text-[13px] mt-2" style={{ color: C.textGhost }}>
             BM25F symbol search needs an index. Queries still work via fallback, or run
             devlens reindex for all graphs.
           </p>
@@ -613,10 +645,11 @@ function ProjectPanel({ graph, meta, graphId }: { graph: GraphResponse | undefin
 
 // ─── Panel: Nodes (visible only) ─────────────────────────────────────────────
 
-function NodesPanel({ nodes, nodesById, onNodeFocus }: {
+function NodesPanel({ nodes, nodesById, onNodeFocus, onOpenCode }: {
   nodes:       CodeNode[];
   nodesById:   Record<string, CodeNode>;
   onNodeFocus: (id: string) => void;
+  onOpenCode:  (id: string) => void;
 }) {
   const [search,      setSearch]      = useState("");
   const [typeFilters, setTypeFilters] = useState<string[]>([...NODE_TYPES]);
@@ -644,7 +677,7 @@ function NodesPanel({ nodes, nodesById, onNodeFocus }: {
         <TypeFilterChips active={typeFilters} onToggle={toggleType} />
       </div>
       <div className="px-4 py-2 shrink-0">
-        <span className="text-xs" style={{ color: C.textGhost }}>
+        <span className="text-[13px]" style={{ color: C.textDim }}>
           {filtered.length} of {nodes.length} visible nodes
         </span>
       </div>
@@ -654,7 +687,7 @@ function NodesPanel({ nodes, nodesById, onNodeFocus }: {
           : filtered
               .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
               .map(n => (
-                <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} />
+                <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} onOpenCode={() => onOpenCode(n.id)} />
               ))
         }
       </div>
@@ -664,10 +697,11 @@ function NodesPanel({ nodes, nodesById, onNodeFocus }: {
 
 // ─── Panel: Search (all nodes) ────────────────────────────────────────────────
 
-function SearchPanel({ nodes, nodesById, onNodeFocus }: {
+function SearchPanel({ nodes, nodesById, onNodeFocus, onOpenCode }: {
   nodes:       CodeNode[];
   nodesById:   Record<string, CodeNode>;
   onNodeFocus: (id: string) => void;
+  onOpenCode:  (id: string) => void;
 }) {
   const [search,      setSearch]      = useState("");
   const [typeFilters, setTypeFilters] = useState<string[]>([...NODE_TYPES]);
@@ -699,7 +733,7 @@ function SearchPanel({ nodes, nodesById, onNodeFocus }: {
         <TypeFilterChips active={typeFilters} onToggle={toggleType} />
       </div>
       <div className="px-4 py-2 shrink-0">
-        <span className="text-xs" style={{ color: C.textGhost }}>
+        <span className="text-[13px]" style={{ color: C.textDim }}>
           {search ? `${filtered.length} results` : `${nodes.length} total nodes`}
         </span>
       </div>
@@ -711,7 +745,7 @@ function SearchPanel({ nodes, nodesById, onNodeFocus }: {
             : filtered
                 .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
                 .map(n => (
-                  <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} />
+                  <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} onOpenCode={() => onOpenCode(n.id)} />
                 ))
         }
       </div>
@@ -721,10 +755,11 @@ function SearchPanel({ nodes, nodesById, onNodeFocus }: {
 
 // ─── Panel: Highlighted ───────────────────────────────────────────────────────
 
-function HighlightedPanel({ ids, nodesById, onNodeFocus }: {
+function HighlightedPanel({ ids, nodesById, onNodeFocus, onOpenCode }: {
   ids:         string[];
   nodesById:   Record<string, CodeNode>;
   onNodeFocus: (id: string) => void;
+  onOpenCode:  (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
 
@@ -752,7 +787,7 @@ function HighlightedPanel({ ids, nodesById, onNodeFocus }: {
         <SearchInput value={search} onChange={setSearch} placeholder="Search highlighted…" />
       </div>
       <div className="px-4 py-2 shrink-0">
-        <span className="text-xs" style={{ color: C.textGhost }}>
+        <span className="text-[13px]" style={{ color: C.textGhost }}>
           {filtered.length} highlighted nodes
         </span>
       </div>
@@ -762,7 +797,7 @@ function HighlightedPanel({ ids, nodesById, onNodeFocus }: {
           : filtered
               .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
               .map(n => (
-                <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} />
+                <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} onOpenCode={() => onOpenCode(n.id)} />
               ))
         }
       </div>
@@ -772,10 +807,11 @@ function HighlightedPanel({ ids, nodesById, onNodeFocus }: {
 
 // ─── Panel: Files ─────────────────────────────────────────────────────────────
 
-function FilesPanel({ nodes, nodesById, onNodeFocus }: {
+function FilesPanel({ nodes, nodesById, onNodeFocus, onOpenCode }: {
   nodes:       CodeNode[];
   nodesById:   Record<string, CodeNode>;
   onNodeFocus: (id: string) => void;
+  onOpenCode:  (id: string) => void;
 }) {
   const [search,   setSearch]   = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -814,7 +850,7 @@ function FilesPanel({ nodes, nodesById, onNodeFocus }: {
         <SearchInput value={search} onChange={setSearch} placeholder="Search files or nodes…" />
       </div>
       <div className="px-4 py-2 shrink-0">
-        <span className="text-xs" style={{ color: C.textGhost }}>
+        <span className="text-[13px]" style={{ color: C.textGhost }}>
           {filteredPaths.length} files
         </span>
       </div>
@@ -837,19 +873,19 @@ function FilesPanel({ nodes, nodesById, onNodeFocus }: {
                   ? <HiOutlineChevronDown  size={11} color={C.textGhost} />
                   : <HiOutlineChevronRight size={11} color={C.textGhost} />
                 }
-                <HiOutlineFolder size={12} color="#f472b6" />
+                <HiOutlineFolder size={13} color={NODE_COLORS.FILE} />
                 <span className="flex-1 min-w-0">
-                  <span className="text-xs font-mono font-medium truncate block"
+                  <span className="text-[13px] font-mono font-medium truncate block"
                         style={{ color: C.text }}>
                     {fileName}
                   </span>
                   {dirPath && (
-                    <span className="text-xs truncate block" style={{ color: C.textGhost }}>
+                    <span className="text-[13px] truncate block" style={{ color: C.textGhost }}>
                       {dirPath}
                     </span>
                   )}
                 </span>
-                <span className="text-xs font-mono shrink-0" style={{ color: C.textGhost }}>
+                <span className="text-[13px] font-mono shrink-0" style={{ color: C.textGhost }}>
                   {children.length}
                 </span>
               </button>
@@ -859,7 +895,7 @@ function FilesPanel({ nodes, nodesById, onNodeFocus }: {
                   {children
                     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
                     .map(n => (
-                      <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} />
+                      <NodeRow key={n.id} node={n} onFocus={() => onNodeFocus(n.id)} onOpenCode={() => onOpenCode(n.id)} />
                     ))
                   }
                 </div>
@@ -874,11 +910,12 @@ function FilesPanel({ nodes, nodesById, onNodeFocus }: {
 
 // ─── Panel: Diff ──────────────────────────────────────────────────────────────
 
-function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDiffClear }: {
+function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onOpenCode, onDiffActivate, onDiffClear }: {
   meta:           GraphMeta | undefined;
   graphId:        string;
   nodesById:      Record<string, CodeNode>;
   onNodeFocus:    (id: string) => void;
+  onOpenCode:     (id: string) => void;
   onDiffActivate: (diff: NodeDiff, fromHash: string, toHash: string) => void;
   onDiffClear:    () => void;
 }) {
@@ -924,7 +961,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
       <div className="px-4 py-3 space-y-2 shrink-0"
            style={{ borderBottom: `1px solid ${C.borderSub}` }}>
         <div className="space-y-1.5">
-          <label className="text-xs" style={{ color: C.textGhost }}>From</label>
+          <label className="text-[13px]" style={{ color: C.textGhost }}>From</label>
           <CommitSelect
             commits={commits}
             value={fromHash}
@@ -934,7 +971,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs" style={{ color: C.textGhost }}>To</label>
+          <label className="text-[13px]" style={{ color: C.textGhost }}>To</label>
           <CommitSelect
             commits={commits}
             value={toHash}
@@ -949,7 +986,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
           <button
             onClick={() => setConfirmed(true)}
             disabled={!fromHash || !toHash || fromHash === toHash}
-            className="w-full py-2 rounded-xl text-xs font-semibold
+            className="w-full py-2 rounded-xl text-[13px] font-semibold
                        transition-all disabled:opacity-40"
             style={{
               background:  `${C.teal}20`,
@@ -969,7 +1006,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
         ) : (
           <button
             onClick={handleReset}
-            className="w-full py-2 rounded-xl text-xs font-semibold transition-all"
+            className="w-full py-2 rounded-xl text-[13px] font-semibold transition-all"
             style={{
               background:  C.elevated,
               color:       C.textSub,
@@ -991,7 +1028,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
         )}
 
         {isError && (
-          <p className="text-xs" style={{ color: "#f85149" }}>Failed to load diff</p>
+          <p className="text-[13px]" style={{ color: "#b91c1c" }}>Failed to load diff</p>
         )}
       </div>
 
@@ -1002,7 +1039,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
             className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
             style={{ borderColor: `${C.teal} transparent transparent transparent` }}
           />
-          <span className="text-xs" style={{ color: C.textDim }}>Comparing commits…</span>
+          <span className="text-[13px]" style={{ color: C.textDim }}>Comparing commits…</span>
         </div>
       )}
 
@@ -1023,14 +1060,14 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
               count > 0 ? (
                 <span
                   key={label}
-                  className="text-xs px-2 py-0.5 rounded-lg border font-medium"
+                  className="text-[13px] px-2 py-0.5 rounded-lg border font-medium"
                   style={{ color, background: `${color}15`, borderColor: `${color}30` }}
                 >
                   {count} {label}
                 </span>
               ) : null
             )}
-            <span className="text-xs ml-auto" style={{ color: C.textGhost }}>
+            <span className="text-[13px] ml-auto" style={{ color: C.textGhost }}>
               {diff.unchanged} unchanged
             </span>
           </div>
@@ -1068,10 +1105,10 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
                       : "~"
                   }
                   badgeColor={n.scoreAfter > n.scoreBefore
-                    ? "#3fb950"
+                    ? DIFF_COLORS.added.text
                     : n.scoreAfter < n.scoreBefore
-                      ? "#f85149"
-                      : "#f59e0b"
+                      ? DIFF_COLORS.removed.text
+                      : DIFF_COLORS.codeChanged.text
                   }
                   color={DIFF_COLORS.codeChanged.text}
                   onFocus={() => onNodeFocus(n.nodeId)} />
@@ -1086,7 +1123,7 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
                   sub={`${n.scoreBefore.toFixed(1)} → ${n.scoreAfter.toFixed(1)}`}
                   score={n.scoreAfter}
                   badge={n.delta > 0 ? `+${n.delta.toFixed(1)}` : n.delta.toFixed(1)}
-                  badgeColor={n.delta > 0 ? "#3fb950" : "#f85149"}
+                  badgeColor={n.delta > 0 ? DIFF_COLORS.added.text : DIFF_COLORS.removed.text}
                   color={DIFF_COLORS.scoreChanged.text}
                   onFocus={() => onNodeFocus(n.nodeId)} />
               ))}
@@ -1120,9 +1157,10 @@ function DiffPanel({ meta, graphId, nodesById, onNodeFocus, onDiffActivate, onDi
 
 // ─── Panel: Security ──────────────────────────────────────────────────────────
 
-function SecurityPanel({ nodes, onNodeFocus }: {
+function SecurityPanel({ nodes, onNodeFocus, onOpenCode }: {
   nodes:       CodeNode[];
   onNodeFocus: (id: string) => void;
+  onOpenCode:  (id: string) => void;
 }) {
   const [search,     setSearch]     = useState("");
   const [activeSevs, setActiveSevs] = useState<string[]>(["high", "medium", "low"]);
@@ -1182,7 +1220,7 @@ function SecurityPanel({ nodes, onNodeFocus }: {
                 key={sev}
                 onClick={() => toggleSev(sev)}
                 className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border
-                           text-xs font-medium transition-all"
+                           text-[13px] font-medium transition-all"
                 style={{
                   background:  active ? sc.bg     : "transparent",
                   borderColor: active ? sc.border : C.borderSub,
@@ -1195,7 +1233,7 @@ function SecurityPanel({ nodes, onNodeFocus }: {
                 />
                 {sc.label}
                 <span
-                  className="px-1 rounded font-mono text-xs"
+                  className="px-1 rounded font-mono text-[13px]"
                   style={{
                     background: active ? `${sc.text}20` : C.elevated,
                     color:      active ? sc.text        : C.textGhost,
@@ -1216,12 +1254,12 @@ function SecurityPanel({ nodes, onNodeFocus }: {
           if (count === 0) return null;
           const sc = SEV_COLORS_PANEL[sev];
           return (
-            <span key={sev} className="text-xs font-medium" style={{ color: sc.text }}>
+            <span key={sev} className="text-[13px] font-medium" style={{ color: sc.text }}>
               {count} {sc.label.toLowerCase()}
             </span>
           );
         })}
-        <span className="text-xs ml-auto" style={{ color: C.textGhost }}>
+        <span className="text-[13px] ml-auto" style={{ color: C.textGhost }}>
           {filtered.length} shown
         </span>
       </div>
@@ -1246,12 +1284,12 @@ function SecurityPanel({ nodes, onNodeFocus }: {
                   }}
                 >
                   <HiOutlineShieldExclamation size={11} color={sc.text} />
-                  <span className="text-xs font-semibold uppercase tracking-wider"
+                  <span className="text-[13px] font-semibold uppercase tracking-wider"
                         style={{ color: sc.text }}>
                     {sc.label} Risk
                   </span>
                   <span
-                    className="ml-auto text-xs font-mono px-1.5 py-0.5 rounded"
+                    className="ml-auto text-[13px] font-mono px-1.5 py-0.5 rounded"
                     style={{ background: sc.bg, color: sc.text }}
                   >
                     {group.length}
@@ -1289,30 +1327,6 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
 
   return (
     <div style={{ borderBottom: `1px solid ${C.borderSub}` }}>
-      <style>{`
-        .summary-html code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          font-size: 0.8em;
-          background: rgba(255,255,255,0.08);
-          border-radius: 4px;
-          padding: 0.1em 0.4em;
-        }
-        .summary-html pre {
-          background: rgba(0,0,0,0.4);
-          border-radius: 6px;
-          padding: 0.5em 0.75em;
-          overflow-x: auto;
-          margin: 0.4em 0;
-          font-size: 0.8em;
-        }
-        .summary-html pre code { background: none; padding: 0; font-size: 1em; }
-        .summary-html ul, .summary-html ol { padding-left: 1.1em; margin: 0.25em 0; }
-        .summary-html li { margin: 0.15em 0; }
-        .summary-html strong { font-weight: 600; }
-        .summary-html p { margin: 0.25em 0; }
-        .summary-html p:first-child { margin-top: 0; }
-        .summary-html p:last-child  { margin-bottom: 0; }
-      `}</style>
       <div
         onClick={onFocus}
         className="w-full flex items-start gap-2.5 px-4 py-3 text-left transition-colors"
@@ -1322,29 +1336,29 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
         <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ background: color }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-xs font-mono font-semibold truncate" style={{ color: C.text }}>
+            <span className="text-[13px] font-mono font-semibold truncate" style={{ color: C.text }}>
               {node.name}
             </span>
             <span
-              className="text-xs px-1.5 py-0.5 rounded shrink-0"
+              className="text-[13px] px-1.5 py-0.5 rounded shrink-0"
               style={{ background: typeC.bg, color: typeC.text }}
             >
               {node.type}
             </span>
           </div>
-          <p className="text-xs truncate mb-1" style={{ color: C.textGhost }}>
+          <p className="text-[13px] truncate mb-1" style={{ color: C.textGhost }}>
             {node.filePath.split("/").slice(-2).join("/")}
           </p>
           {node.security?.summary && (
             <div>
               {expanded ? (
                 <div
-                  className="summary-html text-xs leading-relaxed"
+                  className="summary-html text-[13px] leading-relaxed"
                   style={{ color: C.textSub }}
                   dangerouslySetInnerHTML={{ __html: sanitizeSummary(node.security.summary) }}
                 />
               ) : (
-                <p className="text-xs leading-relaxed" style={{ color: C.textSub }}>
+                <p className="text-[13px] leading-relaxed" style={{ color: C.textSub }}>
                   {node.security.summary.replace(/<[^>]*>/g, "").length <= 100
                     ? node.security.summary.replace(/<[^>]*>/g, "")
                     : `${node.security.summary.replace(/<[^>]*>/g, "").slice(0, 100).trimEnd()}…`
@@ -1354,7 +1368,7 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
               {node.security.summary.replace(/<[^>]*>/g, "").length > 100 && (
                 <button
                   onClick={e => { e.stopPropagation(); setExpanded(o => !o); }}
-                  className="text-xs mt-0.5 transition-colors"
+                  className="text-[13px] mt-0.5 transition-colors"
                   style={{ color: C.textGhost }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = color)}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.textGhost)}
@@ -1365,7 +1379,7 @@ function SecurityRow({ node, color, bg, border, onFocus }: {
             </div>
           )}
         </div>
-        <span className="text-xs font-mono shrink-0" style={{ color: C.textGhost }}>
+        <span className="text-[13px] font-mono shrink-0" style={{ color: C.textGhost }}>
           {(node.score ?? 0).toFixed(1)}
         </span>
       </div>
@@ -1387,7 +1401,7 @@ function CommitSelect({ commits, value, onChange, exclude, disabled }: {
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className="w-full text-xs font-mono py-1.5 px-2 rounded-lg outline-none transition-colors
+      className="w-full text-[13px] font-mono py-1.5 px-2 rounded-lg outline-none transition-colors
                  disabled:opacity-50 disabled:cursor-not-allowed"
       style={{
         background: C.elevated,
@@ -1428,7 +1442,7 @@ function DiffSection({ title, color, children }: {
           ? <HiOutlineChevronDown  size={11} color={color} />
           : <HiOutlineChevronRight size={11} color={color} />
         }
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>
+        <span className="text-[13px] font-semibold uppercase tracking-wider" style={{ color }}>
           {title}
         </span>
       </button>
@@ -1455,23 +1469,23 @@ function DiffRow({ label, sub, score, badge, badgeColor, color, onFocus }: {
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
       <span className="flex-1 min-w-0">
-        <span className="text-xs font-mono font-medium truncate block" style={{ color: C.text }}>
+        <span className="text-[13px] font-mono font-medium truncate block" style={{ color: C.text }}>
           {label}
         </span>
         {sub && (
-          <span className="text-xs truncate block" style={{ color: C.textGhost }}>{sub}</span>
+          <span className="text-[13px] truncate block" style={{ color: C.textGhost }}>{sub}</span>
         )}
       </span>
       {badge && (
         <span
-          className="text-xs font-mono px-1.5 py-0.5 rounded-lg shrink-0"
+          className="text-[13px] font-mono px-1.5 py-0.5 rounded-lg shrink-0"
           style={{ background: `${badgeColor}20`, color: badgeColor }}
         >
           {badge}
         </span>
       )}
       {score !== undefined && (
-        <span className="text-xs font-mono shrink-0" style={{ color: C.textGhost }}>
+        <span className="text-[13px] font-mono shrink-0" style={{ color: C.textGhost }}>
           {score.toFixed(1)}
         </span>
       )}

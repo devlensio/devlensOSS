@@ -101,6 +101,17 @@ button:disabled { cursor: not-allowed; }
 /* Code panes: wrapped previews (node panel) vs. horizontally scrolling cards. */
 .code-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Scrollbars inside dark code surfaces need a light thumb, or they vanish. */
+.code-scroller::-webkit-scrollbar { width: 10px; height: 10px; }
+.code-scroller::-webkit-scrollbar-thumb {
+  background: #565a72;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.code-scroller::-webkit-scrollbar-thumb:hover { background: #6d7191; background-clip: content-box; }
+.code-scroller::-webkit-scrollbar-track { background: transparent; }
+
 /* React Flow controls sit on a dark card canvas; keep them legible. */
 .react-flow__controls { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); border-radius: 8px; overflow: hidden; }
 .react-flow__controls-button {

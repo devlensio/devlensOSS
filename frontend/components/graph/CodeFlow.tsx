@@ -31,7 +31,7 @@ import {
   HiOutlineXMark,
 } from "@/components/icons";
 
-const LINE_H = 21;
+const LINE_H = 22;
 const CARD_W = 620;
 const CARD_GAP_X = 150;
 const CARD_GAP_Y = 110;
@@ -103,7 +103,8 @@ function Inner({
   // highlighted lines each) in the middle of the gesture, which is what made
   // the canvas blank out until the drag ended.
   const posRef = useRef<Record<string, { x: number; y: number }>>({});
-  const [, forceRender] = useState(0);
+  // Bumped when the position ref changes, so the memo below re-reads it.
+  const [posVersion, setPosVersion] = useState(0);
   const rf = useReactFlow();
 
   const cardById = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
@@ -203,7 +204,7 @@ function Inner({
         draggable: true,
         dragHandle: ".card-drag",
       })),
-    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenCode, removeCard, back, activeNodeId],
+    [cards, cardById, nodesById, graphId, commitHash, graphLanguage, edges, openRelated, onFocusNode, onOpenCode, removeCard, back, activeNodeId, posVersion],
   );
 
   const rfEdges: Edge[] = useMemo(
@@ -243,25 +244,28 @@ function Inner({
         dirty = true;
       }
     }
-    if (dirty) forceRender((n) => n + 1);
+    if (dirty) setPosVersion((n) => n + 1);
   }, []);
 
-  const [fittedOnce, setFittedOnce] = useState(false);
+  // The first card is pinned near the top-left at 1:1 rather than fitted:
+  // fitting a 600px-tall card into a shorter pane silently clipped it at the
+  // bottom and left dead space above. Later cards still get a fitView so the
+  // tree stays in frame.
   useEffect(() => {
-    if (!fittedOnce && nodes.length) {
-      const id = setTimeout(() => rf.fitView({ padding: 0.16, duration: 320, maxZoom: 1 }), 120);
-      setFittedOnce(true);
-      return () => clearTimeout(id);
-    }
-  }, [nodes.length, fittedOnce, rf]);
+    const root = cards[0];
+    if (!root || posRef.current[root.cardId]) return;
+    posRef.current[root.cardId] = { x: 24, y: 18 };
+    setPosVersion((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep every open card in view as the tree grows; without this a new child
   // lands outside the viewport and the click looks like a no-op.
   useEffect(() => {
-    if (!fittedOnce || cards.length < 2) return;
+    if (cards.length < 2) return;
     const id = setTimeout(() => rf.fitView({ padding: 0.16, duration: 380, maxZoom: 1 }), 220);
     return () => clearTimeout(id);
-  }, [cards.length, fittedOnce, rf]);
+  }, [cards.length, rf]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -296,12 +300,12 @@ function Inner({
       next[c.cardId] = { x: d * (CARD_W + CARD_GAP_X), y: i * 620 };
     }
     posRef.current = next;
-    forceRender((n) => n + 1);
+    setPosVersion((n) => n + 1);
     setTimeout(() => rf.fitView({ padding: 0.14, duration: 380, maxZoom: 1 }), 60);
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: "rgba(40,42,54,0.94)" }}>
+    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: "rgba(33,34,44,0.965)" }}>
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div
         className="flex items-center shrink-0"
@@ -352,7 +356,6 @@ function Inner({
           edges={rfEdges}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
-          fitView
           minZoom={0.2}
           maxZoom={1.5}
           proOptions={{ hideAttribution: true }}
@@ -477,8 +480,8 @@ function CardNode({ data }: any) {
       style={{
         background: CODE.bg,
         border: `1px solid ${active ? CODE.cyan : CODE.border}`,
-        boxShadow: active ? `0 0 0 1px ${CODE.cyan}44, 0 22px 48px rgba(0,0,0,0.5)` : "0 18px 40px rgba(0,0,0,0.45)",
-        maxHeight: model.minimized ? 52 : 620,
+        boxShadow: active ? `0 0 0 1px ${CODE.cyan}55, 0 24px 56px rgba(0,0,0,0.55)` : "0 18px 40px rgba(0,0,0,0.45)",
+        maxHeight: model.minimized ? 52 : "min(600px, calc(100vh - 220px))",
         color: CODE.text,
       }}
     >
@@ -600,7 +603,7 @@ function CardNode({ data }: any) {
                   margin: "6px 0 0",
                   fontSize: 12.5,
                   lineHeight: 1.6,
-                  color: summary ? CODE.textSub : CODE.textDim,
+                  color: summary ? CODE.textSub : "#a9aec9",
                 }}
               >
                 {summary || "No summary for this node — re-analyze with summarization enabled."}
@@ -670,6 +673,38 @@ function CardNode({ data }: any) {
             )}
             {lines.length > 0 && (
               <div className="relative" style={{ minHeight: lines.length * LINE_H }}>
+                {/* Gutter rule: the call-badge column has to read as a column
+                    even when no call line is in view. */}
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    right: 168,
+                    width: 1,
+                    background: CODE.borderSoft,
+                    pointerEvents: "none",
+                  }}
+                />
+                <div
+                  aria-hidden
+                  className="nodrag"
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 8,
+                    width: 152,
+                    textAlign: "right",
+                    fontSize: 9.5,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: CODE.comment,
+                    pointerEvents: "none",
+                  }}
+                >
+                  calls
+                </div>
                 {/* Range bands for definitions declared inside this node. */}
                 {children.map((child, i) => {
                   const top = ((child.startLine ?? startLine) - startLine) * LINE_H;
@@ -717,7 +752,7 @@ function CardNode({ data }: any) {
                     margin: 0,
                     padding: "0 10px",
                     background: "transparent",
-                    fontSize: 12.5,
+                    fontSize: 13,
                     lineHeight: `${LINE_H}px`,
                     fontFamily: "'Fira Code', ui-monospace, Menlo, Consolas, monospace",
                   }}
@@ -889,11 +924,11 @@ const barBtn: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "6px 11px",
+  padding: "7px 12px",
   borderRadius: 7,
   border: `1px solid ${CODE.border}`,
-  background: "transparent",
-  color: CODE.textSub,
-  fontSize: 12.5,
+  background: CODE.elevated,
+  color: CODE.text,
+  fontSize: 13,
   fontWeight: 500,
 };

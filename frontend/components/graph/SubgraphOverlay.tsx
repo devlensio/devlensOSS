@@ -17,6 +17,7 @@ import {
 } from "./cytoscapeConfig";
 import OverlayFilterBar from "./OverlayFilterBar";
 import { NodeTooltip, TooltipInfo } from "./GraphCanvas";
+import { UI } from "@/lib/theme";
 
 cytoscape.use(fcose);
 
@@ -220,29 +221,29 @@ export default function SubgraphOverlay({
       {/* Toolbar */}
       <div
         className="flex items-center gap-3 px-4 h-12 shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ borderBottom: `1px solid ${UI.border}`, background: UI.surface }}
       >
         {/* Back button */}
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
                      transition-colors"
-          style={{ color: "#859490" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#e1e2ea")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#859490")}
+          style={{ color: UI.textSub }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = UI.text)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = UI.textSub)}
         >
           <HiOutlineArrowLeft size={14} />
           {stack.length <= 1 ? "Close" : "Back"}
         </button>
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-xs overflow-hidden">
+        <div className="flex items-center gap-1 overflow-hidden" style={{ fontSize: 12.5, maxWidth: "46%" }}>
           {breadcrumb.map((name, i) => (
             <span key={i} className="flex items-center gap-1 shrink-0">
-              {i > 0 && <span style={{ color: "#3c4a46" }}>→</span>}
+              {i > 0 && <span style={{ color: UI.textGhost }}>→</span>}
               <span
                 style={{
-                  color: i === breadcrumb.length - 1 ? "#2dd4bf" : "#859490",
+                  color: i === breadcrumb.length - 1 ? UI.accent : UI.textSub,
                   fontFamily: "'Space Grotesk', sans-serif",
                   fontWeight: i === breadcrumb.length - 1 ? 600 : 400,
                 }}
@@ -266,7 +267,7 @@ export default function SubgraphOverlay({
         {/* Node count */}
         <span
           className="text-xs shrink-0"
-          style={{ color: "#3c4a46", fontFamily: "monospace" }}
+          style={{ color: UI.textGhost, fontFamily: "monospace" }}
         >
           {subgraphNodes.length} nodes · {subgraphEdges.length} edges
         </span>

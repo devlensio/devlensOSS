@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { UI } from "@/lib/theme";
 
 interface FilterDropdownProps<T extends string> {
   label:    string;
@@ -42,19 +43,20 @@ export default function FilterDropdown<T extends string>({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
         style={{
-          background: open ? "#191c21" : "#14171d",
-          color:      "#859490",
-          border:     "1px solid rgba(255,255,255,0.06)",
+          background: open ? UI.elevated : UI.surface,
+          color:      open ? UI.text : UI.textSub,
+          border:     `1px solid ${open ? UI.accentBorder : UI.border}`,
+          fontSize:   12.5,
         }}
-        onMouseEnter={e => (e.currentTarget.style.color = "#e1e2ea")}
-        onMouseLeave={e => (e.currentTarget.style.color = open ? "#e1e2ea" : "#859490")}
+        onMouseEnter={e => (e.currentTarget.style.color = UI.text)}
+        onMouseLeave={e => (e.currentTarget.style.color = open ? UI.text : UI.textSub)}
       >
         {label}
         <span
           className="px-1.5 py-0.5 rounded text-xs font-mono"
-          style={{ background: "#2dd4bf18", color: "#2dd4bf" }}
+          style={{ background: UI.accentSoft, color: UI.accent }}
         >
           {active.length}/{options.length}
         </span>
@@ -65,42 +67,43 @@ export default function FilterDropdown<T extends string>({
           className="absolute top-full right-0 mt-1.5 rounded-lg py-1 min-w-40
                      shadow-xl z-50 overflow-hidden"
           style={{
-            background: "#14171d",
-            border:     "1px solid rgba(255,255,255,0.08)",
+            background: UI.surface,
+            border:     `1px solid ${UI.border}`,
+            boxShadow:  "0 12px 30px rgba(28,25,23,0.14)",
           }}
         >
           {/* Select all / none */}
           <button
             onClick={() => onChange(allSelected ? [] : [...options])}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs
+            className="w-full flex items-center gap-2 px-3 py-2
                        transition-colors text-left"
-            style={{ color: "#2dd4bf" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#191c21")}
+            style={{ color: UI.accent, fontSize: 12.5 }}
+            onMouseEnter={e => (e.currentTarget.style.background = UI.elevated)}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
             {allSelected ? "Deselect all" : "Select all"}
           </button>
 
-          <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
+          <div style={{ height: 1, background: UI.borderSubtle, margin: "4px 0" }} />
 
           {/* Options */}
           {options.map(option => (
             <button
               key={option}
               onClick={() => toggle(option)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs
+              className="w-full flex items-center gap-2.5 px-3 py-2
                          transition-colors text-left"
-              style={{ color: active.includes(option) ? "#e1e2ea" : "#859490" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#191c21")}
+              style={{ color: active.includes(option) ? UI.text : UI.textSub, fontSize: 12.5 }}
+              onMouseEnter={e => (e.currentTarget.style.background = UI.elevated)}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <span
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{
                   background: active.includes(option)
-                    ? (colors[option] ?? "#859490")
+                    ? (colors[option] ?? UI.textDim)
                     : "transparent",
-                  border: `1px solid ${colors[option] ?? "#859490"}`,
+                  border: `1px solid ${colors[option] ?? UI.textDim}`,
                 }}
               />
               {option}

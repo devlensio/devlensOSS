@@ -54,8 +54,14 @@ The Web UI runs from the source tree via `bun start` — it is **not** bundled i
 bun install && bun run dev
 
 # or run just the frontend dev server (expects the backend already running)
-cd frontend && bun run dev   # next dev
+cd frontend && bun run dev   # scripts/dev.mjs → next dev -p 3001
 ```
+
+`frontend/scripts/dev.mjs` is a thin launcher around `next dev` that pins the UI
+to **:3001** (so it never collides with the API on :3000 — override with
+`NEXT_DEV_PORT`) and raises V8's old-space cap in proportion to machine RAM, so a
+cold Turbopack compile of `/graph/<id>` cannot abort the dev server with
+`JavaScript heap out of memory`.
 
 Open the printed URL, paste the **absolute path** to a repo (it must have a root `package.json`), and click **Analyze**.
 
@@ -65,10 +71,24 @@ Open the printed URL, paste the **absolute path** to a repo (it must have a root
 
 | Script | Does |
 | :-- | :-- |
-| `bun run dev` | `next dev` — hot-reloading dev server (dev only) |
+| `bun run dev` | `scripts/dev.mjs` → `next dev -p 3001` — hot-reloading dev server (dev only) |
 | `bun run build` | `next build` — production build (server mode, `frontend/.next`); served by `bun start` via a live Next server |
 | `bun run lint` | `eslint` |
 | *(repo root)* `bun run build:ui` | alias for `cd frontend && bun run build` |
+
+### Icons
+
+UI icons live in [`components/icons.tsx`](components/icons.tsx) as inlined SVGs —
+**do not import from `react-icons` in app code**. That package only ships barrel
+entrypoints, so one named import pulls thousands of icon components into the
+module graph (the graph page used to compile ~7.8 MB of icons to render 14 of
+them, which is what made `next dev` slow and eventually OOM).
+
+When you need a new icon, reference it in a component and regenerate:
+
+```bash
+cd frontend && python3 scripts/gen-icons.py   # writes components/icons.tsx
+```
 
 ## Backend
 

@@ -67,23 +67,24 @@ export default function OverlayFilterBar({
       {isDirty && (
         <button
           onClick={handleApply}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
-                     font-semibold transition-all shrink-0 animate-pulse"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                     font-semibold transition-all shrink-0"
+          
           style={{
-            background: "#2dd4bf20",
-            border: "1px solid #2dd4bf50",
-            color: "#2dd4bf",
+            background: "rgba(14,118,110,0.10)",
+            border: "1px solid rgba(14,118,110,0.32)",
+            color: "#0e766e",
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "#2dd4bf30";
-            el.style.borderColor = "#2dd4bf";
+            el.style.background = "rgba(14,118,110,0.22)";
+            el.style.borderColor = "#0e766e";
             el.style.animationName = "none";
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "#2dd4bf20";
-            el.style.borderColor = "#2dd4bf50";
+            el.style.background = "rgba(14,118,110,0.10)";
+            el.style.borderColor = "rgba(14,118,110,0.32)";
             el.style.animationName = "";
           }}
         >
@@ -98,12 +99,12 @@ export default function OverlayFilterBar({
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
                transition-colors shrink-0"
           style={{
-            background: "#2dd4bf12",
-            color: "#2dd4bf",
-            border: "1px solid #2dd4bf30",
+            background: "rgba(14,118,110,0.06)",
+            color: "#0e766e",
+            border: "1px solid rgba(14,118,110,0.22)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#2dd4bf20")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#2dd4bf12")}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(14,118,110,0.10)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(14,118,110,0.06)")}
         >
           ↺ Full subgraph
         </button>

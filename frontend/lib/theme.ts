@@ -23,7 +23,7 @@ export const UI = {
   text: "#1c1917",
   textSub: "#57534e",
   textDim: "#78716c",
-  textGhost: "#a8a29e",
+  textGhost: "#8c857a",
 
   accent: "#0e766e",
   accentHover: "#0b5f59",

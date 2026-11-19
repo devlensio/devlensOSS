@@ -443,16 +443,18 @@ export default function GraphView({ params }: Props) {
       >
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-muted hover:text-primary
-                     transition-colors shrink-0"
+          className="flex items-center gap-1.5 shrink-0 rounded-lg border border-border
+                     bg-surface px-2.5 py-1.5 text-muted hover:text-primary
+                     hover:border-accent/40 hover:bg-accent/5 transition-colors"
+          style={{ fontSize: 13 }}
         >
-          <IoArrowBack />
+          <IoArrowBack size={14} />
           Back
         </button>
 
         <div className="h-4 w-px bg-border shrink-0" />
 
-        <span className="font-medium text-primary text-sm truncate shrink-0 max-w-32">
+        <span className="font-semibold text-primary truncate shrink-0 max-w-40" style={{ fontSize: 14 }}>
           {repoName}
         </span>
 
@@ -652,6 +654,7 @@ export default function GraphView({ params }: Props) {
               visibleNodes={visibleNodes}
               highlightedIds={highlightedIds}
               onNodeFocus={handleNodeFocus}
+              onOpenCode={(id) => setCodeStack((prev) => (prev[0] === id ? prev : [id]))}
               onDiffActivate={handleDiffActivate}
               onDiffClear={handleDiffClear}
             />

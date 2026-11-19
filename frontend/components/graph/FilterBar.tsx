@@ -23,6 +23,7 @@ import {
 } from "@/components/icons";
 import { EDGE_COLORS, EDGE_TYPES, NODE_COLORS, NODE_TYPES } from "./cytoscapeConfig";
 import { TypeGlyph } from "./TypeGlyph";
+import { UI } from "@/lib/theme";
 import {
   NODE_TYPE_DEFS,
   EDGE_TYPE_DEFS,
@@ -33,22 +34,22 @@ import {
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const C = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  elevated:  "#21262d",
-  border:    "#30363d",
-  borderSub: "#21262d",
-  text:      "#e6edf3",
-  textSub:   "#8b949e",
-  textDim:   "#6e7681",
-  textGhost: "#484f58",
-  teal:      "#2dd4bf",
-  indigo:    "#818cf8",
+  bg:        UI.bg,
+  surface:   UI.surface,
+  elevated:  UI.elevated,
+  border:    UI.border,
+  borderSub: UI.borderSubtle,
+  text:      UI.text,
+  textSub:   UI.textSub,
+  textDim:   UI.textDim,
+  textGhost: UI.textGhost,
+  teal:      UI.accent,
+  indigo:    "#4f46e5",
 };
 
 const BOUNDARY_OPTIONS: Array<{ value: RenderingBoundary | "unset"; label: string; color: string }> = [
-  { value: "client", label: "Client", color: "#06b6d4" },
-  { value: "server", label: "Server", color: "#f59e0b" },
+  { value: "client", label: "Client", color: "#0e7490" },
+  { value: "server", label: "Server", color: "#b45309" },
   { value: "unset",  label: "Unset",  color: C.textDim },
 ];
 
@@ -143,7 +144,7 @@ export default function FilterBar({
         <button
           onClick={() => setPanelOpen(o => !o)}
           className="flex items-center gap-2 px-3 py-1 rounded-lg border
-                     text-xs font-semibold transition-all"
+                     text-[13px] font-semibold transition-all"
           style={{
             background:  panelOpen ? C.surface   : C.elevated,
             borderColor: panelOpen ? C.teal+"60" : C.borderSub,
@@ -207,12 +208,12 @@ export default function FilterBar({
         {draftNodes.slice(0, 6).map(t => (
           <span
             key={t}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px]
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px]
                        font-mono shrink-0"
             style={{
-              background: (NODE_COLORS[t] ?? C.textDim) + "18",
-              color: NODE_COLORS[t] ?? C.textDim,
-              border: `1px solid ${(NODE_COLORS[t] ?? C.textDim)}33`,
+              background: C.surface,
+              color: C.textSub,
+              border: `1px solid ${C.border}`,
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -221,7 +222,7 @@ export default function FilterBar({
           </span>
         ))}
         {draftNodes.length > 6 && (
-          <span className="text-[10px] font-mono shrink-0" style={{ color: C.textGhost }}>
+          <span className="text-[11px] font-mono shrink-0" style={{ color: C.textGhost }}>
             +{draftNodes.length - 6}
           </span>
         )}
@@ -233,7 +234,7 @@ export default function FilterBar({
           <select
             value={activeCommit}
             onChange={e => onCommitChange(e.target.value)}
-            className="text-xs font-mono rounded-lg px-2 py-1.5
+            className="text-[13px] font-mono rounded-lg px-2 py-1.5
                        focus:outline-none transition-colors max-w-40"
             style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.textSub }}
             onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
@@ -270,8 +271,8 @@ export default function FilterBar({
         <button
           onClick={onReset}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
-                     text-xs font-medium transition-all shrink-0"
-          style={{ background: C.elevated, borderColor: C.borderSub, color: C.textDim }}
+                     text-[13px] font-medium transition-all shrink-0"
+          style={{ background: C.elevated, borderColor: C.border, color: C.textSub }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.color = C.text;
@@ -502,7 +503,7 @@ function ControlCenterPanel({
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder={`Search ${tab === "nodes" ? "node" : "edge"} types…`}
-                  className="w-full text-xs py-1.5 pl-8 pr-7 rounded-lg outline-none transition-colors"
+                  className="w-full text-[13px] py-1.5 pl-8 pr-7 rounded-lg outline-none transition-colors"
                   style={{ background: C.elevated, border: `1px solid ${C.borderSub}`, color: C.text }}
                   onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
                   onBlur={e => (e.currentTarget.style.borderColor = C.borderSub)}
@@ -660,7 +661,7 @@ function NodesTab({
                     )}
                     {count > 0 && (
                       <span className="ml-auto text-[11px] font-mono shrink-0"
-                            style={{ color: active && supported ? color : C.textGhost }}>
+                            style={{ color: C.textDim }}>
                         {count}
                       </span>
                     )}
@@ -756,7 +757,7 @@ function EdgesTab({
                     )}
                     {count > 0 && (
                       <span className="ml-auto text-[11px] font-mono shrink-0"
-                            style={{ color: active && supported ? color : C.textGhost }}>
+                            style={{ color: C.textDim }}>
                         {count}
                       </span>
                     )}
@@ -784,7 +785,7 @@ function LangsTab({ graph }: { graph: GraphResponse | undefined }) {
   }, [graph]);
   return (
     <div className="px-4 py-3">
-      <p className="text-xs mb-3" style={{ color: C.textDim }}>
+      <p className="text-[13px] mb-3" style={{ color: C.textDim }}>
         Languages the engine can analyze. Each drives which node/edge types
         appear in the Nodes and Edges tabs above.
       </p>
@@ -798,10 +799,10 @@ function LangsTab({ graph }: { graph: GraphResponse | undefined }) {
                }}>
             <HiOutlineCodeBracket size={14}
               style={{ color: d.active ? C.teal : C.textDim }} />
-            <span className="text-xs font-medium" style={{ color: d.active ? C.teal : C.textSub }}>
+            <span className="text-[13px] font-medium" style={{ color: d.active ? C.teal : C.textSub }}>
               {d.label}
             </span>
-            <span className="ml-auto text-[10px]" style={{ color: C.textGhost }}>
+            <span className="ml-auto text-[11px]" style={{ color: C.textGhost }}>
               {d.active ? "Detected" : "Available"}
             </span>
           </div>
