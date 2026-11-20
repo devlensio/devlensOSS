@@ -1465,6 +1465,7 @@ function FlowStep({
   onOpen: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const { data, isLoading } = useNodeCode(graphId, commitHash, open ? call.nodeId : null);
 
   const code: string = (data as any)?.code ?? (data as any)?.rawCode ?? "";
@@ -1566,16 +1567,33 @@ function FlowStep({
       {open && (
         <div style={{ padding: "0 8px 12px 43px" }}>
           {isLoading && <div style={{ fontSize: 12.5, color: UI.textDim }}>Loading…</div>}
-          {!isLoading && summary && (
-            <div
-              className="summary-html"
-              style={{ color: UI.textSub, marginBottom: 8 }}
-              dangerouslySetInnerHTML={{ __html: summaryToHtml(summary) }}
-            />
-          )}
-          {!isLoading && !summary && (
-            <div style={{ fontSize: 12.5, color: UI.textDim, marginBottom: 8 }}>
-              No summary for this node.
+
+          {!isLoading && (
+            <div style={{ marginBottom: 8 }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSummaryOpen((v) => !v);
+                }}
+                className="flex items-center hover:underline"
+                style={{ ...tinyLabel, gap: 5, border: "none", background: "none", padding: 0, cursor: "pointer" }}
+              >
+                {summaryOpen ? <HiOutlineChevronDown size={11} /> : <HiOutlineChevronRight size={11} />}
+                Summary
+              </button>
+
+              {summaryOpen && summary && (
+                <div
+                  className="summary-html"
+                  style={{ color: UI.textSub, marginTop: 6 }}
+                  dangerouslySetInnerHTML={{ __html: summaryToHtml(summary) }}
+                />
+              )}
+              {summaryOpen && !summary && (
+                <div style={{ fontSize: 12.5, color: UI.textDim, marginTop: 6 }}>
+                  No summary for this node.
+                </div>
+              )}
             </div>
           )}
           {preview && (
