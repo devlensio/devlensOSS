@@ -62,6 +62,25 @@ export function sanitizeSummary(html: string): string {
   return DOMPurify.sanitize(html, SUMMARY_CONFIG) as unknown as string;
 }
 
+const HAS_BLOCKS = /<(p|ul|ol|pre|li|div|br|h[1-6])\b/i;
+
+/**
+ * Summaries arrive as a mix of HTML (`<code>`, `<ul>`) and plain prose whose
+ * only structure is newlines. Handing the plain kind to the browser collapses
+ * it into one wall of text, so paragraphs are made explicit here and the
+ * result is sanitized in the same pass.
+ */
+export function summaryToHtml(raw: string): string {
+  if (!raw) return "";
+  const html = HAS_BLOCKS.test(raw)
+    ? raw
+    : raw
+        .split(/\n\s*\n/)
+        .map(par => `<p>${par.trim().replace(/\n/g, "<br/>")}</p>`)
+        .join("");
+  return sanitizeSummary(html);
+}
+
 /**
  * Sanitize highlight.js output.
  * Allows class attributes for syntax-highlighting spans while still

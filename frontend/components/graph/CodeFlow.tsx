@@ -19,6 +19,7 @@ import "@xyflow/react/dist/style.css";
 import type { CodeEdge, CodeNode, ResolvedCall } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { highlightToHtml } from "@/lib/syntax";
+import { summaryToHtml } from "@/lib/sanitize";
 import { CODE, UI, UI_REV } from "@/lib/theme";
 import { NODE_ACCENTS } from "./cytoscapeConfig";
 import { EDGE_INFO, markerList } from "./relations";
@@ -488,7 +489,8 @@ function CardNodeInner({ data }: any) {
   const { data: codeData, isLoading, isError: codeError, error: codeErr, refetch: refetchCode } =
     useNodeCode(graphId, commitHash, node?.id ?? null);
   const code: string = (codeData as any)?.code ?? (codeData as any)?.rawCode ?? "";
-  const [showSummary, setShowSummary] = useState(true);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [openSummary, setOpenSummary] = useState({ technical: true, business: false, security: false });
   const [showCallers, setShowCallers] = useState(model.role !== "caller" && !model.parentCardId);
   const [copied, setCopied] = useState(false);
 
@@ -539,7 +541,14 @@ function CardNodeInner({ data }: any) {
   );
 
   if (!node) return null;
-  const summary = (node.technicalSummary || node.businessSummary || "").trim();
+
+  const technical = (node.technicalSummary ?? "").trim();
+  const business  = (node.businessSummary  ?? "").trim();
+  const security  = node.security;
+  const securityHasContent = !!security && (
+    security.severity !== "none" || !!security.summary?.trim()
+  );
+  const hasAnySummary = !!technical || !!business || securityHasContent;
   const startLine = node.startLine ?? 1;
   const accent = NODE_ACCENTS[node.type] ?? CODE.cyan;
 
@@ -666,42 +675,86 @@ function CardNodeInner({ data }: any) {
 
       {!model.minimized && (
         <>
-          {/* ── Summary ─────────────────────────────────────────────── */}
-          <div
-            className="shrink-0 nodrag"
-            style={{ padding: "9px 12px", borderBottom: `1px solid ${CODE.border}` }}
-          >
-            <button
-              onClick={() => setShowSummary((v) => !v)}
-              className="flex items-center"
-              style={{
-                gap: 5,
-                border: "none",
-                background: "none",
-                color: CODE.textDim,
-                fontSize: 10.5,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: 0,
-              }}
+          {/* ── Summaries: technical / business / security ──────────── */}
+          {!hasAnySummary && (
+            <div
+              className="shrink-0 nodrag"
+              style={{ padding: "9px 12px", borderBottom: `1px solid ${CODE.border}`, fontSize: 12.5, color: "#a9aec9" }}
             >
-              {showSummary ? <HiOutlineChevronDown size={11} /> : <HiOutlineChevronRight size={11} />}
-              Summary
-            </button>
-            {showSummary && (
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  fontSize: 12.5,
-                  lineHeight: 1.6,
-                  color: summary ? CODE.textSub : "#a9aec9",
-                }}
+              No summary stored — re-analyze with summarization enabled.
+            </div>
+          )}
+
+          {hasAnySummary && (
+            <div
+              className="shrink-0 nodrag"
+              style={{ padding: "9px 12px", borderBottom: `1px solid ${CODE.border}` }}
+            >
+              <SummarySection
+                label="Technical"
+                open={openSummary.technical}
+                onToggle={() => setOpenSummary(o => ({ ...o, technical: !o.technical }))}
               >
-                {summary || "No summary for this node — re-analyze with summarization enabled."}
-              </p>
-            )}
-          </div>
+                {technical ? (
+                  <SummaryBody
+                    html={summaryToHtml(technical)}
+                    expanded={summaryExpanded}
+                    onToggle={() => setSummaryExpanded(v => !v)}
+                    clampAt={148}
+                    canExpand={technical.length > 320}
+                  />
+                ) : (
+                  <span style={{ fontSize: 12.5, color: "#a9aec9" }}>No technical summary.</span>
+                )}
+              </SummarySection>
+
+              {(business || securityHasContent) && (
+                <div style={{ borderTop: `1px solid ${CODE.border}`, marginTop: 7, paddingTop: 7 }}>
+                  {business && (
+                    <SummarySection
+                      label="Business"
+                      open={openSummary.business}
+                      onToggle={() => setOpenSummary(o => ({ ...o, business: !o.business }))}
+                    >
+                      <SummaryBody
+                        html={summaryToHtml(business)}
+                        expanded={summaryExpanded}
+                        onToggle={() => setSummaryExpanded(v => !v)}
+                        clampAt={148}
+                        canExpand={business.length > 320}
+                      />
+                    </SummarySection>
+                  )}
+
+                  {securityHasContent && (
+                    <div style={{ marginTop: business ? 7 : 0 }}>
+                      <SummarySection
+                        label="Security"
+                        open={openSummary.security}
+                        onToggle={() => setOpenSummary(o => ({ ...o, security: !o.security }))}
+                        badge={security!.severity !== "none" ? security!.severity.toUpperCase() : undefined}
+                        badgeTone={SECURITY_TONE[security!.severity] ?? CODE.textDim}
+                      >
+                        {security!.summary?.trim() ? (
+                          <SummaryBody
+                            html={summaryToHtml(security!.summary)}
+                            expanded={summaryExpanded}
+                            onToggle={() => setSummaryExpanded(v => !v)}
+                            clampAt={148}
+                            canExpand={security!.summary.length > 320}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 12.5, color: "#a9aec9" }}>
+                            No security notes for this node.
+                          </span>
+                        )}
+                      </SummarySection>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Callers (way back up the stack) ─────────────────────── */}
           {callers.length > 0 && (
@@ -1081,3 +1134,89 @@ const barBtn: React.CSSProperties = {
  */
 const CardNode = memo(CardNodeInner, (a: any, b: any) => a.data === b.data);
 const nodeTypes = { card: CardNode };
+
+const SECURITY_TONE: Record<string, string> = {
+  high:   CODE.red,
+  medium: "#ffb86c",
+  low:    "#f1fa8c",
+  none:   CODE.textDim,
+};
+
+function SummarySection({
+  label, open, onToggle, badge, badgeTone, children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  badge?: string;
+  badgeTone?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="flex items-center"
+        style={{
+          gap: 5, border: "none", background: "none", color: CODE.textDim,
+          fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em",
+          textTransform: "uppercase", padding: 0, cursor: "pointer",
+        }}
+      >
+        {open ? <HiOutlineChevronDown size={11} /> : <HiOutlineChevronRight size={11} />}
+        {label}
+        {badge && (
+          <span
+            style={{
+              marginLeft: 6, padding: "1px 6px", borderRadius: 999,
+              fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em",
+              color: badgeTone ?? CODE.textDim,
+              background: (badgeTone ?? CODE.textDim) + "22",
+              border: `1px solid ${(badgeTone ?? CODE.textDim)}66`,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && <div style={{ marginTop: 6 }}>{children}</div>}
+    </div>
+  );
+}
+
+function SummaryBody({
+  html, expanded, onToggle, clampAt, canExpand,
+}: {
+  html: string;
+  expanded: boolean;
+  onToggle: () => void;
+  clampAt: number;
+  canExpand: boolean;
+}) {
+  return (
+    <>
+      <div
+        className="summary-html summary-html--code nodrag nowheel"
+        style={{
+          fontSize: 12.5,
+          lineHeight: 1.62,
+          maxHeight: expanded ? undefined : clampAt,
+          overflow: "hidden",
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {canExpand && (
+        <button
+          onClick={onToggle}
+          className="nodrag"
+          style={{
+            marginTop: 4, padding: 0, border: "none", background: "none",
+            color: CODE.cyan, fontSize: 11.5, cursor: "pointer",
+          }}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+}

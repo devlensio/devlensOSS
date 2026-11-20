@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import type { CodeEdge, CodeNode, ResolvedCall } from "@/lib/types";
 import { useNodeCode } from "@/lib/hooks";
 import { highlightToHtml } from "@/lib/syntax";
-import { sanitizeSummary } from "@/lib/sanitize";
+import { summaryToHtml } from "@/lib/sanitize";
 import { CODE, UI } from "@/lib/theme";
 import { NODE_COLORS } from "./cytoscapeConfig";
 import {
@@ -470,7 +470,7 @@ export default function NodePanel({
                       overflow: "hidden",
                       position: "relative",
                     }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeSummary(summary) }}
+                    dangerouslySetInnerHTML={{ __html: summaryToHtml(summary) }}
                   />
                   {summary.length > 340 && (
                     <button
@@ -498,7 +498,7 @@ export default function NodePanel({
                   <div
                     className="summary-html"
                     style={{ color: UI.textSub, marginBottom: calls.length > 0 ? 14 : 0 }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeSummary(technical) }}
+                    dangerouslySetInnerHTML={{ __html: summaryToHtml(technical) }}
                   />
                 )}
                 {calls.length > 0 && (
@@ -776,7 +776,7 @@ export default function NodePanel({
                   <div
                     className="summary-html"
                     style={{ color: UI.textSub }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeSummary(node.security.summary) }}
+                    dangerouslySetInnerHTML={{ __html: summaryToHtml(node.security.summary) }}
                   />
                 </div>
               </Section>
@@ -1469,7 +1469,7 @@ function FlowStep({
             <div
               className="summary-html"
               style={{ color: UI.textSub, marginBottom: 8 }}
-              dangerouslySetInnerHTML={{ __html: sanitizeSummary(summary) }}
+              dangerouslySetInnerHTML={{ __html: summaryToHtml(summary) }}
             />
           )}
           {!isLoading && !summary && (

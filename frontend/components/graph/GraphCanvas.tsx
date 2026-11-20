@@ -4,7 +4,7 @@ import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { toElements } from "./cytoscopeUtils";
 import { getCytoscapeStyles, getLayoutConfig, NODE_ACCENTS } from "./cytoscapeConfig";
-import { sanitizeSummary } from "@/lib/sanitize";
+import { summaryToHtml } from "@/lib/sanitize";
 
 cytoscape.use(fcose);
 
@@ -55,9 +55,9 @@ export function NodeTooltip({
     position: "absolute", left: t.x + 16, top: t.y - 8,
     transform: "translateY(-100%)", opacity: 0, zIndex: 50,
   });
-  // Summaries are the reason to hover at all, so open them by default instead
-  // of hiding the only useful text behind another click.
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  // Collapsed by default: the card sits under the pointer and a full summary
+  // pushed everything else out of reach. The header shows what is inside.
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -262,7 +262,7 @@ export function NodeTooltip({
                     <div
                       className="summary-html"
                       style={{ fontSize: 12.5, color: "#57534e" }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.technicalSummary) }}
+                      dangerouslySetInnerHTML={{ __html: summaryToHtml(t.technicalSummary) }}
                     />
                   </div>
                 )}
@@ -279,7 +279,7 @@ export function NodeTooltip({
                     <div
                       className="summary-html"
                       style={{ fontSize: 12.5, color: "#57534e" }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeSummary(t.businessSummary) }}
+                      dangerouslySetInnerHTML={{ __html: summaryToHtml(t.businessSummary) }}
                     />
                   </div>
                 )}

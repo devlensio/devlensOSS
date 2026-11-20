@@ -78,7 +78,10 @@ button:disabled { cursor: not-allowed; }
 .summary-html strong { font-weight: 600; color: #1c1917; }
 .summary-html em { font-style: italic; }
 .summary-html ul, .summary-html ol { padding-left: 1.15em; margin: 0.35em 0; }
-.summary-html li { margin: 0.2em 0; }
+/* Tailwind preflight removes list markers; summaries are mostly bullet points. */
+.summary-html ul { list-style: disc outside; }
+.summary-html ol { list-style: decimal outside; }
+.summary-html li { display: list-item; margin: 0.2em 0; }
 .summary-html code {
   font-family: 'Fira Code', ui-monospace, monospace;
   font-size: 0.86em;
@@ -100,6 +103,23 @@ button:disabled { cursor: not-allowed; }
 .summary-html h1, .summary-html h2, .summary-html h3, .summary-html h4 {
   font-weight: 600; font-size: 1em; margin: 0.7em 0 0.3em;
 }
+
+/* Same prose, inside the dark code cards. */
+.summary-html--code { color: #d7daea; }
+.summary-html--code strong { color: #ffffff; font-weight: 600; }
+.summary-html--code code {
+  background: #343746;
+  border: 1px solid #44475a;
+  color: #f1fa8c;
+  padding: 0.1em 0.38em;
+}
+.summary-html--code pre {
+  background: #21222c;
+  border: 1px solid #44475a;
+  color: #f8f8f2;
+}
+.summary-html--code a { color: #8be9fd; text-decoration: underline; }
+.summary-html--code li::marker { color: #6272a4; }
 
 /* ── Dracula, for source panes ──────────────────────────────────────────────
    highlight.js ships no Dracula stylesheet in 11.11, so the token colours are
