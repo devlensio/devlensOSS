@@ -153,17 +153,18 @@ export default function SubgraphOverlay({
     cy.on("zoom", scaleAnchorLabels);
     scaleAnchorLabels();
 
-    // After layout completes — zoom into the root node. Skip the animation on
-    // big subgraphs: the tween re-renders every element for 600ms while the
-    // user is already moving the mouse.
+    // After layout completes — fit the subgraph, not the root node alone.
+    // Fitting the root turned a 5-node blast radius into one node filling the
+    // screen, which defeats the point of asking for the radius. Skip the
+    // animation on big subgraphs: the tween re-renders every element for 600ms
+    // while the user is already moving the mouse.
     cy.one("layoutstop", () => {
-      const rootNode = cy.getElementById(current.rootNodeId);
-      if (rootNode.empty()) return;
+      if (cy.elements().empty()) return;
       if (subgraphNodes.length > 350) {
-        cy.fit(rootNode, 180);
+        cy.fit(cy.elements(), 70);
       } else {
         cy.animate(
-          { fit: { eles: rootNode, padding: 200 }, easing: "ease-in-out-cubic" },
+          { fit: { eles: cy.elements(), padding: 90 }, easing: "ease-in-out-cubic" },
           { duration: 600 },
         );
       }

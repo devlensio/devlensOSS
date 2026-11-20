@@ -48,6 +48,12 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 
 *Everything known about one node: technical summary, the pipeline its body runs, its size and shape, who calls it, and its relations — one panel, no file opening.*
 
+Hover a node and you get the same information without committing to it — score, hooks, local state, a collapsed summary, and the two ways in:
+
+![Hover card over the graph, surroundings still visible](assets/screenshots/19-hover-card.png)
+
+*Hovering does not take over the screen: the graph, the toolbar and the filters stay where they are. Click through to the panel, or straight to the code view.*
+
 The same summaries render inside the code view, so a card explains itself while you read it:
 
 ![A code card with technical, business and security summaries expanded](assets/screenshots/11-card-summaries.png)
@@ -63,6 +69,14 @@ The same summaries render inside the code view, so a card explains itself while 
 Flip the toggle to **Upstream** and the same list becomes a tree of every caller, expandable up the chain — the difference between "what does this do" and "what depends on this". Expand any step to read its source, with the callee's summary nested underneath, collapsed until you ask for it.
 
 ### Read the code as a graph
+
+Two callees open beside their caller — the common case while reading:
+
+![Code view with three cards — a caller and two callees](assets/screenshots/17-code-view-three-cards.png)
+
+*`PlanUsage` and the two functions it calls, side by side, each with its summary, its own call badges and its own line numbers. Clicking a badge adds a card; **Auto-arrange** lays them out.*
+
+Open more and the same view scales to a full call tree:
 
 ![Six code cards connected by call arrows](assets/screenshots/10-code-view-cards.png)
 
