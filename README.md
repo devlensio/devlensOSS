@@ -28,7 +28,7 @@ Analyze your repo once, then **open a code graph you can actually read**: every 
 
 The CLI answers one question at a time. The Web UI shows the whole codebase at once and lets you move through it — this is the part developers keep open in a tab.
 
-![Graph overview — every file, component, route and hook, sized by importance](assets/screenshots/02-graph-overview.png)
+<img src="assets/screenshots/02-graph-overview.png" alt="Graph overview — every file, component, route and hook, sized by importance" width="100%" />
 
 *One real repository, 591 nodes. The highest-impact nodes keep their labels at overview zoom, so the first screen tells you where the weight sits instead of showing an unlabelled hairball.*
 
@@ -42,57 +42,46 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 | **Blast radius** | Pick a hop depth and open everything that depends on this node — or everything it reaches — as its own subgraph. |
 | **Filters that keep the plot** | Node type, edge type, score threshold, rendering boundary, entry-point reach, with live counts from your graph. |
 
-### Understand a node before you open its file
+### Inside the app
 
-![Node panel — summary, execution pipeline, shape and relations](assets/screenshots/03-node-panel.png)
+<table>
+<tr>
+<td width="50%" valign="top"><img src="assets/screenshots/03-node-panel.png" alt="Node panel — summary, execution pipeline, shape and relations" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/19-hover-card.png" alt="Hover card over the graph" /></td>
+</tr>
+<tr>
+<td valign="top"><em>Everything known about one node: technical summary, the pipeline its body runs, its size, who calls it, its relations.</em></td>
+<td valign="top"><em>Hover without committing: score, hooks, local state, a collapsed summary, and the two ways in. The graph stays where it is.</em></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="assets/screenshots/11-card-summaries.png" alt="A code card with technical, business and security summaries expanded" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/14-flow-downstream.png" alt="Flow tab — 24 resolved calls in body order" /></td>
+</tr>
+<tr>
+<td valign="top"><em>Technical, business and security are independent sections inside the card — technical opens by default. Security carries its severity (<code>HIGH</code> here).</em></td>
+<td valign="top"><em><code>runSummarization</code>: 24 resolved calls, numbered in body order, with the <code>await</code> / <code>maybe</code> / <code>×5</code> markers the parser recorded. Flip to <b>Upstream</b> for the callers as a tree.</em></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="assets/screenshots/17-code-view-three-cards.png" alt="Code view with three cards" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/10-code-view-cards.png" alt="Six code cards connected by call arrows" /></td>
+</tr>
+<tr>
+<td valign="top"><em>Two callees open beside their caller — the common case while reading. Click a badge to add a card, <b>Auto-arrange</b> to lay them out.</em></td>
+<td valign="top"><em>The same view at six cards: a call tree on one canvas, arrows showing direction, <b>Back</b> closing them one at a time.</em></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="assets/screenshots/04-blast-radius.png" alt="Blast radius — what depends on this node" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/05-filters.png" alt="Filter control centre" /></td>
+</tr>
+<tr>
+<td valign="top"><em><b>Blast radius</b> at two hops: everything that would feel the change. <b>K-hop</b> shows the reverse.</em></td>
+<td valign="top"><em>Filter by node type, edge type, score, rendering boundary and entry-point reach, with live counts from your graph.</em></td>
+</tr>
+</table>
 
-*Everything known about one node: technical summary, the pipeline its body runs, its size and shape, who calls it, and its relations — one panel, no file opening.*
+Two details the pictures hint at: open any step in the flow to read its source, with the callee's summary nested underneath and collapsed until you ask for it; and the panel's own **Code** tab shows the node's source with the file's real line numbers, so you can read without leaving the graph or opening your editor.
 
-Hover a node and you get the same information without committing to it — score, hooks, local state, a collapsed summary, and the two ways in:
-
-![Hover card over the graph, surroundings still visible](assets/screenshots/19-hover-card.png)
-
-*Hovering does not take over the screen: the graph, the toolbar and the filters stay where they are. Click through to the panel, or straight to the code view.*
-
-The same summaries render inside the code view, so a card explains itself while you read it:
-
-![A code card with technical, business and security summaries expanded](assets/screenshots/11-card-summaries.png)
-
-*Technical, business and security are independent sections — technical opens by default, the other two are one click away. Security carries its severity (`HIGH` here) and reads as findings, not boilerplate.*
-
-### Follow a flow in either direction
-
-![Flow tab — 24 resolved calls in body order](assets/screenshots/14-flow-downstream.png)
-
-*`runSummarization` in devlens-engine: 24 resolved calls, numbered in the order the body makes them, with the `await` / `maybe` / `×5` markers the parser recorded.*
-
-Flip the toggle to **Upstream** and the same list becomes a tree of every caller, expandable up the chain — the difference between "what does this do" and "what depends on this". Expand any step to read its source, with the callee's summary nested underneath, collapsed until you ask for it.
-
-### Read the code as a graph
-
-Two callees open beside their caller — the common case while reading:
-
-![Code view with three cards — a caller and two callees](assets/screenshots/17-code-view-three-cards.png)
-
-*`PlanUsage` and the two functions it calls, side by side, each with its summary, its own call badges and its own line numbers. Clicking a badge adds a card; **Auto-arrange** lays them out.*
-
-Open more and the same view scales to a full call tree:
-
-![Six code cards connected by call arrows](assets/screenshots/10-code-view-cards.png)
-
-*Start from one function, open five callees, press **Auto-arrange**: six cards in call order, arrows showing direction. Every call badge sits on the line that makes the call — click one to open the callee as a card. Cards drag, resize and minimise; **Back** closes them one at a time.*
-
-### Change safely
-
-![Blast radius — everything that depends on this node, two hops back](assets/screenshots/04-blast-radius.png)
-
-*Two hops back from a hot node: everything that would feel the change. Hops are adjustable, and **K-hop** shows the reverse — what this node reaches.*
-
-### Narrow the field
-
-![Filter control centre — node type, edge type, score, rendering boundary, entry-point reach](assets/screenshots/05-filters.png)
-
-*Filter by node type, edge type, score, rendering boundary and entry-point reach, with live counts from your graph. Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.*
+Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.
 
 ### A five-minute pass over an unfamiliar repo
 
