@@ -6,7 +6,7 @@
 
 **Codebase Intelligence for AI agents and Developers.**
 
-Analyze your repo once. Your AI agent then queries a precomputed code graph through MCP — ranked files, call flow, impact, and security — instead of re-reading your codebase file by file. Five self-describing MCP tools, plain-text packets measured at a third of the tokens of reading the code, and the smallest response in its benchmark field.
+Analyze your repo once, then **open a code graph you can actually read**: every file, route, hook and class is a node you can search, follow and open. Click a function to see what it does in plain language, what it calls in order, who calls it, and what breaks if you change it. The same graph backs five self-describing MCP tools, so your agent works from what you are looking at instead of re-reading the repo file by file.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![npm: @devlensio/cli](https://img.shields.io/badge/npm-%40devlensio%2Fcli-cb3837?logo=npm)](https://www.npmjs.com/package/@devlensio/cli)
@@ -24,52 +24,123 @@ Analyze your repo once. Your AI agent then queries a precomputed code graph thro
 
 ---
 
+## See it: the Web UI
+
+The CLI answers one question at a time. The Web UI shows the whole codebase at once and lets you move through it — this is the part developers keep open in a tab.
+
+![Graph overview — every file, component, route and hook, sized by importance](assets/screenshots/02-graph-overview.png)
+
+*One real repository, 591 nodes. The highest-impact nodes keep their labels at overview zoom, so the first screen tells you where the weight sits instead of showing an unlabelled hairball.*
+
+| In the UI | What you get |
+| :-- | :-- |
+| **A map of the architecture** | Files, components, hooks, routes, classes, methods and tests as typed nodes, connected by `CALLS`, `IMPORTS`, `EXTENDS`, `IMPLEMENTS`, `RENDERS`, `READS_FROM` / `WRITES_TO` and route edges. Sized by importance, so the spine of the app is visible before you click anything. |
+| **A written answer per node** | Every node carries a **technical** summary, a **business** summary and a **security** verdict with severity — written from the code, not from its name. |
+| **Execution flow, in order** | The **Flow** tab lists every resolved call the body makes, numbered by call site, marked `await`, `maybe`, `loop`, `×N`. Nothing is abstracted into "and 18 more". |
+| **Both directions** | Flip to **Upstream** for a collapsible tree of everything that reaches this node. |
+| **Code as a graph** | The **code view** turns nodes into draggable cards with syntax highlighting; call badges sit on the exact lines that make the call, and clicking one opens the callee beside it. |
+| **Blast radius** | Pick a hop depth and open everything that depends on this node — or everything it reaches — as its own subgraph. |
+| **Filters that keep the plot** | Node type, edge type, score threshold, rendering boundary, entry-point reach, with live counts from your graph. |
+
+### Understand a node before you open its file
+
+![Node panel — summary, execution pipeline, shape and relations](assets/screenshots/03-node-panel.png)
+
+*Everything known about one node: technical summary, the pipeline its body runs, its size and shape, who calls it, and its relations — one panel, no file opening.*
+
+The same summaries render inside the code view, so a card explains itself while you read it:
+
+![A code card with technical, business and security summaries expanded](assets/screenshots/11-card-summaries.png)
+
+*Technical, business and security are independent sections — technical opens by default, the other two are one click away. Security carries its severity (`HIGH` here) and reads as findings, not boilerplate.*
+
+### Follow a flow in either direction
+
+![Flow tab — 24 resolved calls in body order](assets/screenshots/14-flow-downstream.png)
+
+*`runSummarization` in devlens-engine: 24 resolved calls, numbered in the order the body makes them, with the `await` / `maybe` / `×5` markers the parser recorded.*
+
+![Flow tab — one step expanded, the nested summary collapsed](assets/screenshots/15-flow-step-expanded.png)
+
+*Open a step and you get its source; the callee's summary is a nested collapsible, collapsed by default, so the code stays in view.*
+
+![Upstream callers as a tree](assets/screenshots/16-flow-upstream.png)
+
+*The other direction: every caller, as a tree you can expand — the difference between "what does this do" and "what depends on this".*
+
+### Read the code as a graph
+
+![Six code cards connected by call arrows](assets/screenshots/10-code-view-cards.png)
+
+*Start from one function, open five callees, press **Auto-arrange**: six cards in call order, arrows showing direction. Cards drag, resize and minimise; **Back** closes them one at a time.*
+
+![Call badges pinned to the lines that make the calls](assets/screenshots/07b-code-map.png)
+
+*Every call badge sits on the line that makes the call. Click it to open the callee as a card — the badge is the edge.*
+
+![Panel Code tab with the node's source](assets/screenshots/12-panel-code-tab.png)
+
+*The panel's own Code tab shows the node's source with the file's line numbers, so you can read without leaving the graph or opening your editor.*
+
+### Change safely
+
+![Blast radius — everything that depends on this node, two hops back](assets/screenshots/04-blast-radius.png)
+
+*Two hops back from a hot node: everything that would feel the change. Hops are adjustable, and **K-hop** shows the reverse — what this node reaches.*
+
+### Narrow the field
+
+<table>
+<tr>
+<td width="50%"><img src="assets/screenshots/05-filters.png" alt="Filter control centre" /></td>
+<td width="50%"><img src="assets/screenshots/06-jobs.png" alt="Jobs panel" /></td>
+</tr>
+<tr>
+<td><em>Filter by node type, edge type, score, rendering boundary and entry-point reach — with live counts from your graph.</em></td>
+<td><em>Analyses and summarizations run as jobs: per-phase progress, resumable, and the engine's own error text when a provider fails.</em></td>
+</tr>
+</table>
+
+### A five-minute pass over an unfamiliar repo
+
+1. **Orient.** Open the graph. Bigger, labelled nodes are where the weight is.
+2. **Pick an entry point.** Search a route or handler you already understand, or toggle entry-point reach to light up everything the app actually runs.
+3. **Read the flow.** The **Flow** tab tells you what that function does, in order, before you open a single file.
+4. **Check the blast radius.** Two hops back shows what breaks if you change it.
+5. **Open the code view.** The cards put the function and its callees side by side, so you stop alt-tabbing between files.
+6. **Keep what you learned.** Filters, commit diffs and one-click reindex make the view reusable next sprint.
+
+### How teams use it
+
+- **Onboarding.** A new hire traces a feature from route to handler to hook to component in minutes, with prose summaries instead of tribal knowledge.
+- **PR review.** Load the PR's commit, diff it against the base, see which nodes were added, removed or re-scored — then check the blast radius of the risky ones.
+- **Refactor planning.** Sort by score, find the god-nodes, confirm dependency direction before you split anything.
+- **Incident triage.** Start from the failing route, walk the flow, look at what reads the data that broke.
+- **Agent grounding.** The same graph backs the MCP server, so what your agent answers and what you see on screen cannot disagree.
+
+### Run it
+
+```bash
+bun start   # from the source repo: API + Web UI on one port (http://localhost:3000)
+```
+
+The Web UI runs from the source tree; it is not bundled into the installed CLI binary.
+
+---
+
 ## Why DevLens?
 
-- **Your agent stops burning tokens.** One MCP call returns a task-shaped packet — the files and symbols that matter, ranked, within a token budget. No grep loops, no re-reading files.
-- **It wins the benchmark.** First of nine tools on correctness, F1, recall, and precision — the only tool that leads every quality column.
-- **It is fast and small.** 67 ms per call, packets 6.7× smaller than the closest graph competitor, and it never exceeds the token budget you set.
-- **Developers get it too.** Interactive graph visualization, blast radius before you change a symbol, PR review packets, and per-node security analysis.
+Most tools answer "where is this symbol". DevLens answers the three questions that actually slow you down when you join a repo or come back to one six months later.
 
----
+- **"What is this codebase?"** One screen shows the architecture: routes, handlers, hooks, components and stores as typed, sized nodes. The spine is visible before you open a file — which is what makes an unfamiliar repo navigable instead of a folder tree you have to guess at.
+- **"What does this thing do, and what runs when it runs?"** Every node carries a written technical and business summary, plus its body's calls in execution order with `await`, `maybe`, `loop` and `×N` markers. You read the behaviour, not just the signature.
+- **"What breaks if I change it?"** Blast radius in one click, either direction, at any hop depth — before the change, not in review.
+- **It tracks the code, not a snapshot.** Each analysis is tied to a commit: load a PR's commit, diff it against the base, and see which nodes were added, removed or re-scored. Re-running keeps the summaries of unchanged nodes, so you only pay for what moved.
+- **You navigate, you don't scroll.** Search by name or ID, hover for a card, click for the panel, open a node as a code card, follow its callees, walk back up with **Called by**. A graph you move through beats a diagram you stare at.
+- **Security lives in the graph.** Per-node severity plus what that finding can reach, so a `HIGH` on a payout handler is not confused with a `HIGH` on a test fixture.
+- **The agent sees what you see.** The MCP server reads the same graph, so agent answers and the UI cannot disagree — one analysis, two front doors.
 
-## Benchmarks
-
-We benchmarked DevLens MCP against the other code graph and retrieval tools — **Graphify, codegraph, semble, bm25** — on one headless coding agent, one model, one real TypeScript repository, and 133 real questions written from actual pull requests and symbols:
-
-| | **DevLens V3 (5 tools)** | **Graphify** | codegraph | semble | bm25 |
-| :-- | :-- | :-- | :-- | :-- | :-- |
-| Correctness (agent loop, same run) | **0.643** | 0.619 | 0.667 | 0.714 | 0.667 |
-| F1 (agent loop, same run) | **0.529** | 0.526 | 0.604 | 0.636 | 0.581 |
-| Correctness (retrieval layer) | **0.694** | 0.662 | 0.674 | 0.652 | 0.664 |
-| Response packet | **2,230 tokens** | 15,020 tokens | 6,339 tokens | 736 tokens | 721 tokens |
-| Latency per call | **67 ms** | 2,469 ms | 2,736 ms | 508 ms | 108 ms |
-
-Head-to-head against **Graphify** — the most direct competitor (tree-sitter graph, MCP server) — DevLens wins on every axis: correctness in the agent loop (0.643 vs 0.619, same run) and in the retrieval layer (0.694 vs 0.662, paired 15 wins to 9 losses on identical questions), a **6.7× smaller packet** (2,230 vs 15,020 tokens, smaller on all 54 of 54 comparable questions), and **~37× faster per call** (67 ms vs 2,469 ms). Graphify's graph is also 64% larger with 3.6× the edges (16,999 nodes / 71,694 edges vs 10,346 / 19,847) for the lower quality.
-
-> The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
-
-**Full methodology, per-type tables, and the nine-tool round:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
-
----
-
-## How DevLens compares
-
-DevLens is the only tool in this space that combines native semantic parsing, per-node AI summaries with per-node security analysis, and framework-aware data edges — and the only option you can use commercially under AGPL.
-
-| Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
-| :-- | :-- | :-- | :-- | :-- | :-- |
-| Parsing depth | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`), type-resolved | tree-sitter (syntactic, no type info) | tree-sitter + native bindings (no type info) | SCIP/LSIF symbol index + language servers (no semantic parse) | LLM reads source directly (no structured parser) |
-| Edge quality | **Type-checked `IMPLEMENTS`/`EXTENDS`**, framework **routes** (Next.js, Django, Spring, Gin, axum), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags, no type or framework awareness | call chains, clusters, `route_map`, no ORM or data edges | precise symbol cross-references (SCIP), no type-checked inheritance | docs-level relationships (no structured graph) |
-| Per-node AI summaries | **Technical + business + security** with severity on every node | No (LLM used for docs and concepts) | No (embeddings for semantic query) | Via Cody (hover and inline docs, chat-level) | Auto-generated docs per symbol (no security, no technical/business split) |
-| Security analysis | **Per-node severity + blast-radius reach** with real exploit descriptions | No | Partial (opt-in PDG/taint) | No (compliance certifications only) | No |
-| Agent / MCP integration | CLI + **self-describing MCP server** + Web UI | CLI + local skill (no MCP) | CLI + 17-tool MCP + hooks (`AGENTS.md`) | MCP server (cross-repo search, not per-repo graph queries) | Unknown (no public MCP integration) |
-| Language coverage | TS/JS, Python, Java, Go, Rust with **native parsers for each** | 12 code families + docs/images (shallow syntactic) | Many via tree-sitter (Dart/Kotlin/Swift), shallow syntactic | 30+ via language servers (symbol-level, no semantic edges) | Any (LLM reads source, no structured extraction) |
-| License / pricing | **AGPL-3.0, free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (cannot use commercially) | Open-source core, Enterprise paid | Free for public repos, enterprise tiers unlisted |
-
-*(Feature comparison from public sources, Aug 2026.)*
-
-**Why teams choose DevLens:** semantic edges that syntactic tools cannot produce, per-node security analysis no other open-source tool provides, benchmark-winning retrieval quality, and a single MCP front door — free for commercial use.
+If you only want retrieval for an agent, the [benchmarks](#benchmarks) are further down. This repository is built UI-first because that is where the understanding happens.
 
 ---
 
@@ -198,92 +269,6 @@ Each repo is analyzed with its language's own parser (Python `ast`, JavaParser, 
 
 ---
 
-## For developers: the Web UI
-
-*For when you want to see your codebase laid out as an interactive graph.*
-
-DevLens ships a local web app over the same graph the CLI and MCP server read. No second analysis, no separate store: analyze once, then browse, filter, and drill into what you already have.
-
-![Graph overview — nodes sized by importance, key nodes labelled](assets/screenshots/02-graph-overview.png)
-
-### What you can actually do in it
-
-| Feature | What it gives you |
-| :-- | :-- |
-| **Read the map, not the folder tree** | Every file, component, hook, route, class and test is a node sized by importance. The highest-impact nodes keep their labels at overview zoom, so the first screen is a summary of where the weight sits — not an unlabelled hairball. |
-| **Ask a node what it is** | Click any node for its business and technical summary, then the **execution pipeline**: the calls its body makes, numbered in the order it makes them, with `await`, `loop`, `maybe` and `×N` markers. |
-| **Follow the flow both ways** | The **Flow** tab lists every resolved call in order (nothing abstracted away); switch to **Upstream** for a collapsible tree of everything that reaches this node. |
-| **Measure the blast radius before you touch it** | Pick a hop depth and open a **blast radius** (everything that depends on this node) or **K-hop** (everything it reaches) as its own subgraph. |
-| **Read the code as a graph** | Open the **code view**: each node becomes a card with its source, call badges on the exact lines where it calls something, and an arrow to the card it opens. Cards drag, resize, minimise, and keep a **Called by** list so you can walk back up the stack. |
-| **Filter without losing the plot** | The control centre filters by node type, edge type, score threshold, rendering boundary and entry-point reach — with live counts from your graph. |
-| **Watch work happen** | Long analyses run as jobs: progress per phase, resumable, with the engine's own error text when something fails. |
-
-<table>
-<tr>
-<td width="50%"><img src="assets/screenshots/03-node-panel.png" alt="Node panel with summary, pipeline, blast radius and callers" /></td>
-<td width="50%"><img src="assets/screenshots/03b-flow-tab.png" alt="Flow tab: ordered calls with summaries and code previews" /></td>
-</tr>
-<tr>
-<td><em>Everything about one node: summary, pipeline, shape, blast radius, callers, relations.</em></td>
-<td><em>Flow tab: the full ordered call list, each step expandable to its summary and source.</em></td>
-</tr>
-</table>
-
-![runSummarization in devlens-engine: 20 resolved calls in body order](assets/screenshots/09-engine-flow.png)
-
-*The Flow tab on a real function (`runSummarization` in devlens-engine): twenty resolved calls, numbered in the order the body makes them. Nothing is collapsed into "and 18 more".*
-
-![Blast radius — what depends on this node, two hops back](assets/screenshots/04-blast-radius.png)
-
-<table>
-<tr>
-<td width="60%"><img src="assets/screenshots/07-code-view.png" alt="Code view: call graph of source cards" /></td>
-<td width="40%"><img src="assets/screenshots/03c-callers-tree.png" alt="Upstream callers tree" /></td>
-</tr>
-<tr>
-<td><em>Code view: source cards for a function and the calls it makes. Click a badge to open the callee; <b>Called by</b> walks back up.</em></td>
-<td><em>Upstream: who reaches this node, expandable up the call chain.</em></td>
-</tr>
-</table>
-
-<table>
-<tr>
-<td width="50%"><img src="assets/screenshots/07b-code-map.png" alt="Call badges aligned to the lines that make them" /></td>
-<td width="50%"><img src="assets/screenshots/07c-code-view-caller.png" alt="A caller opened as a second card" /></td>
-</tr>
-<tr>
-<td><em>Every call badge sits on the line that makes the call, with its ordering flags — <code>await</code>, <code>maybe</code>, <code>×N</code>. Click it to open the callee as a card.</em></td>
-<td><em>Walk the stack in place: a caller opens to the left of the card, arrow pointing the way the call goes.</em></td>
-</tr>
-</table>
-
-### A five-minute pass over an unfamiliar repo
-
-1. **Orient.** Open the graph. Bigger, labelled nodes are where the weight is.
-2. **Pick an entry point.** Search a route or handler you already understand, or press the route toggle to light up everything reachable from the app's entry points.
-3. **Read the flow.** The **Flow** tab tells you what that function actually does, in order — before you open a single file.
-4. **Check the blast radius.** Two hops back shows what breaks if you change it.
-5. **Open the code view.** The cards put the function and its callees side by side, so you stop alt-tabbing between files.
-6. **Keep what you learned.** Filters, commit diffs and the Project panel's one-click reindex make the view reusable next sprint.
-
-### How teams use it
-
-- **Onboarding.** A new hire can trace a feature from route to handler to hook to component in minutes, with prose summaries instead of tribal knowledge.
-- **PR review.** Load the PR's commit, diff it against the base, and see which nodes were added, removed, or re-scored — then check the blast radius of the risky ones.
-- **Refactor planning.** Sort by score, find the god-nodes, and confirm the dependency direction before you split anything.
-- **Incident triage.** Start from the failing route, walk the flow, and look at what reads the data that broke.
-- **Agent grounding.** The same graph backs the MCP server, so what your agent answers and what you see on screen cannot disagree.
-
-### Run it
-
-```bash
-bun start   # from the source repo: API + Web UI on one port (http://localhost:3000)
-```
-
-The Web UI runs from the source tree, it is not bundled into the installed CLI binary.
-
----
-
 ## CLI
 
 *For scripts, CI, and fast answers without leaving the terminal. Every command supports `--json` for piping into scripts, `-v/--verbose` for diagnostics, and `--quiet` for minimal output.*
@@ -351,6 +336,46 @@ devlens reindex                          # index everything up front
 
 ---
 
+## Benchmarks
+
+We benchmarked DevLens MCP against the other code graph and retrieval tools — **Graphify, codegraph, semble, bm25** — on one headless coding agent, one model, one real TypeScript repository, and 133 real questions written from actual pull requests and symbols:
+
+| | **DevLens V3 (5 tools)** | **Graphify** | codegraph | semble | bm25 |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Correctness (agent loop, same run) | **0.643** | 0.619 | 0.667 | 0.714 | 0.667 |
+| F1 (agent loop, same run) | **0.529** | 0.526 | 0.604 | 0.636 | 0.581 |
+| Correctness (retrieval layer) | **0.694** | 0.662 | 0.674 | 0.652 | 0.664 |
+| Response packet | **2,230 tokens** | 15,020 tokens | 6,339 tokens | 736 tokens | 721 tokens |
+| Latency per call | **67 ms** | 2,469 ms | 2,736 ms | 508 ms | 108 ms |
+
+Head-to-head against **Graphify** — the most direct competitor (tree-sitter graph, MCP server) — DevLens wins on every axis: correctness in the agent loop (0.643 vs 0.619, same run) and in the retrieval layer (0.694 vs 0.662, paired 15 wins to 9 losses on identical questions), a **6.7× smaller packet** (2,230 vs 15,020 tokens, smaller on all 54 of 54 comparable questions), and **~37× faster per call** (67 ms vs 2,469 ms). Graphify's graph is also 64% larger with 3.6× the edges (16,999 nodes / 71,694 edges vs 10,346 / 19,847) for the lower quality.
+
+> The pattern behind the numbers: syntactic tools return big blobs or bare line lists. DevLens returns a task-shaped packet from a type-resolved graph — the files that matter, ranked, within your token budget, in milliseconds.
+
+**Full methodology, per-type tables, and the nine-tool round:** [`docs/PUBLIC-BENCHMARKS.md`](docs/PUBLIC-BENCHMARKS.md)
+
+---
+
+## How DevLens compares
+
+DevLens is the only tool in this space that combines native semantic parsing, per-node AI summaries with per-node security analysis, and framework-aware data edges — and the only option you can use commercially under AGPL.
+
+| Dimension | **DevLens** | **Graphify** | **GitNexus** | **Sourcegraph** | **DeepWiki** |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Parsing depth | **Native semantic parsers** (TS compiler, Python `ast`, `go/types`, JavaParser, `syn`), type-resolved | tree-sitter (syntactic, no type info) | tree-sitter + native bindings (no type info) | SCIP/LSIF symbol index + language servers (no semantic parse) | LLM reads source directly (no structured parser) |
+| Edge quality | **Type-checked `IMPLEMENTS`/`EXTENDS`**, framework **routes** (Next.js, Django, Spring, Gin, axum), **ORM data edges** (`READS_FROM`/`WRITES_TO`) | `EXTRACTED`/`INFERRED`/`AMBIGUOUS` tags, no type or framework awareness | call chains, clusters, `route_map`, no ORM or data edges | precise symbol cross-references (SCIP), no type-checked inheritance | docs-level relationships (no structured graph) |
+| Per-node AI summaries | **Technical + business + security** with severity on every node | No (LLM used for docs and concepts) | No (embeddings for semantic query) | Via Cody (hover and inline docs, chat-level) | Auto-generated docs per symbol (no security, no technical/business split) |
+| Security analysis | **Per-node severity + blast-radius reach** with real exploit descriptions | No | Partial (opt-in PDG/taint) | No (compliance certifications only) | No |
+| Agent / MCP integration | CLI + **self-describing MCP server** + Web UI | CLI + local skill (no MCP) | CLI + 17-tool MCP + hooks (`AGENTS.md`) | MCP server (cross-repo search, not per-repo graph queries) | Unknown (no public MCP integration) |
+| Language coverage | TS/JS, Python, Java, Go, Rust with **native parsers for each** | 12 code families + docs/images (shallow syntactic) | Many via tree-sitter (Dart/Kotlin/Swift), shallow syntactic | 30+ via language servers (symbol-level, no semantic edges) | Any (LLM reads source, no structured extraction) |
+| License / pricing | **AGPL-3.0, free, including commercial use** | Apache-2.0 | PolyForm Noncommercial (cannot use commercially) | Open-source core, Enterprise paid | Free for public repos, enterprise tiers unlisted |
+
+*(Feature comparison from public sources, Aug 2026.)*
+
+**Why teams choose DevLens:** semantic edges that syntactic tools cannot produce, per-node security analysis no other open-source tool provides, benchmark-winning retrieval quality, and a single MCP front door — free for commercial use.
+
+---
+
 ## How to summarize
 
 Summaries are per-node AI descriptions that make querying much richer. Run them during analysis, or any time later:
@@ -405,26 +430,6 @@ devlens reindex <graphId> <commitHash> --force   # one commit, rebuilt even if p
 ```
 
 The same operations are available over HTTP: `POST /api/reindex` and `POST /api/reindex/:graphId?commitHash=...&force=1`.
-
----
-
-## Screenshots
-
-<div align="center">
-<img src="assets/screenshots/01-home.png" alt="Analyzed repositories" width="49%" />
-<img src="assets/screenshots/05-filters.png" alt="Filter control centre" width="49%" />
-<br/>
-<em>Repository list · filter control centre with live counts from your graph</em>
-</div>
-
-<br/>
-
-<div align="center">
-<img src="assets/screenshots/06-jobs.png" alt="Analysis jobs with live progress" width="49%" />
-<img src="assets/screenshots/03c-callers-tree.png" alt="Upstream callers" width="49%" />
-<br/>
-<em>Analysis jobs · upstream callers</em>
-</div>
 
 ---
 
