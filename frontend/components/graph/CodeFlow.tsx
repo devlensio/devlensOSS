@@ -58,6 +58,17 @@ interface CardModel {
   h?: number;
 }
 
+/** A connection the user asked for from a second parent to a card that was
+ *  already open. Cards keep one "own" parent for layout; these carry the rest. */
+interface LinkModel {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  call?: ResolvedCall;
+  role: "callee" | "caller";
+}
+
 interface Props {
   graphId: string;
   commitHash: string;
@@ -116,6 +127,7 @@ function Inner({
   // only), so dragging moves the DOM directly and never waits for React. The
   // ref holds the *initial* spot for cards that do not exist yet.
   const posRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [links, setLinks] = useState<LinkModel[]>([]);
   const [cards, setCards] = useState<CardModel[]>(() => {
     const cardId = `c${++seq}`;
     posRef.current[cardId] = { x: 24, y: 18 };
@@ -126,20 +138,52 @@ function Inner({
 
   const cardById = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
 
+  // openRelated runs from card click handlers created on earlier renders, so it
+  // reads the live card list through a ref instead of a stale closure.
+  const cardsRef = useRef<CardModel[]>(cards);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
+
   const openRelated = useCallback(
     (parentCardId: string, nodeId: string, role: "callee" | "caller", call?: ResolvedCall) => {
+      // Already open: connect the parent the user clicked to the existing card
+      // instead of dropping the click. Two callers of one component then show
+      // two arrows into the same panel.
+      const open = cardsRef.current.find((c) => c.nodeId === nodeId);
+      if (open) {
+        const from = role === "caller" ? open.cardId : parentCardId;
+        const to = role === "caller" ? parentCardId : open.cardId;
+        setLinks((prev) =>
+          prev.some((l) => l.from === from && l.to === to)
+            ? prev
+            : [...prev, { id: `l${++seq}`, from, to, label: call?.name, call, role }],
+        );
+        return;
+      }
+
       setCards((prev) => {
         if (prev.some((c) => c.nodeId === nodeId)) return prev;
         const parent = prev.find((c) => c.cardId === parentCardId);
         // A card the user has dragged lives at its React Flow position, not the
         // spawn point, so children are placed relative to where it is now.
         const base = rf.getNode(parentCardId)?.position ?? posRef.current[parentCardId] ?? { x: 0, y: 0 };
-        const siblings = prev.filter((c) => c.parentCardId === parentCardId).length;
         const cardId = `c${++seq}`;
         const parentW = sizesRef.current[parentCardId]?.w ?? CARD_W;
+
+        // Stack under the lowest sibling instead of a fixed offset: a 110px
+        // step under a 600px card put every second child on top of the first.
+        let y = base.y;
+        for (const sib of prev.filter((c) => c.parentCardId === parentCardId)) {
+          const p = rf.getNode(sib.cardId)?.position ?? posRef.current[sib.cardId];
+          if (!p) continue;
+          const h = sizesRef.current[sib.cardId]?.h ?? CARD_H;
+          y = Math.max(y, p.y + h + CARD_GAP_Y);
+        }
+
         posRef.current[cardId] = {
           x: base.x + (role === "caller" ? -(parentW + CARD_GAP_X) : parentW + CARD_GAP_X),
-          y: base.y + siblings * CARD_GAP_Y,
+          y,
         };
         return [
           ...prev,
@@ -159,33 +203,32 @@ function Inner({
   );
 
   const removeCard = useCallback((cardId: string) => {
-    setCards((prev) => {
-      // Dropping a card also drops everything that was opened from it, so no
-      // orphaned branch is left floating without its parent.
-      const doomed = new Set([cardId]);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const c of prev) {
-          if (c.parentCardId && doomed.has(c.parentCardId) && !doomed.has(c.cardId)) {
-            doomed.add(c.cardId);
-            changed = true;
-          }
+    // Dropping a card also drops everything that was opened from it, so no
+    // orphaned branch is left floating without its parent.
+    const doomed = new Set([cardId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of cardsRef.current) {
+        if (c.parentCardId && doomed.has(c.parentCardId) && !doomed.has(c.cardId)) {
+          doomed.add(c.cardId);
+          changed = true;
         }
       }
-      for (const id of doomed) delete posRef.current[id];
-      return prev.filter((c) => !doomed.has(c.cardId));
-    });
+    }
+    for (const id of doomed) delete posRef.current[id];
+    setLinks((ls) => ls.filter((l) => !doomed.has(l.from) && !doomed.has(l.to)));
+    setCards((prev) => prev.filter((c) => !doomed.has(c.cardId)));
   }, []);
 
   /** "Back" pops the card opened most recently. */
   const back = useCallback(() => {
-    setCards((prev) => {
-      if (prev.length <= 1) return prev;
-      const last = prev[prev.length - 1];
-      delete posRef.current[last.cardId];
-      return prev.slice(0, -1);
-    });
+    const current = cardsRef.current;
+    if (current.length <= 1) return;
+    const last = current[current.length - 1];
+    delete posRef.current[last.cardId];
+    setLinks((ls) => ls.filter((l) => l.from !== last.cardId && l.to !== last.cardId));
+    setCards(current.slice(0, -1));
   }, []);
 
   useEffect(() => {
@@ -280,33 +323,56 @@ function Inner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards, nodesById, graphId, commitHash, graphLanguage, edges, activeNodeId, cardById]);
 
-  const rfEdges: Edge[] = useMemo(
-    () =>
-      cards
-        .filter((c) => c.parentCardId)
-        .map((c) => {
-          const color = c.role === "caller" ? CODE.green : edgeColor(c.call);
-          return {
-            id: `e-${c.cardId}`,
-            source: c.role === "caller" ? c.cardId : c.parentCardId!,
-            target: c.role === "caller" ? c.parentCardId! : c.cardId,
-            label: c.callName,
-            type: "default",
-            animated: false,
-            style: { stroke: color, strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-            labelStyle: {
-              fill: UI.textSub,
-              fontSize: 11.5,
-              fontFamily: "'Fira Code', ui-monospace, monospace",
-            },
-            labelBgStyle: { fill: "#ffffff", fillOpacity: 0.92, stroke: UI.border, strokeWidth: 1 },
-            labelBgPadding: [5, 3] as [number, number],
-            labelBgBorderRadius: 4,
-          };
-        }),
-    [cards],
-  );
+  const rfEdges: Edge[] = useMemo(() => {
+    const styled = (
+      id: string,
+      source: string,
+      target: string,
+      label: string | undefined,
+      role: "callee" | "caller" | undefined,
+      call: ResolvedCall | undefined,
+    ): Edge => {
+      const color = role === "caller" ? CODE.green : edgeColor(call);
+      return {
+        id,
+        source,
+        target,
+        label,
+        type: "default",
+        animated: false,
+        style: { stroke: color, strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+        labelStyle: {
+          fill: UI.textSub,
+          fontSize: 11.5,
+          fontFamily: "'Fira Code', ui-monospace, monospace",
+        },
+        labelBgStyle: { fill: "#ffffff", fillOpacity: 0.92, stroke: UI.border, strokeWidth: 1 },
+        labelBgPadding: [5, 3] as [number, number],
+        labelBgBorderRadius: 4,
+      };
+    };
+
+    const tree = cards
+      .filter((c) => c.parentCardId)
+      .map((c) =>
+        styled(
+          `e-${c.cardId}`,
+          c.role === "caller" ? c.cardId : c.parentCardId!,
+          c.role === "caller" ? c.parentCardId! : c.cardId,
+          c.callName,
+          c.role,
+          c.call,
+        ),
+      );
+
+    // Arrows added from a second parent into an already-open card.
+    const extra = links
+      .filter((l) => cardById.has(l.from) && cardById.has(l.to))
+      .map((l) => styled(`le-${l.id}`, l.from, l.to, l.label, l.role, l.call));
+
+    return [...tree, ...extra];
+  }, [cards, links, cardById]);
 
   // Keep every open card in view as the tree grows; without this a new child
   // lands outside the viewport and the click looks like a no-op.
@@ -806,12 +872,11 @@ function CardNodeInner({ data }: any) {
                       key={c.node.id}
                       label={
                         openNodeIds.has(c.node.id)
-                          ? `${c.node.name} is already open in this view.`
+                          ? `${c.node.name} is open already — click to draw the arrow from it to this card.`
                           : `${EDGE_INFO[c.type] ?? c.type} Open it to the left of this card.`
                       }
                     >
                       <button
-                        disabled={openNodeIds.has(c.node.id)}
                         onClick={() => onOpenRelated(c.node.id, undefined, "caller")}
                         style={{
                           display: "inline-flex",
@@ -824,7 +889,7 @@ function CardNodeInner({ data }: any) {
                           color: openNodeIds.has(c.node.id) ? CODE.textDim : CODE.green,
                           fontFamily: "'Fira Code', monospace",
                           fontSize: 11,
-                          cursor: openNodeIds.has(c.node.id) ? "default" : "pointer",
+                          cursor: "pointer",
                         }}
                       >
                         {c.node.name}
