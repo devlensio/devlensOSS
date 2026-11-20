@@ -355,7 +355,7 @@ function Inner({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
+      className="fixed inset-0 z-[70] flex flex-col"
       style={{ background: "#f7f5f0" }}
     >
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -423,6 +423,46 @@ function Inner({
           defaultEdgeOptions={{ type: "default" }}
         >
           <Background color="#e0dacd" gap={26} />
+
+          <Panel position="top-left" style={{ margin: 16 }}>
+            <button
+              onClick={cards.length > 1 ? back : onClose}
+              title={cards.length > 1 ? "Close the most recently opened card (Esc)" : "Close the code view (Esc)"}
+              className="flex items-center"
+              style={{
+                gap: 7,
+                height: 32,
+                padding: "0 13px 0 11px",
+                borderRadius: 9,
+                border: `1px solid ${UI.border}`,
+                background: UI.surface,
+                color: UI.textSub,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+                boxShadow: "0 6px 18px rgba(28,25,23,0.12)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = UI.elevated;
+                e.currentTarget.style.color = UI.text;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = UI.surface;
+                e.currentTarget.style.color = UI.textSub;
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden style={{ flexShrink: 0 }}>
+                <g fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8.8 2.8 4.6 7l4.2 4.2" />
+                </g>
+              </svg>
+              Back
+              {cards.length > 1 && (
+                <span style={{ fontSize: 11.5, color: UI.textDim }}>{cards.length}</span>
+              )}
+            </button>
+          </Panel>
+
           <ZoomControls />
           <MiniMap
             pannable
