@@ -36,7 +36,7 @@ frontend/
 <table>
 <tr>
 <td width="50%"><img src="../assets/screenshots/03-node-panel.png" alt="Node panel" /></td>
-<td width="50%"><img src="../assets/screenshots/07-code-view.png" alt="Code view" /></td>
+<td width="50%"><img src="../assets/screenshots/10-code-view-cards.png" alt="Code view" /></td>
 </tr>
 <tr>
 <td><em>One node: summary, execution pipeline, shape metrics, blast radius, callers, relations.</em></td>

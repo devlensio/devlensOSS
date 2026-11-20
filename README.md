@@ -60,27 +60,13 @@ The same summaries render inside the code view, so a card explains itself while 
 
 *`runSummarization` in devlens-engine: 24 resolved calls, numbered in the order the body makes them, with the `await` / `maybe` / `×5` markers the parser recorded.*
 
-![Flow tab — one step expanded, the nested summary collapsed](assets/screenshots/15-flow-step-expanded.png)
-
-*Open a step and you get its source; the callee's summary is a nested collapsible, collapsed by default, so the code stays in view.*
-
-![Upstream callers as a tree](assets/screenshots/16-flow-upstream.png)
-
-*The other direction: every caller, as a tree you can expand — the difference between "what does this do" and "what depends on this".*
+Flip the toggle to **Upstream** and the same list becomes a tree of every caller, expandable up the chain — the difference between "what does this do" and "what depends on this". Expand any step to read its source, with the callee's summary nested underneath, collapsed until you ask for it.
 
 ### Read the code as a graph
 
 ![Six code cards connected by call arrows](assets/screenshots/10-code-view-cards.png)
 
-*Start from one function, open five callees, press **Auto-arrange**: six cards in call order, arrows showing direction. Cards drag, resize and minimise; **Back** closes them one at a time.*
-
-![Call badges pinned to the lines that make the calls](assets/screenshots/07b-code-map.png)
-
-*Every call badge sits on the line that makes the call. Click it to open the callee as a card — the badge is the edge.*
-
-![Panel Code tab with the node's source](assets/screenshots/12-panel-code-tab.png)
-
-*The panel's own Code tab shows the node's source with the file's line numbers, so you can read without leaving the graph or opening your editor.*
+*Start from one function, open five callees, press **Auto-arrange**: six cards in call order, arrows showing direction. Every call badge sits on the line that makes the call — click one to open the callee as a card. Cards drag, resize and minimise; **Back** closes them one at a time.*
 
 ### Change safely
 
@@ -90,16 +76,9 @@ The same summaries render inside the code view, so a card explains itself while 
 
 ### Narrow the field
 
-<table>
-<tr>
-<td width="50%"><img src="assets/screenshots/05-filters.png" alt="Filter control centre" /></td>
-<td width="50%"><img src="assets/screenshots/06-jobs.png" alt="Jobs panel" /></td>
-</tr>
-<tr>
-<td><em>Filter by node type, edge type, score, rendering boundary and entry-point reach — with live counts from your graph.</em></td>
-<td><em>Analyses and summarizations run as jobs: per-phase progress, resumable, and the engine's own error text when a provider fails.</em></td>
-</tr>
-</table>
+![Filter control centre — node type, edge type, score, rendering boundary, entry-point reach](assets/screenshots/05-filters.png)
+
+*Filter by node type, edge type, score, rendering boundary and entry-point reach, with live counts from your graph. Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.*
 
 ### A five-minute pass over an unfamiliar repo
 
