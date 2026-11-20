@@ -22,6 +22,8 @@ Analyze your repo once, then **open a code graph you can actually read**: every 
 
 <p align="center"><em>Click the image to watch the demo</em></p>
 
+<sub>**Jump to:** [The Web UI](#see-it-the-web-ui) · [Why DevLens](#why-devlens) · [Quick Start](#quick-start) · [CLI](#cli) · [What your agent can ask](#what-your-agent-can-ask) · [Benchmarks](#benchmarks) · [Node and edge types](#what-devlens-understands)</sub>
+
 ---
 
 ## See it: the Web UI
@@ -83,6 +85,8 @@ Two details the pictures hint at: open any step in the flow to read its source, 
 
 Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.
 
+Every shape and arrow in that legend is listed — node types, edge types, and what each one means — under [What DevLens understands](#what-devlens-understands).
+
 ### A five-minute pass over an unfamiliar repo
 
 1. **Orient.** Open the graph. Bigger, labelled nodes are where the weight is.
@@ -102,11 +106,30 @@ Analyses and summarizations run as jobs inside the same app: per-phase progress,
 
 ### Run it
 
+From a clone of this repository. You need **Bun 1.2 or newer** (`bun --version`); Next 16 also wants Node 20.9+ on the machine, which Bun ships with.
+
 ```bash
-bun start   # from the source repo: API + Web UI on one port (http://localhost:3000)
+bun install   # once — installs the API, the UI and the engine's dependencies
+bun start     # API + Web UI on one port → http://localhost:3000
 ```
 
-The Web UI runs from the source tree; it is not bundled into the installed CLI binary.
+`bun start` builds the UI on first run and then serves everything from port 3000; the Next.js server it proxies to listens on 3001 internally, so browse **3000**. The Web UI runs from the source tree — it is not bundled into the installed CLI binary.
+
+### Configure a model (optional, needed for summaries)
+
+Analysis works with no API key: you get the graph, the flows and the blast radius. **Summaries** (technical / business / security) need a model. Two ways to set one up:
+
+**From the UI** — click **Config** in the top-right corner, then:
+
+1. **Provider** — pick the protocol: `OpenAI-compatible` for anything speaking `/chat/completions`, `Anthropic` for the Messages API.
+2. **Name** — a label for this endpoint (e.g. `my-gateway`), used when several are configured.
+3. **Base URL** — the API root, usually ending in `/v1` (e.g. `https://api.example.com/v1`).
+4. **API Key** and **Model** — the key, and the exact model id the endpoint expects.
+5. **Save**, then **Set active** so the UI and the CLI use it.
+
+**From the CLI** — `devlens init` walks the same fields interactively. Either path writes `~/.devlens/config.json`, so the UI, the CLI and the MCP server always agree.
+
+Then analyze a repo with summarization enabled (the toggle on the home screen). If a provider fails mid-run, the job reports which nodes failed and keeps everything that succeeded — re-run to retry just those.
 
 ---
 
@@ -127,6 +150,11 @@ If you only want retrieval for an agent, the [benchmarks](#benchmarks) are furth
 ---
 
 ## Quick Start
+
+There are two ways in, and they share one analysis:
+
+- **The CLI** — installed from npm, for scripts, CI and your coding agent. Steps below.
+- **The Web UI** — runs from a clone, for exploring a repo by hand: [See it: the Web UI](#see-it-the-web-ui).
 
 ### Step 1 — Install the CLI
 
@@ -152,7 +180,7 @@ Only needed if you want AI summaries. Structure-only analysis works offline with
 devlens init
 ```
 
-This walks you through picking a provider, API type, key, endpoint, and model interactively — press **ESC** at any step to go back a stage. See [Configuration](#configuration) for recommended models.
+This walks you through picking a provider, API type, key, endpoint, and model interactively — press **ESC** at any step to go back a stage. It writes the same `~/.devlens/config.json` as the [UI walkthrough](#configure-a-model-optional-needed-for-summaries); see [Configuration](#configuration) for recommended models.
 
 ### Step 3 — Analyze your repo
 
@@ -389,9 +417,57 @@ devlens doctor                                  # health check
 
 ## What DevLens understands
 
-A graph is per repo and per language. Node types include `FILE`, `FUNCTION`, `METHOD`, `CLASS`, `INTERFACE`, `STRUCT`, `ENUM`, `TRAIT`, `IMPL_BLOCK`, `ROUTE`, `COMPONENT`, `HOOK`, `STATE_STORE`, `UTILITY`, `TEST`, `STORY`, and `THIRD_PARTY` (language dependent). Every node carries an importance score plus its functional, technical, and security summaries once summarized.
+A graph is per repo and per language. Every node carries an importance score, and — once summarized — a technical, business and security summary.
 
-Edge types (the connections the graph draws): `CALLS`, `IMPORTS`, `READS_FROM`, `WRITES_TO`, `PROP_PASS`, `EMITS`, `LISTENS`, `WRAPPED_BY`, `GUARDS`, `HANDLES`, `TESTS`, `USES`, `NEXTJS_API_CALL`, `NAVIGATES_TO`, `IMPLEMENTS` (class to interface, trait, or ABC), `EXTENDS` (class to base class). `EXPORTS`, `THROWS`, `MODULE`, and `PACKAGE` are reserved for future languages.
+**Node types** (the legend colour and the node's shape both follow this):
+
+| Type | What it is |
+| :-- | :-- |
+| `ROUTE` | An HTTP route or page — a real node, so you can start from a URL and walk inward. |
+| `COMPONENT` | A React (or equivalent) component. |
+| `HOOK` | A React hook: shared stateful logic. |
+| `STATE_STORE` | A store, context or atom — where state actually lives. |
+| `STORY` | A Storybook story. |
+| `FUNCTION` | A free function. |
+| `METHOD` | A method on a class, struct or trait impl. |
+| `UTILITY` | A helper module whose exports are used everywhere. |
+| `TEST` | A test file or case. |
+| `CLASS` | A class. |
+| `INTERFACE` | An interface, protocol or abstract base class. |
+| `STRUCT` | A struct or record type. |
+| `TRAIT` | A Rust trait. |
+| `IMPL_BLOCK` | A Rust `impl` block. |
+| `ENUM` | An enum. |
+| `MODULE` | A module or namespace. |
+| `PACKAGE` | An external package. |
+| `FILE` | A source file, used for the file-level view and for languages without finer nodes. |
+| `THIRD_PARTY` | A resolved method on a third-party dependency. |
+| `GHOST` | A placeholder for a call or import the parser could not resolve to real code — visible on purpose, so gaps are not silent. |
+
+**Edge types** (the arrows, and the verbs in the panels):
+
+| Edge | Means |
+| :-- | :-- |
+| `CALLS` | This node invokes the target inside its own body. |
+| `USES` | References the target without calling it — a type, constant or import. |
+| `IMPORTS` | Imports the target's module. |
+| `PROP_PASS` | Passes the target down as a prop, slot or child component. |
+| `HANDLES` | Registers the target as an event or callback handler. |
+| `EMITS` | Emits an event the target listens for. |
+| `LISTENS` | Subscribes to an event the target emits. |
+| `READS_FROM` | Reads state or data owned by the target. |
+| `WRITES_TO` | Mutates state or data owned by the target. |
+| `NAVIGATES_TO` | Navigation target — a URL this node routes to. |
+| `NEXTJS_API_CALL` | Calls a Next.js API route over HTTP. |
+| `TESTS` | A test that exercises the target. |
+| `EXTENDS` | Inherits from the target class. |
+| `IMPLEMENTS` | Implements the target interface, trait or ABC. |
+| `GUARDS` | Middleware or guard protecting the target. |
+| `WRAPPED_BY` | Wrapped by the target (higher-order component or decorator). |
+| `THROWS` | Throws or raises the target's error type. |
+| `EXPORTS` | Re-exports the target from this module. |
+
+Hovering a badge in the UI gives you the same sentence, so the graph explains itself without this table.
 
 Router awareness: routes are real graph nodes, for Next.js (app and pages), React Router, TanStack Router, wouter, Express, Fastify, Hono, Koa, Django URLconf and DRF, Flask blueprints, `@RestController` (Spring), Gin, Echo, chi, plain HTTP handlers, axum, actix, and rocket.
 
