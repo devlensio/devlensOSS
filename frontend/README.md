@@ -35,7 +35,7 @@ frontend/
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/screenshots/03-node-panel.png" alt="Node panel" /></td>
+<td width="50%"><img src="../assets/screenshots/20-panels-side-by-side.png" alt="Node panel and Flow tab" /></td>
 <td width="50%"><img src="../assets/screenshots/10-code-view-cards.png" alt="Code view" /></td>
 </tr>
 <tr>

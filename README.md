@@ -46,20 +46,20 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="assets/screenshots/03-node-panel.png" alt="Node panel — summary, execution pipeline, shape and relations" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/20-panels-side-by-side.png" alt="Node panel and Flow tab" /></td>
 <td width="50%" valign="top"><img src="assets/screenshots/19-hover-card.png" alt="Hover card over the graph" /></td>
 </tr>
 <tr>
-<td valign="top"><em>Everything known about one node: technical summary, the pipeline its body runs, its size, who calls it, its relations.</em></td>
-<td valign="top"><em>Hover without committing: score, hooks, local state, a collapsed summary, and the two ways in. The graph stays where it is.</em></td>
+<td valign="top"><em>Left: everything known about one node — technical summary, the pipeline its body runs, who calls it. Right: the same node's <b>Flow</b>, 24 resolved calls in body order with <code>await</code> / <code>maybe</code> / <code>×5</code> markers.</em></td>
+<td valign="top"><em><b>Hover</b> without committing: score, hooks, local state, a collapsed summary, and the two ways in. The graph, toolbar and filters stay where they are.</em></td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="assets/screenshots/11-card-summaries.png" alt="A code card with technical, business and security summaries expanded" /></td>
-<td width="50%" valign="top"><img src="assets/screenshots/14-flow-downstream.png" alt="Flow tab — 24 resolved calls in body order" /></td>
+<td width="50%" valign="top"><img src="assets/screenshots/05-filters.png" alt="Filter control centre" /></td>
 </tr>
 <tr>
-<td valign="top"><em>Technical, business and security are independent sections inside the card — technical opens by default. Security carries its severity (<code>HIGH</code> here).</em></td>
-<td valign="top"><em><code>runSummarization</code>: 24 resolved calls, numbered in body order, with the <code>await</code> / <code>maybe</code> / <code>×5</code> markers the parser recorded. Flip to <b>Upstream</b> for the callers as a tree.</em></td>
+<td valign="top"><em>Inside a code card: <b>technical</b>, <b>business</b> and <b>security</b> are independent sections, technical open by default. Security carries its severity (<code>HIGH</code> here).</em></td>
+<td valign="top"><em>Filter by node type, edge type, score, rendering boundary and entry-point reach, with live counts from your graph.</em></td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="assets/screenshots/17-code-view-three-cards.png" alt="Code view with three cards" /></td>
@@ -71,11 +71,11 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="assets/screenshots/04-blast-radius.png" alt="Blast radius — what depends on this node" /></td>
-<td width="50%" valign="top"><img src="assets/screenshots/05-filters.png" alt="Filter control centre" /></td>
+<td width="50%" valign="top"></td>
 </tr>
 <tr>
-<td valign="top"><em><b>Blast radius</b> at two hops: everything that would feel the change. <b>K-hop</b> shows the reverse.</em></td>
-<td valign="top"><em>Filter by node type, edge type, score, rendering boundary and entry-point reach, with live counts from your graph.</em></td>
+<td valign="top"><em><b>Blast radius</b> at two hops: everything that would feel the change. <b>K-hop</b> shows the reverse — what this node reaches.</em></td>
+<td valign="top"></td>
 </tr>
 </table>
 
