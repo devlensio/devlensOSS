@@ -1058,7 +1058,7 @@ function CardBtn({
         fontSize: 11,
         lineHeight: 1,
       }}
-      className="hover:!bg-[#44475a]"
+      className="hover:bg-[#44475a]!"
     >
       {label}
     </button>
@@ -1088,7 +1088,7 @@ function FooterBtn({
         color: tone,
         fontSize: 11,
       }}
-      className="hover:!bg-[#44475a]"
+      className="hover:bg-[#44475a]!"
     >
       {children}
     </button>

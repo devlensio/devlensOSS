@@ -81,6 +81,14 @@ export default function NodePanel({
   const [hopDepth, setHopDepth] = useState(2);
   const [width, setWidth] = useState(460);
 
+  const {
+    data: codeData,
+    isLoading: codeLoading,
+    isError: codeFailed,
+    refetch: refetchCode,
+  } = useNodeCode(graphId, commitHash, tab === "code" ? node.id : null);
+  const source: string = (codeData as any)?.code ?? (codeData as any)?.rawCode ?? "";
+
   // Restore the dragged width across node switches and reloads.
   useEffect(() => {
     const saved = Number(localStorage.getItem(WIDTH_KEY) ?? "");
@@ -939,10 +947,103 @@ export default function NodePanel({
               <HiOutlineCubeTransparent size={15} />
               Show in graph
             </button>
+
+            {codeLoading && (
+              <div style={{ fontSize: 13, color: UI.textDim }}>Loading source…</div>
+            )}
+
+            {!codeLoading && codeFailed && (
+              <div
+                style={{
+                  border: `1px solid ${UI.danger}44`,
+                  background: `${UI.danger}0f`,
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  fontSize: 13,
+                  color: UI.textSub,
+                }}
+              >
+                Could not load the source for this node.
+                <button
+                  onClick={() => refetchCode()}
+                  style={{ ...linkBtn, marginLeft: 6 }}
+                  className="hover:underline"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!codeLoading && !codeFailed && source && (
+              <div
+                className="code-scroller"
+                style={{
+                  display: "flex",
+                  maxHeight: 420,
+                  overflow: "auto",
+                  background: CODE.bg,
+                  border: `1px solid ${CODE.border}`,
+                  borderRadius: 10,
+                  fontFamily: "'Fira Code', monospace",
+                  fontSize: 12.5,
+                  lineHeight: 1.72,
+                }}
+              >
+                <div
+                  aria-hidden
+                  style={{
+                    padding: "12px 8px 12px 12px",
+                    textAlign: "right",
+                    color: CODE.textDim,
+                    userSelect: "none",
+                    flexShrink: 0,
+                  }}
+                >
+                  {source.split("\n").map((_, i) => (
+                    <div key={i}>{(node.startLine ?? 1) + i}</div>
+                  ))}
+                </div>
+                <pre
+                  className="hljs code-wrap"
+                  style={{
+                    margin: 0,
+                    padding: "12px 14px 12px 4px",
+                    background: "transparent",
+                    color: CODE.text,
+                    flex: 1,
+                    tabSize: 2,
+                  }}
+                >
+                  <code
+                    style={{ display: "block" }}
+                    dangerouslySetInnerHTML={{
+                      __html: highlightToHtml(source, graphLanguage, node.filePath),
+                    }}
+                  />
+                </pre>
+              </div>
+            )}
+
+            {!codeLoading && !codeFailed && !source && (
+              <div
+                style={{
+                  border: `1px solid ${UI.border}`,
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: UI.textDim,
+                }}
+              >
+                No source stored for this node — it points at code rather than owning a body, or
+                the commit was analysed without source capture.
+              </div>
+            )}
+
             <Note>
-              The code view opens this node as a card with syntax highlighting. Its callees sit in the
-              right gutter — click one to open it beside this card, and use <b>Called by</b> on the head
-              card to walk back up. Drag cards to arrange them; <b>Auto-arrange</b> lays them out as a tree.
+              The code view opens this node as a card with the same source, its callees in the right
+              gutter — click one to open it beside this card, and use <b>Called by</b> on the head card
+              to walk back up. Drag cards to arrange them; <b>Auto-arrange</b> lays them out as a tree.
             </Note>
           </div>
         )}
