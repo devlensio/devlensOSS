@@ -32,6 +32,7 @@ interface LiveState {
   phase:     JobPhase | null;
   completed: number;
   total:     number;
+  failed?:   number;
   error?:    string;
   graphId?:  string;
 }
@@ -43,6 +44,7 @@ function applyEvent(prev: LiveState, event: ProgressEvent): LiveState {
     case "analysis_complete":     return { ...prev, graphId: event.graphId };
     case "summarization_started": return { ...prev, phase: "summarization", total: event.totalNodes, completed: prev.completed > 0 ? prev.completed : 0 };
     case "summarization_progress":return { ...prev, completed: event.completed, total: event.total };
+    case "summarization_complete": return { ...prev, failed: event.failed ?? 0 };
     case "paused":                return { ...prev, status: "paused", completed: event.completedNodes, total: event.totalNodes };
     case "resumed":               return { ...prev, status: "running" };
     case "completed":             return { ...prev, status: "completed", graphId: event.graphId };
@@ -167,6 +169,7 @@ export function JobsPanel({ open, onClose }: JobsPanelProps) {
             const error   = live?.error   ?? job.error;
             const completed = live?.completed ?? job.summarizationCompleted ?? 0;
             const total     = live?.total     ?? job.summarizationTotal     ?? 0;
+            const failed    = live?.failed    ?? job.summarizationFailed    ?? 0;
 
             return (
               <JobCard
@@ -178,6 +181,7 @@ export function JobsPanel({ open, onClose }: JobsPanelProps) {
                 error={error}
                 completed={completed}
                 total={total}
+                failed={failed}
                 onPause={() =>{
                   pauseJob.mutate(job.jobId);
                   toast.warn("Job will be Paused after summarizing current batch of Nodes.");
@@ -198,7 +202,7 @@ export function JobsPanel({ open, onClose }: JobsPanelProps) {
   );
 }
 
-function JobCard({ job, status, phase, graphId, error, completed, total, onPause, onResume, onCancel, onOpen }: {
+function JobCard({ job, status, phase, graphId, error, completed, total, failed, onPause, onResume, onCancel, onOpen }: {
   job:       JobSummary;
   status:    JobStatus;
   phase:     JobPhase | null;
@@ -206,6 +210,7 @@ function JobCard({ job, status, phase, graphId, error, completed, total, onPause
   error?:    string;
   completed: number;
   total:     number;
+  failed:    number;
   onPause:   () => void;
   onResume:  () => void;
   onCancel:  () => void;
@@ -244,6 +249,14 @@ function JobCard({ job, status, phase, graphId, error, completed, total, onPause
         <p className="text-xs text-error bg-error/10 border border-error/20
                       rounded-lg px-3 py-2 mb-3 font-mono">
           {error}
+        </p>
+      )}
+
+      {!error && failed > 0 && !isActive && (
+        <p className="text-xs text-warning bg-warning/10 border border-warning/20
+                      rounded-lg px-3 py-2 mb-3">
+          {failed} {failed === 1 ? "node" : "nodes"} could not be summarized. Everything else was saved —
+          analyze this repo again to retry {failed === 1 ? "it" : "them"}.
         </p>
       )}
 

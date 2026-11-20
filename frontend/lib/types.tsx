@@ -274,7 +274,7 @@ export type ProgressEvent =
   | { event: "analysis_complete";       jobId: string; graphId: string; nodeCount: number; edgeCount: number }
   | { event: "summarization_started";   jobId: string; totalNodes: number }
   | { event: "summarization_progress";  jobId: string; completed: number; total: number; nodeName: string }
-  | { event: "summarization_complete";  jobId: string }
+  | { event: "summarization_complete";  jobId: string; summarized?: number; failed?: number }
   | { event: "paused";                  jobId: string; completedNodes: number; totalNodes: number }
   | { event: "resumed";                 jobId: string; completedNodes: number; totalNodes: number }
   | { event: "cancelled";               jobId: string; cleanedUp: boolean }
@@ -292,6 +292,7 @@ export interface Job {
   forceSummarize?:         boolean;
   summarizationTotal?:     number;
   summarizationCompleted?: number;
+  summarizationFailed?:    number;
   createdAt:               string;
   startedAt?:              string;
   pausedAt?:               string;
@@ -309,6 +310,7 @@ export interface JobSummary {
   graphId?:                string;
   summarizationTotal?:     number;
   summarizationCompleted?: number;
+  summarizationFailed?:    number;
   createdAt:               string;
   startedAt?:              string;
   pausedAt?:               string;
