@@ -5,8 +5,8 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
-  Controls,
   MiniMap,
+  Panel,
   Handle,
   Position,
   MarkerType,
@@ -355,7 +355,7 @@ function Inner({
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col"
+      className="fixed inset-0 z-50 flex flex-col"
       style={{ background: "#f7f5f0" }}
     >
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -407,7 +407,7 @@ function Inner({
         </div>
       </div>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-h-0">
         <ReactFlow
           className={dragging ? "flow-dragging" : undefined}
           nodes={nodes}
@@ -423,7 +423,7 @@ function Inner({
           defaultEdgeOptions={{ type: "default" }}
         >
           <Background color="#e0dacd" gap={26} />
-          <Controls showInteractive={false} />
+          <ZoomControls />
           <MiniMap
             pannable
             zoomable
@@ -1218,5 +1218,73 @@ function SummaryBody({
         </button>
       )}
     </>
+  );
+}
+
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  return (
+    <Panel position="bottom-left" style={{ margin: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          background: UI.surface,
+          border: `1px solid ${UI.border}`,
+          borderRadius: 9,
+          overflow: "hidden",
+          boxShadow: "0 6px 18px rgba(28,25,23,0.12)",
+        }}
+      >
+        <ZoomBtn label="Zoom in" onClick={() => zoomIn({ duration: 160 })}>
+          <path d="M6 2.2v7.6M2.2 6h7.6" />
+        </ZoomBtn>
+        <ZoomBtn label="Zoom out" onClick={() => zoomOut({ duration: 160 })} divider>
+          <path d="M2.2 6h7.6" />
+        </ZoomBtn>
+        <ZoomBtn label="Fit view" onClick={() => fitView({ padding: 0.16, duration: 220 })} divider>
+          <path d="M2.4 4.6V2.6h2M9.6 4.6V2.6h-2M2.4 7.4v2h2M9.6 7.4v2h-2" />
+        </ZoomBtn>
+      </div>
+    </Panel>
+  );
+}
+
+function ZoomBtn({
+  label, onClick, divider, children,
+}: {
+  label: string;
+  onClick: () => void;
+  divider?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      style={{
+        width: 30, height: 30, border: "none",
+        borderTop: divider ? `1px solid ${UI.border}` : "none",
+        background: "transparent", color: UI.textSub,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", padding: 0,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = UI.elevated;
+        e.currentTarget.style.color = UI.text;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = UI.textSub;
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+        <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          {children}
+        </g>
+      </svg>
+    </button>
   );
 }
