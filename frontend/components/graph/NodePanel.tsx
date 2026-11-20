@@ -164,15 +164,30 @@ export default function NodePanel({
   }, [incoming, nodesById]);
   const callees = useMemo(() => dedupeNodes(outgoing.get("CALLS") ?? [], nodesById), [outgoing, nodesById]);
 
+  // Children with an ordered render entry are shown by the Renders section, so
+  // repeating them under PROP_PASS would list the same child twice.
+  const orderedRenderIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of ((node.metadata?.resolvedCalls ?? []) as ResolvedCall[])) {
+      if (c.kind === "render") ids.add(c.nodeId);
+    }
+    return ids;
+  }, [node]);
+
   // Relations that are not calls (renders, reads, implements…).
   const relations = useMemo(
     () =>
       [...outgoing.entries()]
         .filter(([type]) => type !== "CALLS")
-        .map(([type, list]) => ({ type, nodes: dedupeNodes(list, nodesById) }))
+        .map(([type, list]) => ({
+          type,
+          nodes: dedupeNodes(list, nodesById).filter(
+            (n) => !(type === "PROP_PASS" && orderedRenderIds.has(n.id)),
+          ),
+        }))
         .filter((g) => g.nodes.length > 0)
         .sort((a, b) => EDGE_ORDER.indexOf(a.type as any) - EDGE_ORDER.indexOf(b.type as any)),
-    [outgoing, nodesById],
+    [outgoing, nodesById, orderedRenderIds],
   );
 
   const incomingRelations = useMemo(
@@ -238,11 +253,56 @@ export default function NodePanel({
       arr.push(e);
       byType.set(e.type, arr);
     }
+    const ordered = new Set(
+      ((routeEntry.metadata?.resolvedCalls ?? []) as ResolvedCall[])
+        .filter((c) => c.kind === "render")
+        .map((c) => c.nodeId),
+    );
     return [...byType.entries()]
-      .map(([type, list]) => ({ type, nodes: dedupeNodes(list, nodesById) }))
+      .map(([type, list]) => ({
+        type,
+        nodes: dedupeNodes(list, nodesById).filter(
+          (n) => !(type === "PROP_PASS" && ordered.has(n.id)),
+        ),
+      }))
       .filter((g) => g.nodes.length > 0)
       .sort((a, b) => EDGE_ORDER.indexOf(a.type as any) - EDGE_ORDER.indexOf(b.type as any));
   }, [routeEntry, relations, edges, nodesById]);
+
+  // What the owner puts on screen. Newer graphs carry render entries in
+  // resolvedCalls (ordered); older ones fall back to the PROP_PASS edges.
+  const renderItems = useMemo(() => {
+    const owner = routeEntry ?? node;
+    const ordered = ((owner.metadata?.resolvedCalls ?? []) as ResolvedCall[]).filter(
+      (c) => c.kind === "render",
+    );
+    if (ordered.length > 0) {
+      return ordered.map((c) => ({
+        node: nodesById[c.nodeId],
+        name: c.name,
+        count: c.renderCount ?? 1,
+        props: c.props ?? [],
+        conditional: c.conditional ?? false,
+        repeat: c.repeat ?? false,
+        ordered: true,
+        depth: c.depth,
+      }));
+    }
+    return edges
+      .filter((e) => e.from === owner.id && e.type === "PROP_PASS")
+      .map((e) => ({
+        node: nodesById[e.to],
+        name: nodesById[e.to]?.name ?? e.to.split("::").pop() ?? e.to,
+        count: (e.metadata?.renderCount as number) ?? 1,
+        props: (e.metadata?.props as string[]) ?? [],
+        conditional: false,
+        repeat: false,
+        ordered: false,
+        depth: undefined as number | undefined,
+      }));
+  }, [routeEntry, node, edges, nodesById]);
+
+  const renderOwner = routeEntry ?? node;
 
   // The entry component is step 1 when the panel is looking at a route.
   const entryStep: ResolvedCall | null = routeEntry
@@ -774,6 +834,40 @@ export default function NodePanel({
               )}
             </Section>
 
+            {renderItems.length > 0 && (
+              <Section
+                title={routeEntry ? `Renders · ${renderOwner.name}` : "Renders"}
+                right={<span style={sectionMeta}>{renderItems.length}</span>}
+              >
+                <Note>
+                  Components this node puts on screen, in the order they appear in its JSX.
+                  The path is where each child lives — most render edges cross a file.
+                </Note>
+                <div className="flex flex-col" style={{ gap: 6, marginTop: 8 }}>
+                  {renderItems.slice(0, 14).map((item, i) => (
+                    <RenderRow
+                      key={`render-${item.name}-${i}`}
+                      name={item.name}
+                      node={item.node}
+                      count={item.count}
+                      props={item.props}
+                      conditional={item.conditional}
+                      repeat={item.repeat}
+                      ordered={item.ordered}
+                      depth={item.depth}
+                      onFocus={() => onNodeFocus(item.node?.id ?? "")}
+                      onOpen={() => item.node && onOpenCode(item.node.id)}
+                    />
+                  ))}
+                </div>
+                {renderItems.length > 14 && (
+                  <div style={{ ...tinyLabel, marginTop: 7 }}>
+                    +{renderItems.length - 14} more
+                  </div>
+                )}
+              </Section>
+            )}
+
             {/* Non-call relations */}
             {relations.length > 0 && (
               <Section title="Relations" right={<span style={sectionMeta}>{relationCount}</span>}>
@@ -870,8 +964,10 @@ export default function NodePanel({
                     </>
                   ) : (
                     <>
-                      Every resolved call in the order the body makes it. <b>#n</b> is the raw
-                      call-site position, which also counts builtins the engine did not resolve.
+                      Every resolved call and every rendered child, in the order the body makes
+                      them. <b>#n</b> is the raw position in the body — it also counts calls and
+                      elements the engine could not resolve. Children are created where they
+                      appear; React renders them after the body returns.
                     </>
                   )}
                 </Note>
@@ -1298,6 +1394,150 @@ function SegBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 }
 
 /** A node with both destinations on it: name → graph, icon → code view. */
+function RenderRow({
+  name,
+  node,
+  count,
+  props,
+  conditional,
+  repeat,
+  ordered,
+  depth,
+  onFocus,
+  onOpen,
+}: {
+  name: string;
+  node?: CodeNode;
+  count: number;
+  props: string[];
+  conditional: boolean;
+  repeat: boolean;
+  ordered: boolean;
+  depth?: number;
+  onFocus: () => void;
+  onOpen: () => void;
+}) {
+  const color = node ? NODE_COLORS[node.type] ?? UI.accent : UI.textDim;
+  const childFile = node?.filePath ?? "";
+  const shownProps = props.slice(0, 2);
+  const extraProps = props.length - shownProps.length;
+
+  return (
+    <div
+      title={childFile ? `Defined in ${childFile}` : name}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 5,
+        padding: depth ? `7px 10px 7px ${10 + Math.min(depth, 4) * 8}px` : "7px 10px",
+        border: `1px solid ${UI.borderSubtle}`,
+        borderRadius: 8,
+        background: UI.surface,
+        transition: "background 120ms ease, border-color 120ms ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = UI.elevated;
+        e.currentTarget.style.borderColor = UI.border;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = UI.surface;
+        e.currentTarget.style.borderColor = UI.borderSubtle;
+      }}
+    >
+      <div className="flex items-center" style={{ gap: 7, minWidth: 0 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 99, background: color, flexShrink: 0 }} />
+        <button
+          onClick={onFocus}
+          className="hover:underline"
+          style={{
+            fontFamily: "'Fira Code', monospace",
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: UI.text,
+            border: "none",
+            background: "transparent",
+            padding: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            textAlign: "left",
+          }}
+        >
+          {name}
+        </button>
+        <span
+          style={{
+            fontFamily: "'Fira Code', monospace",
+            fontSize: 10.5,
+            color: UI.textDim,
+            marginLeft: "auto",
+            flexShrink: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            direction: "rtl",
+            textAlign: "left",
+            maxWidth: "52%",
+          }}
+        >
+          {childFile}
+        </span>
+      </div>
+
+      {(count > 1 || conditional || repeat || props.length > 0 || !ordered) && (
+        <div className="flex flex-wrap items-center" style={{ gap: 5, paddingLeft: 14 }}>
+          {count > 1 && <MiniChip label={`×${count}`} tone="#be185d" />}
+          {repeat && <MiniChip label="list" tone="#0e766e" hint="Rendered once per item of a map()" />}
+          {conditional && <MiniChip label="conditional" tone="#b45309" />}
+          {shownProps.map((p) => (
+            <MiniChip key={p} label={p} tone={UI.textDim} />
+          ))}
+          {extraProps > 0 && <MiniChip label={`+${extraProps}`} tone={UI.textDim} />}
+          {!ordered && <MiniChip label="no order" tone={UI.textGhost} hint="Analyzed before render ordering existed — re-analyze to number it" />}
+        </div>
+      )}
+
+      <button
+        onClick={onOpen}
+        style={{
+          alignSelf: "flex-start",
+          marginLeft: 14,
+          border: "none",
+          background: "transparent",
+          color: UI.textGhost,
+          fontSize: 10.5,
+          padding: 0,
+        }}
+        className="hover:underline"
+      >
+        open in code view
+      </button>
+    </div>
+  );
+}
+
+function MiniChip({ label, tone, hint }: { label: string; tone: string; hint?: string }) {
+  const chip = (
+    <span
+      style={{
+        fontFamily: "'Fira Code', monospace",
+        fontSize: 10,
+        lineHeight: "14px",
+        padding: "0 5px",
+        borderRadius: 4,
+        border: `1px solid ${UI.borderSubtle}`,
+        background: UI.bg,
+        color: tone,
+        whiteSpace: "nowrap",
+        cursor: hint ? "help" : "default",
+      }}
+    >
+      {label}
+    </span>
+  );
+  return hint ? <Hint label={hint}>{chip}</Hint> : chip;
+}
+
 function NodeChip({
   node,
   label,
@@ -1555,6 +1795,8 @@ function FlowStep({
   );
   const summary = (target?.technicalSummary || target?.businessSummary || "").trim();
   const markers = markerList(call);
+  const isRender = call.kind === "render";
+  const indent = isRender ? Math.min(call.depth ?? 0, 4) * 9 : 0;
 
   return (
     <div
@@ -1566,8 +1808,19 @@ function FlowStep({
         paddingBottom: last ? 0 : 8,
       }}
     >
-      <div className="flex items-center" style={{ gap: 9, padding: "8px 6px" }}>
-        <span style={{ ...indexBadge }}>{index}</span>
+      <div
+        className="flex items-center"
+        style={{ gap: 9, padding: "8px 6px", paddingLeft: 6 + indent }}
+      >
+        <span
+          style={
+            isRender
+              ? { ...indexBadge, borderColor: UI.accentBorder, color: UI.accent, background: `${UI.accent}0d`, borderRadius: 5 }
+              : indexBadge
+          }
+        >
+          {index}
+        </span>
         <button
           onClick={() => onFocus(call.nodeId)}
           style={{ ...nameBtn, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -1576,6 +1829,15 @@ function FlowStep({
         >
           {call.name}
         </button>
+        {isRender && (
+          <Badge
+            label="renders"
+            hint="A JSX child this component puts on screen — ordered by where it appears, not by execution."
+            text={UI.accent}
+            bg={`${UI.accent}0d`}
+            border={UI.accentBorder}
+          />
+        )}
         {markers.map((m) => (
           <Badge
             key={m.label}

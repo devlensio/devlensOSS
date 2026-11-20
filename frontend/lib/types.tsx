@@ -56,6 +56,11 @@ export interface ResolvedCall {
   conc?:       boolean;
   repeat?:     boolean;
   maybe?:      boolean;
+  kind?:       "call" | "render";
+  depth?:      number;
+  renderCount?: number;
+  conditional?: boolean;
+  props?:      string[];
 }
 
 export interface CodeNodeMetadata extends Record<string, unknown> {

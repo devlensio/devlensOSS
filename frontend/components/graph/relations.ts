@@ -103,6 +103,8 @@ export function markerList(call: {
   repeat?: boolean;
   maybe?: boolean;
   orders?: number[];
+  conditional?: boolean;
+  renderCount?: number;
 }): MarkerInfo[] {
   const out: MarkerInfo[] = [];
   if (call.awaited)
@@ -145,6 +147,18 @@ export function markerList(call: {
       label: "maybe",
       tone: "grey",
       info: "Guarded by a branch, early exit, or optional chain — may not run at all.",
+    });
+  if (call.conditional)
+    out.push({
+      label: "conditional",
+      tone: "amber",
+      info: "Rendered only when the surrounding condition holds.",
+    });
+  if (call.renderCount && call.renderCount > 1)
+    out.push({
+      label: `×${call.renderCount}`,
+      tone: "pink",
+      info: `Written ${call.renderCount} times in this component; each occurrence renders it once.`,
     });
   if (call.orders && call.orders.length > 1)
     out.push({

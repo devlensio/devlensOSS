@@ -38,7 +38,7 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 | :-- | :-- |
 | **A map of the architecture** | Files, components, hooks, routes, classes, methods and tests as typed nodes, connected by `CALLS`, `IMPORTS`, `EXTENDS`, `IMPLEMENTS`, `RENDERS`, `READS_FROM` / `WRITES_TO` and route edges. Sized by importance, so the spine of the app is visible before you click anything. |
 | **A written answer per node** | Every node carries a **technical** summary, a **business** summary and a **security** verdict with severity — written from the code, not from its name. |
-| **Execution flow, in order** | The **Flow** tab lists every resolved call the body makes, numbered by call site, marked `await`, `maybe`, `loop`, `×N`. Nothing is abstracted into "and 18 more". |
+| **Execution flow, in order** | The **Flow** tab lists every resolved call **and every rendered child**, numbered by position in the body, marked `await`, `maybe`, `loop`, `×N`. Children carry `conditional` when they sit behind a branch — nothing is abstracted into "and 18 more". |
 | **Both directions** | Flip to **Upstream** for a collapsible tree of everything that reaches this node. |
 | **Code as a graph** | The **code view** turns nodes into draggable cards with syntax highlighting; call badges sit on the exact lines that make the call, and clicking one opens the callee beside it. |
 | **Blast radius** | Pick a hop depth and open everything that depends on this node — or everything it reaches — as its own subgraph. |
@@ -84,6 +84,8 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 Two details the pictures hint at: open any step in the flow to read its source, with the callee's summary nested underneath and collapsed until you ask for it; and the panel's own **Code** tab shows the node's source with the file's real line numbers, so you can read without leaving the graph or opening your editor.
 
 Routes read the same way with one difference: a route has no body, so step 1 is the component (or handler) that serves the URL, and the numbered calls under it are that component's. Upstream on a route is the set of components holding a link to it — every way a user can arrive.
+
+Components get one extra section, **Renders**: the children they put on screen, each with the file it is defined in. Most render edges cross a file, so that path is the part you cannot get by reading the parent — plus `×N` for a child written more than once, `list` for one rendered per item of a `map()`, and the props crossing the boundary.
 
 Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.
 
