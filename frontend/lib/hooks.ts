@@ -1,7 +1,9 @@
 
 
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { normalizeGraph } from "./graphNormalize";
 
 
 // ── Query Keys ───────────────────────────────────────────────────────────────
@@ -31,13 +33,20 @@ export function useGraphList() {
 }
 
 export function useGraph(graphId: string, commitHash?: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: keys.graph(graphId, commitHash),
     queryFn:  () => api.getGraph(graphId, commitHash),
     enabled:  !!graphId,
     staleTime: Infinity,  // graph data never goes stale
     gcTime: 1000 * 60 * 60 * 2    // clean up after 2 hours
   });
+
+  const data = useMemo(
+    () => (query.data ? normalizeGraph(query.data) : query.data),
+    [query.data],
+  );
+
+  return { ...query, data };
 }
 
 export function useGraphMeta(graphId: string) {

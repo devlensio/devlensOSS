@@ -83,6 +83,8 @@ The CLI answers one question at a time. The Web UI shows the whole codebase at o
 
 Two details the pictures hint at: open any step in the flow to read its source, with the callee's summary nested underneath and collapsed until you ask for it; and the panel's own **Code** tab shows the node's source with the file's real line numbers, so you can read without leaving the graph or opening your editor.
 
+Routes read the same way with one difference: a route has no body, so step 1 is the component (or handler) that serves the URL, and the numbered calls under it are that component's. Upstream on a route is the set of components holding a link to it — every way a user can arrive.
+
 Analyses and summarizations run as jobs inside the same app: per-phase progress, resumable, and the engine's own error text when a provider fails.
 
 Every shape and arrow in that legend is listed — node types, edge types, and what each one means — under [What DevLens understands](#what-devlens-understands).

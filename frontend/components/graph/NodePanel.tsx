@@ -199,13 +199,56 @@ export default function NodePanel({
   const hopCount = useMemo(() => bfsReachable(node.id, adj, hopDepth).size, [adj, node.id, hopDepth]);
   const blastCount = useMemo(() => blastRadius(node.id, radj, hopDepth).size, [radj, node.id, hopDepth]);
 
-  const filteredCalls = useMemo(
+  // A route has no body of its own: the engine gives it one HANDLES edge to the
+  // component — or handler — that serves the url. Read the flow through that
+  // node, otherwise every route reports "nothing downstream" no matter how much
+  // code it reaches.
+  const routeEntry = useMemo(() => {
+    if (node.type !== "ROUTE") return null;
+    const targets = edges
+      .filter((e) => e.from === node.id && e.type === "HANDLES" && nodesById[e.to])
+      .map((e) => nodesById[e.to]);
+    if (targets.length === 0) return null;
+    // A url can declare both a page and a layout; the page is what serves a
+    // request, the layout only wraps it.
+    return targets.find((t) => /(^|\/)page\.(js|jsx|ts|tsx|mjs|cjs)$/i.test(t.filePath)) ?? targets[0];
+  }, [node.type, node.id, edges, nodesById]);
+
+  const flowCalls = useMemo(() => {
+    if (!routeEntry) return calls;
+    return ((routeEntry.metadata?.resolvedCalls ?? []) as ResolvedCall[])
+      .filter((c) => typeof c.firstOrder === "number")
+      .sort((a, b) => (a.firstOrder ?? 0) - (b.firstOrder ?? 0));
+  }, [routeEntry, calls]);
+
+  const filteredFlowCalls = useMemo(
     () =>
       flowQuery.trim()
-        ? calls.filter((c) => c.name.toLowerCase().includes(flowQuery.trim().toLowerCase()))
-        : calls,
-    [calls, flowQuery],
+        ? flowCalls.filter((c) => c.name.toLowerCase().includes(flowQuery.trim().toLowerCase()))
+        : flowCalls,
+    [flowCalls, flowQuery],
   );
+
+  const flowRelations = useMemo(() => {
+    if (!routeEntry) return relations;
+    const byType = new Map<string, CodeEdge[]>();
+    for (const e of edges) {
+      if (e.from !== routeEntry.id || e.type === "CALLS") continue;
+      const arr = byType.get(e.type) ?? [];
+      arr.push(e);
+      byType.set(e.type, arr);
+    }
+    return [...byType.entries()]
+      .map(([type, list]) => ({ type, nodes: dedupeNodes(list, nodesById) }))
+      .filter((g) => g.nodes.length > 0)
+      .sort((a, b) => EDGE_ORDER.indexOf(a.type as any) - EDGE_ORDER.indexOf(b.type as any));
+  }, [routeEntry, relations, edges, nodesById]);
+
+  // The entry component is step 1 when the panel is looking at a route.
+  const entryStep: ResolvedCall | null = routeEntry
+    ? { name: routeEntry.name, nodeId: routeEntry.id }
+    : null;
+  const downstreamCount = flowCalls.length + (entryStep ? 1 : 0);
 
   const accent = NODE_COLORS[node.type] ?? UI.accent;
   const boundary = (node.metadata?.renderingBoundary as string) ?? null;
@@ -809,7 +852,7 @@ export default function NodePanel({
           <div className="flex flex-col" style={{ gap: 16 }}>
             <div className="flex items-center" style={{ gap: 6 }}>
               <SegBtn active={flowDir === "callees"} onClick={() => setFlowDir("callees")}>
-                Downstream · {calls.length}
+                Downstream · {downstreamCount}
               </SegBtn>
               <SegBtn active={flowDir === "callers"} onClick={() => setFlowDir("callers")}>
                 Upstream · {(parentsOf.get(node.id) ?? []).length}
@@ -819,11 +862,21 @@ export default function NodePanel({
             {flowDir === "callees" ? (
               <>
                 <Note>
-                  Every resolved call in the order the body makes it. <b>#n</b> is the raw call-site
-                  position, which also counts builtins the engine did not resolve.
+                  {routeEntry ? (
+                    <>
+                      A route has no body of its own. Step 1 is the component that serves{" "}
+                      <b>{node.name}</b>; the rest are that component&apos;s calls, in the order it
+                      makes them.
+                    </>
+                  ) : (
+                    <>
+                      Every resolved call in the order the body makes it. <b>#n</b> is the raw
+                      call-site position, which also counts builtins the engine did not resolve.
+                    </>
+                  )}
                 </Note>
 
-                {calls.length > 8 && (
+                {flowCalls.length > 8 && (
                   <input
                     value={flowQuery}
                     onChange={(e) => setFlowQuery(e.target.value)}
@@ -843,20 +896,44 @@ export default function NodePanel({
                   />
                 )}
 
-                {calls.length === 0 && (
+                {flowCalls.length === 0 && !entryStep && (
                   <Empty>
                     No ordering data for this node. Either the graph predates call-order analysis, or
                     nothing this node calls resolved to another node.
                   </Empty>
                 )}
 
+                {entryStep && (
+                  <div
+                    className="flex items-center"
+                    style={{
+                      gap: 9,
+                      padding: "9px 8px",
+                      borderRadius: 9,
+                      background: `${UI.accent}0d`,
+                      border: `1px solid ${UI.accentBorder}`,
+                    }}
+                  >
+                    <span style={{ ...indexBadge }}>1</span>
+                    <button
+                      onClick={() => onNodeFocus(entryStep.nodeId)}
+                      style={{ ...nameBtn, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      className="hover:underline"
+                      title={`Open ${entryStep.name} in the graph`}
+                    >
+                      {entryStep.name}
+                    </button>
+                    <span style={{ ...lineMeta, flexShrink: 0 }}>serves this route</span>
+                  </div>
+                )}
+
                 <div className="flex flex-col">
-                  {filteredCalls.map((call, i) => (
+                  {filteredFlowCalls.map((call, i) => (
                     <FlowStep
                       key={`${call.nodeId}-${call.firstOrder}`}
                       call={call}
-                      index={calls.indexOf(call) + 1}
-                      last={i === filteredCalls.length - 1}
+                      index={flowCalls.indexOf(call) + 1 + (entryStep ? 1 : 0)}
+                      last={i === filteredFlowCalls.length - 1}
                       graphId={graphId}
                       commitHash={commitHash}
                       graphLanguage={graphLanguage}
@@ -867,15 +944,17 @@ export default function NodePanel({
                   ))}
                 </div>
 
-                {relations.length > 0 && (
+                {flowRelations.length > 0 && (
                   <div style={{ marginTop: 6, paddingTop: 14, borderTop: `1px solid ${UI.borderSubtle}` }}>
-                    <div style={{ ...tinyLabel, marginBottom: 6 }}>Not ordered</div>
+                    <div style={{ ...tinyLabel, marginBottom: 6 }}>
+                      {routeEntry ? `Not ordered · ${routeEntry.name}` : "Not ordered"}
+                    </div>
                     <Note>
                       These edges carry no call ordinal — props, state, routing and implementations
                       rather than execution steps.
                     </Note>
                     <div className="flex flex-col" style={{ gap: 8 }}>
-                      {relations.map((g) => (
+                      {flowRelations.map((g) => (
                         <div key={`uo-${g.type}`} className="flex items-start" style={{ gap: 8 }}>
                           <Hint label={EDGE_INFO[g.type] ?? g.type}>
                             <span style={{ ...tinyLabel, width: 62, paddingTop: 5, cursor: "help" }}>
