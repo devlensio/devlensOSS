@@ -1796,6 +1796,7 @@ function FlowStep({
   const summary = (target?.technicalSummary || target?.businessSummary || "").trim();
   const markers = markerList(call);
   const isRender = call.kind === "render";
+  const isHook = call.kind === "hook";
   const indent = isRender ? Math.min(call.depth ?? 0, 4) * 9 : 0;
 
   return (
@@ -1836,6 +1837,15 @@ function FlowStep({
             text={UI.accent}
             bg={`${UI.accent}0d`}
             border={UI.accentBorder}
+          />
+        )}
+        {isHook && (
+          <Badge
+            label="hook"
+            hint="A hook call. React identifies hooks by call order, so its position in this list is the position React sees."
+            text={NODE_COLORS.HOOK ?? UI.textSub}
+            bg={`${NODE_COLORS.HOOK ?? UI.textSub}0d`}
+            border={`${NODE_COLORS.HOOK ?? UI.textSub}33`}
           />
         )}
         {markers.map((m) => (
