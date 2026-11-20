@@ -489,7 +489,6 @@ function CardNodeInner({ data }: any) {
   const { data: codeData, isLoading, isError: codeError, error: codeErr, refetch: refetchCode } =
     useNodeCode(graphId, commitHash, node?.id ?? null);
   const code: string = (codeData as any)?.code ?? (codeData as any)?.rawCode ?? "";
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [openSummary, setOpenSummary] = useState({ technical: true, business: false, security: false });
   const [showCallers, setShowCallers] = useState(model.role !== "caller" && !model.parentCardId);
   const [copied, setCopied] = useState(false);
@@ -696,13 +695,7 @@ function CardNodeInner({ data }: any) {
                 onToggle={() => setOpenSummary(o => ({ ...o, technical: !o.technical }))}
               >
                 {technical ? (
-                  <SummaryBody
-                    html={summaryToHtml(technical)}
-                    expanded={summaryExpanded}
-                    onToggle={() => setSummaryExpanded(v => !v)}
-                    clampAt={148}
-                    canExpand={technical.length > 320}
-                  />
+                  <SummaryBody html={summaryToHtml(technical)} />
                 ) : (
                   <span style={{ fontSize: 12.5, color: "#a9aec9" }}>No technical summary.</span>
                 )}
@@ -716,13 +709,7 @@ function CardNodeInner({ data }: any) {
                       open={openSummary.business}
                       onToggle={() => setOpenSummary(o => ({ ...o, business: !o.business }))}
                     >
-                      <SummaryBody
-                        html={summaryToHtml(business)}
-                        expanded={summaryExpanded}
-                        onToggle={() => setSummaryExpanded(v => !v)}
-                        clampAt={148}
-                        canExpand={business.length > 320}
-                      />
+                      <SummaryBody html={summaryToHtml(business)} />
                     </SummarySection>
                   )}
 
@@ -736,13 +723,7 @@ function CardNodeInner({ data }: any) {
                         badgeTone={SECURITY_TONE[security!.severity] ?? CODE.textDim}
                       >
                         {security!.summary?.trim() ? (
-                          <SummaryBody
-                            html={summaryToHtml(security!.summary)}
-                            expanded={summaryExpanded}
-                            onToggle={() => setSummaryExpanded(v => !v)}
-                            clampAt={148}
-                            canExpand={security!.summary.length > 320}
-                          />
+                          <SummaryBody html={summaryToHtml(security!.summary)} />
                         ) : (
                           <span style={{ fontSize: 12.5, color: "#a9aec9" }}>
                             No security notes for this node.
@@ -1184,40 +1165,13 @@ function SummarySection({
   );
 }
 
-function SummaryBody({
-  html, expanded, onToggle, clampAt, canExpand,
-}: {
-  html: string;
-  expanded: boolean;
-  onToggle: () => void;
-  clampAt: number;
-  canExpand: boolean;
-}) {
+function SummaryBody({ html, maxHeight = 150 }: { html: string; maxHeight?: number }) {
   return (
-    <>
-      <div
-        className="summary-html summary-html--code nodrag nowheel"
-        style={{
-          fontSize: 12.5,
-          lineHeight: 1.62,
-          maxHeight: expanded ? undefined : clampAt,
-          overflow: "hidden",
-        }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-      {canExpand && (
-        <button
-          onClick={onToggle}
-          className="nodrag"
-          style={{
-            marginTop: 4, padding: 0, border: "none", background: "none",
-            color: CODE.cyan, fontSize: 11.5, cursor: "pointer",
-          }}
-        >
-          {expanded ? "Show less" : "Show more"}
-        </button>
-      )}
-    </>
+    <div
+      className="summary-html summary-html--code summary-scroll nodrag nowheel"
+      style={{ fontSize: 12.5, lineHeight: 1.62, maxHeight }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 

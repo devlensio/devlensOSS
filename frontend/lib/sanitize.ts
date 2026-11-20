@@ -23,9 +23,9 @@ const ALLOWED_TAGS = [
 ];
 
 const ALLOWED_ATTR = [
-  "href",      // for <a> links (sanitized separately)
+  "href",   // for <a> links (sanitized separately)
   "title",
-  "className", // not used in raw HTML but harmless to allow
+  "class",  // summary-label marks a bold topic heading
 ];
 
 // ─── DOMPurify config for summary HTML ────────────────────────────────────────
@@ -73,12 +73,36 @@ const HAS_BLOCKS = /<(p|ul|ol|pre|li|div|br|h[1-6])\b/i;
 export function summaryToHtml(raw: string): string {
   if (!raw) return "";
   const html = HAS_BLOCKS.test(raw)
-    ? raw
+    ? wrapLooseText(raw)
     : raw
         .split(/\n\s*\n/)
         .map(par => `<p>${par.trim().replace(/\n/g, "<br/>")}</p>`)
         .join("");
-  return sanitizeSummary(html);
+  return sanitizeSummary(markTopicLabels(html));
+}
+
+// Prose that sits before the first block tag is a bare text node, so it loses
+// its paragraph spacing and justification. Wrap each such run in a <p>.
+function wrapLooseText(html: string): string {
+  return html
+    .split(/(<\/?(?:p|ul|ol|li|pre|h[1-6]|div|blockquote|table)\b[^>]*>)/i)
+    .map((part, i) => {
+      if (i % 2 === 1) return part;                     // the tag itself
+      const text = part.trim();
+      if (!text) return part;
+      return `<p>${text.replace(/\n/g, "<br/>")}</p>`;
+    })
+    .join("");
+}
+
+// Summaries use "Label: body" as their structure. A bold run that ends in a
+// colon is a topic heading and gets its own line; bold used mid-sentence for
+// emphasis is left inline.
+function markTopicLabels(html: string): string {
+  return html.replace(
+    /<strong>\s*([^<]{1,60}?):\s*<\/strong>/g,
+    (_match, label: string) => `<strong class="summary-label">${label}:</strong>`,
+  );
 }
 
 /**

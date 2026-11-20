@@ -71,11 +71,28 @@ button:disabled { cursor: not-allowed; }
 ::selection { background: rgba(14, 118, 110, 0.18); color: #1c1917; }
 
 /* ── Markdown-ish summary HTML (LLM output) ─────────────────────────────── */
-.summary-html { line-height: 1.62; font-size: 13.5px; }
-.summary-html p { margin: 0.35em 0; }
+.summary-html {
+  line-height: 1.62;
+  font-size: 13.5px;
+  /* Bare text nodes (summaries that mix prose with lists) inherit from here. */
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.summary-html p, .summary-html li { margin: 0.35em 0; }
+.summary-html code, .summary-html pre { text-align: left; hyphens: none; }
 .summary-html p:first-child { margin-top: 0; }
 .summary-html p:last-child { margin-bottom: 0; }
 .summary-html strong { font-weight: 600; color: #1c1917; }
+/* A bold label that opens a paragraph or bullet is a topic heading: give it its
+   own line so long summaries can be scanned instead of parsed. */
+.summary-html p > strong:first-child,
+.summary-html li > strong:first-child,
+.summary-html strong.summary-label {
+  display: block;
+  margin-bottom: 2px;
+}
 .summary-html em { font-style: italic; }
 .summary-html ul, .summary-html ol { padding-left: 1.15em; margin: 0.35em 0; }
 /* Tailwind preflight removes list markers; summaries are mostly bullet points. */
@@ -155,6 +172,16 @@ button:disabled { cursor: not-allowed; }
 }
 .code-scroller::-webkit-scrollbar-thumb:hover { background: #6d7191; background-clip: content-box; }
 .code-scroller::-webkit-scrollbar-track { background: transparent; }
+
+/* Summary panes inside the dark code cards scroll on their own. */
+.summary-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #565a72 transparent; }
+.summary-scroll::-webkit-scrollbar { width: 9px; }
+.summary-scroll::-webkit-scrollbar-track { background: transparent; }
+.summary-scroll::-webkit-scrollbar-thumb {
+  background: #565a72; border-radius: 6px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+.summary-scroll::-webkit-scrollbar-thumb:hover { background: #6d7191; background-clip: content-box; }
 
 /* ── Dragging ───────────────────────────────────────────────────────────────
    A moving card is a large, rounded, shadowed, overflow-clipped subtree. On
