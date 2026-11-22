@@ -18,9 +18,9 @@ Analyze your repo once, then **open a code graph you can actually read**: every 
 
 ---
 
-[![DevLens demo — graph, call flow, blast radius, code view](assets/demo-thumbnail.png)](https://youtu.be/6OMsk8lNv4c?si=wpYF80IcfuJpN_Gf)
+[![Know more about Devlens](assets/demo-thumbnail.png)](https://www.youtube.com/watch?v=oHQT35Lv6_k)
 
-<p align="center"><em>Click the image to watch the demo</em></p>
+<p align="center"><em>Click the image to know more about Devlens</em></p>
 
 <sub>**Jump to:** [The Web UI](#see-it-the-web-ui) · [Why DevLens](#why-devlens) · [Quick Start](#quick-start) · [CLI](#cli) · [What your agent can ask](#what-your-agent-can-ask) · [Benchmarks](#benchmarks) · [Node and edge types](#what-devlens-understands)</sub>
 
